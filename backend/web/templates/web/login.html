@@ -1,0 +1,18 @@
+{% extends "web/base.html" %}
+{% block title %}ログイン | Bike CRM{% endblock %}
+{% block content %}
+<h1>ログイン</h1>
+<form method="post" style="max-width:360px">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="field">
+    <label>ログインID</label>
+    {{ form.username }}  {# User.USERNAME_FIELD=login_id を自動使用 #}
+  </div>
+  <div class="field">
+    <label>パスワード</label>
+    {{ form.password }}
+  </div>
+  <button class="btn">ログイン</button>
+</form>
+{% endblock %}

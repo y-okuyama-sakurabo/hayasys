@@ -1,0 +1,122 @@
+{% extends "web/base.html" %}
+{% block content %}
+<h1>顧客を編集</h1>
+
+<form id="edit-form" style="max-width:720px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="field"><label>氏名 *</label><input type="text" name="name" required></div>
+    <div class="field"><label>フリガナ</label><input type="text" name="kana"></div>
+    <div class="field"><label>メール</label><input type="email" name="email"></div>
+    <div class="field"><label>電話</label><input type="text" name="phone"></div>
+    <div class="field"><label>携帯</label><input type="text" name="mobile_phone"></div>
+    <div class="field"><label>郵便番号</label><input type="text" name="postal_code"></div>
+    <div class="field" style="grid-column:1 / -1"><label>住所</label><input type="text" name="address"></div>
+
+    <div class="field"><label>会社名</label><input type="text" name="company"></div>
+    <div class="field"><label>会社電話</label><input type="text" name="company_phone"></div>
+
+    <div class="field"><label>顧客分類</label><select name="customer_class" id="customer-class"></select></div>
+    <div class="field"><label>担当スタッフ</label><select name="staff" id="staff"></select></div>
+    <div class="field"><label>地域</label><select name="region" id="region"></select></div>
+    <div class="field"><label>性別</label><select name="gender" id="gender"></select></div>
+    <div class="field"><label>初回対応店舗</label><select name="first_shop" id="first-shop"></select></div>
+    <div class="field"><label>最終対応店舗</label><select name="last_shop" id="last-shop"></select></div>
+
+    <div class="field"><label>誕生日</label><input type="date" name="birthdate"></div>
+  </div>
+
+  <div id="errors" style="color:#b00;margin-top:8px"></div>
+
+  <div style="margin-top:16px">
+    <button class="btn" type="submit">保存する</button>
+    <a class="btn ghost" href="/customers/{{ pk }}/">キャンセル</a>
+  </div>
+</form>
+
+<script>
+(function(){
+  const pk = {{ pk }};
+  const apiUrl = `/api/customers/${pk}/`;
+  const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1];
+  const form = document.getElementById("edit-form");
+  const errors = document.getElementById("errors");
+
+  // --- masters データを流し込む ---
+  async function loadMasters() {
+    const masters = {
+      "customer-class": "/api/masters/customer_classes/",
+      "staff":          "/api/masters/staffs/",
+      "region":         "/api/masters/regions/",
+      "gender":         "/api/masters/genders/",
+      "first-shop":     "/api/masters/shops/",
+      "last-shop":      "/api/masters/shops/"
+    };
+    for (const [id, url] of Object.entries(masters)) {
+      const sel = document.getElementById(id);
+      if (!sel) continue;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load " + url);
+        const data = await res.json();
+        sel.innerHTML = `<option value="">選択してください</option>` +
+          data.map(opt => `<option value="${opt.id}">${opt.name}</option>`).join("");
+      } catch (e) {
+        console.error(e);
+        sel.innerHTML = `<option value="">取得エラー</option>`;
+      }
+    }
+  }
+
+  // --- 顧客データをロード ---
+  async function loadCustomer() {
+    const res = await fetch(apiUrl);
+    if (!res.ok) {
+      errors.textContent = "顧客データ取得に失敗しました";
+      return;
+    }
+    const data = await res.json();
+    for (const [key, value] of Object.entries(data)) {
+      const el = form.elements[key];
+      if (!el) continue;
+      if (el.tagName === "SELECT") {
+        el.value = value?.id || "";
+      } else {
+        el.value = value || "";
+      }
+    }
+  }
+
+  // --- 保存処理 ---
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const payload = {};
+    for (const el of form.elements) {
+      if (!el.name) continue;
+      payload[el.name] = el.value === "" ? null : el.value;
+    }
+
+    const res = await fetch(apiUrl, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken || ""
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      window.location.href = `/customers/${pk}/`;
+    } else {
+      const err = await res.json().catch(()=>({detail:"保存に失敗しました"}));
+      errors.textContent = JSON.stringify(err);
+    }
+  });
+
+  // masters → customer の順でロード
+  (async function(){
+    await loadMasters();
+    await loadCustomer();
+  })();
+})();
+</script>
+{% endblock %}

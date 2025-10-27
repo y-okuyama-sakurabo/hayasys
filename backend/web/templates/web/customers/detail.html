@@ -1,0 +1,722 @@
+{% extends "web/base.html" %}
+{% block content %}
+<p style="margin-top:12px">
+  <a class="btn" href="{% url 'customer_list' %}">← 一覧へ</a>
+  <a id="edit-link" class="btn" style="display:none">編集</a>
+</p>
+
+<h2>顧客詳細</h2>
+<table class="customer-table" id="customer-table">
+  <tbody>
+    <tr><td colspan="2">ロード中...</td></tr>
+  </tbody>
+</table>
+
+<h2>顧客画像</h2>
+<div id="images"></div>
+
+<form id="image-form" enctype="multipart/form-data" style="margin-top:8px">
+  <input type="file" name="image" accept="image/*">
+  <button type="submit" class="btn">アップロード</button>
+</form>
+<div id="image-errors" style="color:#b00"></div>
+
+<h2>顧客メモ</h2>
+
+<!-- メモ追加フォーム -->
+<form id="memo-form" style="margin-bottom:12px">
+  <textarea name="body" rows="3" style="width:100%;margin-bottom:6px" placeholder="メモを入力してください"></textarea><br>
+  <button type="submit" class="btn">追加</button>
+  <div id="memo-errors" style="color:#b00"></div>
+</form>
+
+<!-- メモ一覧 -->
+<ul id="memos">
+  <li class="muted">ロード中...</li>
+</ul>
+
+<h2>所有車両</h2>
+<div style="margin-bottom:8px;">
+  <input
+    type="text"
+    id="vehicle-search"
+    placeholder="車台番号で検索"
+    style="padding:6px;width:200px;margin-right:4px;"
+  >
+  <button id="vehicle-search-btn" class="btn">検索</button>
+  <button id="vehicle-clear-btn" class="btn btn-secondary">クリア</button>
+</div>
+<button id="btn-add-vehicle" class="btn">＋所有車両を追加</button>
+<table>
+  <thead>
+    <tr>
+      <th>購入日</th>
+      <th>カテゴリ</th>
+      <th>メーカー</th>
+      <th>車種</th>
+      <th>ナンバープレート</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="current-vehicles">
+    <tr><td colspan="7" class="muted">ロード中...</td></tr>
+  </tbody>
+</table>
+
+<h2>過去所有</h2>
+<table>
+  <thead>
+    <tr>
+      <th>所有期間</th>
+      <th>カテゴリ</th>
+      <th>メーカー</th>
+      <th>車種</th>
+      <th>ナンバー</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="past-vehicles">
+    <tr><td colspan="7" class="muted">ロード中...</td></tr>
+  </tbody>
+</table>
+
+<h2>スケジュール</h2>
+
+<!-- スケジュール追加フォーム -->
+<form id="schedule-form" style="margin-bottom:12px">
+  <div style="margin-bottom:6px;">
+    <input type="text" name="title" placeholder="タイトル" style="padding:6px;width:200px;margin-right:4px;">
+    <input type="datetime-local" name="start_at" style="padding:6px;margin-right:4px;">
+    <input type="datetime-local" name="end_at" style="padding:6px;margin-right:4px;">
+  </div>
+  <div style="margin-bottom:6px;">
+    <textarea name="description" rows="2" style="width:100%;padding:6px;" placeholder="内容を入力（任意）"></textarea>
+  </div>
+  <button type="submit" class="btn">追加</button>
+  <div id="schedule-errors" style="color:#b00;margin-top:6px;"></div>
+</form>
+
+
+<!-- スケジュール一覧 -->
+<table>
+  <thead>
+    <tr>
+      <th>タイトル</th>
+      <th>担当スタッフ</th>
+      <th>開始</th>
+      <th>終了</th>
+      <th>内容</th>
+    </tr>
+  </thead>
+  <tbody id="schedules">
+    <tr><td colspan="5" class="muted">ロード中...</td></tr>
+  </tbody>
+</table>
+
+
+<!-- モーダル -->
+<div id="vehicle-modal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);">
+  <div style="background:#fff;width:600px;margin:50px auto;padding:20px;border-radius:8px;max-height:90%;overflow-y:auto;">
+    <h3>所有車両を追加</h3>
+    <form id="vehicle-form">
+      <div class="mb-3">
+        <label>車両名</label>
+        <input type="text" name="vehicle_name" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>排気量</label>
+        <input type="number" name="displacement" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>年式</label>
+        <input type="text" name="model_year" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>新車・中古車</label>
+        <select name="new_car_type" class="form-select">
+          <option value="">選択してください</option>
+          <option value="new">新車</option>
+          <option value="used">中古車</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label>メーカー</label>
+        <select name="manufacturer_id" id="manufacturer" class="form-select"></select>
+      </div>
+      <div class="mb-3">
+        <label>カテゴリー</label>
+        <select name="category_id" id="category" class="form-select"></select>
+      </div>
+      <div class="mb-3">
+        <label>型式</label>
+        <input type="text" name="model_code" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>車台番号</label>
+        <input type="text" name="chassis_no" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>原動型</label>
+        <select name="engine_type" class="form-select">
+          <option value="">選択してください</option>
+          <option value="gasoline">ガソリン</option>
+          <option value="electric">電動</option>
+          <option value="hybrid">ハイブリッド</option>
+          <option value="other">その他</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label>色</label>
+        <select name="color_id" id="color" class="form-select"></select>
+      </div>
+      <div class="mb-3">
+        <label>色名称</label>
+        <input type="text" name="color_name" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>色記号</label>
+        <input type="text" name="color_code" class="form-control">
+      </div>
+
+      <!-- 登録関係 -->
+      <h5 class="mt-4">登録情報</h5>
+      <div class="mb-3">
+        <label>登録地</label>
+        <select name="registration_location_id" id="registration_location_id" class="form-select"></select>
+      </div>
+      <div class="mb-3">
+        <label>登録番号</label>
+        <input type="text" name="registration_no" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>型認番号</label>
+        <input type="text" name="certification_no" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>初年度登録日</label>
+        <input type="date" name="first_registration_date" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>車検終了日</label>
+        <input type="date" name="inspection_expiration" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>防犯登録</label>
+        <input type="text" name="security_registration" class="form-control">
+      </div>
+
+      <!-- 保険 -->
+      <h5 class="mt-4">保険</h5>
+      <div class="mb-3">
+        <label>任意保険会社</label>
+        <input type="text" name="optional_insurance_company" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>任意保険開始日</label>
+        <input type="date" name="optional_insurance_start" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>任意保険終了日</label>
+        <input type="date" name="optional_insurance_end" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>任意保険証券番号</label>
+        <input type="text" name="optional_insurance_policy_no" class="form-control">
+      </div>
+
+      <div class="mb-3">
+        <label>自賠責保険会社</label>
+        <input type="text" name="mandatory_insurance_company" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>自賠責保険開始日</label>
+        <input type="date" name="mandatory_insurance_start" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>自賠責保険終了日</label>
+        <input type="date" name="mandatory_insurance_end" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>自賠責保険証券番号</label>
+        <input type="text" name="mandatory_insurance_policy_no" class="form-control">
+      </div>
+
+      <!-- 保証 -->
+      <h5 class="mt-4">保証</h5>
+      <div class="mb-3">
+        <label>保証開始日</label>
+        <input type="date" name="warranty_start" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>保証終了日</label>
+        <input type="date" name="warranty_end" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>保証プラン名</label>
+        <input type="text" name="warranty_plan_name" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>保証備考</label>
+        <textarea name="warranty_note" class="form-control"></textarea>
+      </div>
+
+      <div id="vehicle-errors" style="color:#b00;margin:10px 0"></div>
+      <button type="submit" class="btn btn-primary">登録</button>
+      <button type="button" id="btn-cancel-vehicle" class="btn btn-secondary">キャンセル</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const pk = {{ pk|default:"null" }};
+  const table = document.querySelector("#customer-table tbody");
+  const editLink = document.getElementById("edit-link");
+  const csrftoken = document.cookie.split('; ')
+    .find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+
+  const vehicleModal = document.getElementById("vehicle-modal");
+  const vehicleForm  = document.getElementById("vehicle-form");
+  const vehicleErrors = document.getElementById("vehicle-errors");
+  const btnAddVehicle = document.getElementById("btn-add-vehicle");
+  const btnCancelVehicle = document.getElementById("btn-cancel-vehicle");
+
+  function fmtDate(d) {
+    if (!d) return "-";
+    try { return new Date(d).toLocaleDateString("ja-JP"); }
+    catch { return d; }
+  }
+
+  async function loadMastersForVehicle() {
+    const vehicleMasters = {
+      "manufacturer": "/api/masters/manufacturers/",
+      "category": "/api/masters/vehiclecategories/",
+      "color": "/api/masters/colors/",
+      "registration_location_id": "/api/masters/registration_locations/"
+    };
+
+    for (const [id, url] of Object.entries(vehicleMasters)) {
+      const sel = document.getElementById(id);
+      if (!sel) continue;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load " + url);
+        const data = await res.json();
+        sel.innerHTML = `<option value="">選択してください</option>` +
+          data.map(opt => `<option value="${opt.id}">${opt.name}</option>`).join("");
+      } catch (e) {
+        console.error(e);
+        sel.innerHTML = `<option value="">取得エラー</option>`;
+      }
+    }
+  }
+
+  // -------------------------------
+// メモ一覧取得
+// -------------------------------
+async function fetchMemos() {
+  const list = document.getElementById("memos");
+  list.innerHTML = `<li class="muted">ロード中...</li>`;
+  try {
+    const res = await fetch(`/api/customers/${pk}/memos/`);
+    if (!res.ok) throw new Error("API error");
+    const data = await res.json();
+
+    // ← ページネーション対応
+    const memos = data.results || data; 
+
+    list.innerHTML = memos.length
+      ? memos.map(m => `
+          <li>
+            <div style="margin-bottom:4px;">${m.body}</div>
+            <div style="font-size:0.9em;color:#888;">
+              ${new Date(m.created_at).toLocaleString("ja-JP")}
+            </div>
+          </li>
+        `).join("")
+      : `<li class="muted">メモはありません</li>`;
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<li class="muted">読み込み失敗</li>`;
+  }
+}
+
+
+// -------------------------------
+// メモ追加
+// -------------------------------
+document.getElementById("memo-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = form.body.value.trim();
+  const errorDiv = document.getElementById("memo-errors");
+  errorDiv.textContent = "";
+
+  if (!body) {
+    errorDiv.textContent = "メモ内容を入力してください。";
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/customers/${pk}/memos/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+      },
+      body: JSON.stringify({ body }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      errorDiv.textContent = err.detail || "登録に失敗しました。";
+      return;
+    }
+
+    form.reset();
+    await fetchMemos();
+  } catch (err) {
+    console.error(err);
+    errorDiv.textContent = "通信エラーが発生しました。";
+  }
+});
+
+
+  async function fetchDetail() {
+    try {
+      const res = await fetch(`/api/customers/${pk}/`);
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+
+      table.innerHTML = `
+        <tr><th>顧客分類</th><td>${data.customer_class?.name || "-"}</td></tr>
+        <tr><th>氏名 / フリガナ</th><td>${data.name}${data.kana ? "（" + data.kana + "）" : ""}</td></tr>
+        <tr><th>メール</th><td>${data.email ? `<a href="mailto:${data.email}">${data.email}</a>` : "-"}</td></tr>
+        <tr><th>電話</th><td>${data.phone || "-"}</td></tr>
+        <tr><th>携帯</th><td>${data.mobile_phone || "-"}</td></tr>
+        <tr><th>郵便番号</th><td>${data.postal_code || "-"}</td></tr>
+        <tr><th>住所</th><td>${data.address || "-"}</td></tr>
+        <tr><th>会社名</th><td>${data.company || "-"}</td></tr>
+        <tr><th>会社電話</th><td>${data.company_phone || "-"}</td></tr>
+        <tr><th>担当スタッフ</th><td>${data.staff?.name || "-"}</td></tr>
+        <tr><th>地域</th><td>${data.region?.name || "-"}</td></tr>
+        <tr><th>性別</th><td>${data.gender?.name || "-"}</td></tr>
+        <tr><th>誕生日</th><td>${fmtDate(data.birthdate)}</td></tr>
+        <tr><th>初回対応店舗</th><td>${data.first_shop?.name || "-"}</td></tr>
+        <tr><th>最終対応店舗</th><td>${data.last_shop?.name || "-"}</td></tr>
+        <tr><th>作成日時 / 更新日時</th><td>${fmtDate(data.created_at)} / ${fmtDate(data.updated_at)}</td></tr>
+      `;
+
+      editLink.href = `/customers/${data.id}/edit/`;
+      editLink.style.display = "inline-block";
+
+    } catch (e) {
+      console.error(e);
+      table.innerHTML = `<tr><td colspan="2" class="muted">エラーが発生しました</td></tr>`;
+    }
+  }
+
+  async function fetchOwnedVehicles() {
+    try {
+      const res = await fetch(`/api/customers/${pk}/vehicles/all/`);
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+
+      const currentTbody = document.getElementById("current-vehicles");
+      const pastTbody = document.getElementById("past-vehicles");
+
+      // 現所有
+      currentTbody.innerHTML = data.current.length
+        ? data.current.map(v => `
+            <tr>
+              <td>${v.owners?.[0]?.owned_from || "-"}</td>
+              <td>${v.category_name || "-"}</td>
+              <td>${v.manufacturer_name || "-"}</td>
+              <td>${v.vehicle_name || "-"}</td>
+              <td>${v.registrations?.[0]?.registration_no || "-"}</td>
+              <td>
+                <a href="/vehicles/${v.id}/">詳細</a>
+                <button class="btn btn-sm btn-outline-danger" data-release="${v.owners?.[0]?.id}">手放す</button>
+              </td>
+            </tr>
+          `).join("")
+        : `<tr><td colspan="7" class="muted">所有車両はありません</td></tr>`;
+
+      // 過去所有
+      pastTbody.innerHTML = data.past.length
+        ? data.past.map(v => `
+            <tr>
+              <td>${v.owners?.[0]?.owned_from || "-"}〜${v.owners?.[0]?.owned_to || "-"}</td>
+              <td>${v.category_name || "-"}</td>
+              <td>${v.manufacturer_name || "-"}</td>
+              <td>${v.vehicle_name || "-"}</td>
+              <td>${v.registrations?.[0]?.registration_no || "-"}</td>
+              <td><a href="/vehicles/${v.id}/">詳細</a></td>
+            </tr>
+          `).join("")
+        : `<tr><td colspan="7" class="muted">過去所有車両はありません</td></tr>`;
+
+      document.querySelectorAll("[data-release]").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.release;
+          if (!confirm("この車両を手放しますか？")) return;
+
+          try {
+            const res = await fetch(`/api/customer_vehicles/${id}/release/`, {
+              method: "PATCH",
+              headers: { "X-CSRFToken": csrftoken },
+            });
+            const result = await res.json();
+            if (!res.ok) {
+              alert("エラー: " + (result.detail || JSON.stringify(result)));
+              return;
+            }
+            alert("手放し処理が完了しました。");
+            await fetchOwnedVehicles();
+          } catch (err) {
+            alert("通信エラーが発生しました。");
+            console.error(err);
+          }
+        });
+      });
+
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  vehicleForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    vehicleErrors.textContent = "";
+
+    const f = e.target;
+    const vehiclePayload = {
+      vehicle_name: f.vehicle_name.value,
+      displacement: f.displacement.value || null,
+      model_year: f.model_year.value,
+      new_car_type: f.new_car_type.value,
+      manufacturer_id: f.manufacturer_id.value || null,
+      category_id: f.category_id.value || null,
+      model_code: f.model_code.value,
+      chassis_no: f.chassis_no.value,
+      engine_type: f.engine_type.value,
+      color_id: f.color_id.value || null,
+      color_name: f.color_name.value,
+      color_code: f.color_code.value,
+    };
+
+    const registration = {
+      registration_location_id: f["registration_location_id"].value || null,
+      registration_no: f.registration_no.value,
+      certification_no: f.certification_no.value,
+      first_registration_date: f.first_registration_date.value || null,
+      inspection_expiration: f.inspection_expiration.value || null,
+      security_registration: f.security_registration.value,
+      effective_from: new Date().toISOString().slice(0,10),
+    };
+
+    const optionalInsurance = {
+      type: "optional",
+      company: f.optional_insurance_company.value,
+      start_date: f.optional_insurance_start.value || null,
+      end_date: f.optional_insurance_end.value || null,
+      policy_no: f.optional_insurance_policy_no.value,
+    };
+
+    const mandatoryInsurance = {
+      type: "mandatory",
+      company: f.mandatory_insurance_company.value,
+      start_date: f.mandatory_insurance_start.value || null,
+      end_date: f.mandatory_insurance_end.value || null,
+      policy_no: f.mandatory_insurance_policy_no.value,
+    };
+
+    const warranty = {
+      start_date: f.warranty_start.value || null,
+      end_date: f.warranty_end.value || null,
+      plan_name: f.warranty_plan_name.value,
+      note: f.warranty_note.value,
+    };
+
+    const payload = {
+      owned_from: f.owned_from?.value || new Date().toISOString().slice(0,10),
+      vehicle: {
+        ...vehiclePayload,
+        registrations: [registration],
+        insurances: [optionalInsurance, mandatoryInsurance],
+        warranties: [warranty],
+      },
+    };
+
+    try {
+      const res = await fetch(`/api/customers/${pk}/vehicles/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "登録失敗" }));
+        vehicleErrors.textContent = JSON.stringify(err);
+        return;
+      }
+
+      vehicleForm.reset();
+      vehicleModal.style.display = "none";
+      await fetchOwnedVehicles();
+    } catch (e) {
+      console.error(e);
+      vehicleErrors.textContent = "通信エラーが発生しました";
+    }
+  });
+
+  btnAddVehicle.addEventListener("click", () => {
+    vehicleModal.style.display = "block";
+    loadMastersForVehicle();
+  });
+  btnCancelVehicle.addEventListener("click", () => (vehicleModal.style.display = "none"));
+
+// -------------------------------
+// 車台番号検索
+// -------------------------------
+const vehicleSearchInput = document.getElementById("vehicle-search");
+const vehicleSearchBtn = document.getElementById("vehicle-search-btn");
+const vehicleClearBtn = document.getElementById("vehicle-clear-btn");
+
+vehicleSearchBtn.addEventListener("click", async () => {
+  const query = vehicleSearchInput.value.trim();
+  if (!query) {
+    alert("検索ワードを入力してください。");
+    return;
+  }
+
+  const currentTbody = document.getElementById("current-vehicles");
+  const pastTbody = document.getElementById("past-vehicles");
+  currentTbody.innerHTML = `<tr><td colspan="7" class="muted">検索中...</td></tr>`;
+  pastTbody.innerHTML = "";
+
+  try {
+    const res = await fetch(`/api/customers/${pk}/vehicles/search/?q=${encodeURIComponent(query)}`);
+    if (!res.ok) throw new Error("API error");
+    const data = await res.json();
+
+    if (data.length === 0) {
+      currentTbody.innerHTML = `<tr><td colspan="7" class="muted">該当する車両がありません</td></tr>`;
+      return;
+    }
+
+    currentTbody.innerHTML = data.map(v => `
+      <tr>
+        <td>${v.owners?.[0]?.customer_name || "-"}</td>
+        <td>${v.owners?.[0]?.owned_from || "-"}</td>
+        <td>${v.category_name || "-"}</td>
+        <td>${v.manufacturer_name || "-"}</td>
+        <td>${v.vehicle_name || "-"}</td>
+        <td>${v.registrations?.[0]?.registration_no || "-"}</td>
+        <td><a href="/vehicles/${v.id}/">詳細</a></td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error(err);
+    currentTbody.innerHTML = `<tr><td colspan="7" class="muted">検索エラーが発生しました</td></tr>`;
+  }
+});
+
+// 検索結果クリア → 全件再取得
+vehicleClearBtn.addEventListener("click", async () => {
+  vehicleSearchInput.value = "";
+  await fetchOwnedVehicles();
+});
+
+// -------------------------------
+// スケジュール一覧取得
+// -------------------------------
+async function fetchSchedules() {
+  const tbody = document.getElementById("schedules");
+  tbody.innerHTML = `<tr><td colspan="5" class="muted">ロード中...</td></tr>`;
+
+  try {
+    const res = await fetch(`/api/customers/${pk}/schedules/`);
+    if (!res.ok) throw new Error("API error");
+    const data = await res.json();
+
+    // ← ページネーション対応: data.results がある場合はそっちを使う
+    const schedules = data.results || data;
+
+    tbody.innerHTML = schedules.length
+      ? schedules.map(s => `
+          <tr>
+            <td>${s.title}</td>
+            <td>${s.staff_name || "-"}</td>
+            <td>${new Date(s.start_at).toLocaleString("ja-JP")}</td>
+            <td>${s.end_at ? new Date(s.end_at).toLocaleString("ja-JP") : "-"}</td>
+            <td>${s.description || "-"}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="5" class="muted">スケジュールはありません</td></tr>`;
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">読み込みエラー</td></tr>`;
+  }
+}
+
+// -------------------------------
+// スケジュール追加
+// -------------------------------
+document.getElementById("schedule-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const errorDiv = document.getElementById("schedule-errors");
+  errorDiv.textContent = "";
+
+  const title = form.title.value.trim();
+  const start_at = form.start_at.value;
+  const end_at = form.end_at.value;
+
+  if (!title || !start_at) {
+    errorDiv.textContent = "タイトルと開始日時は必須です。";
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/customers/${pk}/schedules/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+      },
+      body: JSON.stringify({
+        title,
+        start_at,
+        end_at,
+        description: form.description?.value || "",
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "登録失敗" }));
+      errorDiv.textContent = err.detail || "登録に失敗しました。";
+      return;
+    }
+
+    form.reset();
+    await fetchSchedules();
+  } catch (err) {
+    console.error(err);
+    errorDiv.textContent = "通信エラーが発生しました。";
+  }
+});
+
+// --- 初期化でスケジュールも読み込む ---
+document.addEventListener("DOMContentLoaded", () => {
+  fetchDetail();
+  fetchOwnedVehicles();
+  fetchMemos();
+  fetchSchedules(); // ←ここ追加
+});
+
+</script>
+
+{% endblock %}

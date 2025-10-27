@@ -1,0 +1,455 @@
+{% extends "web/base.html" %}
+{% block content %}
+<p><a class="btn btn-secondary" href="{% url 'customer_list' %}">← 顧客一覧に戻る</a></p>
+
+<h2>車両詳細</h2>
+
+<div class="d-flex justify-content-end mb-2">
+  <button id="edit-btn" class="btn btn-primary btn-sm">編集</button>
+  <button id="save-btn" class="btn btn-success btn-sm d-none">保存</button>
+  <button id="cancel-btn" class="btn btn-outline-secondary btn-sm d-none">キャンセル</button>
+</div>
+
+<form id="vehicle-form">
+  <table class="table table-bordered table-striped">
+    <tbody id="vehicle-detail">
+      <tr><td colspan="2">ロード中...</td></tr>
+    </tbody>
+  </table>
+</form>
+
+<h2>車両画像</h2>
+<div id="images"></div>
+
+<form id="image-form" enctype="multipart/form-data" style="margin-top:8px">
+  <input type="file" name="image" accept="image/*">
+  <button type="submit" class="btn">アップロード</button>
+</form>
+<div id="image-errors" style="color:#b00"></div>
+
+<h2>車両メモ</h2>
+
+<!-- メモ追加フォーム -->
+<form id="memo-form" style="margin-bottom:12px">
+  <textarea name="body" rows="3" style="width:100%;margin-bottom:6px" placeholder="メモを入力してください"></textarea><br>
+  <button type="submit" class="btn">追加</button>
+  <div id="memo-errors" style="color:#b00"></div>
+</form>
+
+<!-- メモ一覧 -->
+<ul id="memos">
+  <li class="muted">ロード中...</li>
+</ul>
+
+<script>
+const csrftoken = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1];
+const vehicleId = window.location.pathname.split("/").filter(Boolean).pop();
+
+let vehicleData = null;
+let editMode = false;
+
+// ---- マスター格納 ----
+let masterData = { manufacturers: [], categories: [], colors: [] };
+
+// ----------------------------------------
+// 初期ロード
+// ----------------------------------------
+(async function init() {
+  await fetchMasters();
+  await fetchVehicle(vehicleId);
+  await fetchImages(); // ← 車両画像をロード
+})();
+
+// ----------------------------------------
+// マスターAPI取得
+// ----------------------------------------
+async function fetchMasters() {
+  try {
+    const [m, c, col] = await Promise.all([
+      fetch("/api/masters/manufacturers/").then(r=>r.json()),
+      fetch("/api/masters/vehiclecategories/").then(r=>r.json()),
+      fetch("/api/masters/colors/").then(r=>r.json()),
+    ]);
+    masterData.manufacturers = m;
+    masterData.categories = c;
+    masterData.colors = col;
+  } catch(e) {
+    console.error("マスター取得失敗:", e);
+  }
+}
+
+// ----------------------------------------
+// 車両詳細取得
+// ----------------------------------------
+async function fetchVehicle(pk) {
+  const res = await fetch(`/api/vehicles/${pk}/`);
+  const data = await res.json();
+  vehicleData = data;
+  renderVehicle(data, false);
+}
+
+// ----------------------------------------
+// 編集・保存・キャンセル
+// ----------------------------------------
+document.getElementById("edit-btn").addEventListener("click", () => {
+  editMode = true;
+  renderVehicle(vehicleData, true);
+  toggleButtons();
+});
+document.getElementById("cancel-btn").addEventListener("click", () => {
+  editMode = false;
+  renderVehicle(vehicleData, false);
+  toggleButtons();
+});
+function toggleButtons() {
+  document.getElementById("edit-btn").classList.toggle("d-none", editMode);
+  document.getElementById("save-btn").classList.toggle("d-none", !editMode);
+  document.getElementById("cancel-btn").classList.toggle("d-none", !editMode);
+}
+
+// ----------------------------------------
+// 保存処理
+// ----------------------------------------
+document.getElementById("save-btn").addEventListener("click", async () => {
+  const f = new FormData(document.getElementById("vehicle-form"));
+
+  const updated = {
+    vehicle_name: f.get("vehicle_name"),
+    displacement: f.get("displacement") || null,
+    model_year: f.get("model_year"),
+    new_car_type: f.get("new_car_type"),
+    manufacturer_id: f.get("manufacturer_id") || null,
+    category_id: f.get("category_id") || null,
+    model_code: f.get("model_code"),
+    chassis_no: f.get("chassis_no") || null,
+    engine_type: f.get("engine_type"),
+    color_id: f.get("color_id") || null,
+    color_name: f.get("color_name"),
+    color_code: f.get("color_code"),
+
+    registrations: [{
+      registation_area: f.get("registation_area"),
+      registation_no: f.get("registation_no"),
+      certification_no: f.get("certification_no"),
+      first_registration_date: f.get("first_registration_date") || null,
+      inspection_expiration: f.get("inspection_expiration") || null,
+      security_registration: f.get("security_registration"),
+    }],
+
+    insurances: [
+      {
+        type: "mandatory",
+        company: f.get("mandatory_company"),
+        start_date: f.get("mandatory_start_date") || null,
+        end_date: f.get("mandatory_end_date") || null,
+        policy_no: f.get("mandatory_policy_no"),
+      },
+      {
+        type: "optional",
+        company: f.get("optional_company"),
+        start_date: f.get("optional_start_date") || null,
+        end_date: f.get("optional_end_date") || null,
+        policy_no: f.get("optional_policy_no"),
+      },
+    ].filter(i => i.company || i.policy_no),
+
+    warranties: [{
+      start_date: f.get("warranty_start_date") || null,
+      end_date: f.get("warranty_end_date") || null,
+      plan_name: f.get("warranty_plan_name"),
+      note: f.get("warranty_note"),
+    }],
+  };
+
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/update/`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+      body: JSON.stringify(updated),
+    });
+    if (!res.ok) throw new Error(`保存エラー (${res.status})`);
+    const data = await res.json();
+    alert("保存しました！");
+    vehicleData = data;
+    editMode = false;
+    renderVehicle(data, false);
+    toggleButtons();
+  } catch (err) {
+    alert("保存失敗: " + err.message);
+  }
+});
+
+// ----------------------------------------
+// 詳細レンダリング
+// ----------------------------------------
+function renderVehicle(v, editable=false) {
+  const tbody = document.getElementById("vehicle-detail");
+
+  const input = (n, val) => `<input class="form-control" name="${n}" value="${val ?? ""}">`;
+  const date  = (n, val) => `<input type="date" class="form-control" name="${n}" value="${val ?? ""}">`;
+  const sel = (n, val, opts) =>
+    `<select name="${n}" class="form-select">
+      <option value="">選択してください</option>
+      ${opts.map(o => `<option value="${o.id}" ${String(o.id)===String(val)?"selected":""}>${o.name}</option>`).join("")}
+    </select>`;
+
+  tbody.innerHTML = `
+  <tr><th colspan="2" class="table-secondary">基本情報</th></tr>
+  ${row("車両名", "vehicle_name")}
+  ${row("排気量", "displacement")}
+  ${row("年式", "model_year")}
+  ${row("新車・中古", "new_car_type", ["新車","中古"])}
+  ${row("メーカー", "manufacturer_id", masterData.manufacturers)}
+  ${row("カテゴリー", "category_id", masterData.categories)}
+  ${row("型式", "model_code")}
+  ${row("車台番号", "chassis_no")}
+  ${row("色", "color_id", masterData.colors)}
+  ${row("色名称", "color_name")}
+  ${row("色記号", "color_code")}
+  ${row("原動型", "engine_type", ["gasoline","electric","hybrid","other"])}
+
+  <tr><th colspan="2" class="table-secondary">登録情報</th></tr>
+  ${row("登録地", "registation_area", null, v.registrations?.[0])}
+  ${row("登録番号", "registation_no", null, v.registrations?.[0])}
+  ${row("型認番号", "certification_no", null, v.registrations?.[0])}
+  ${row("初年度登録日", "first_registration_date", null, v.registrations?.[0])}
+  ${row("車検満了日", "inspection_expiration", null, v.registrations?.[0])}
+  ${row("防犯登録", "security_registration", null, v.registrations?.[0])}
+
+  <tr><th colspan="2" class="table-secondary">任意保険</th></tr>
+  ${row("会社", "optional_company", null, v.insurances?.find(i=>i.type=="optional"))}
+  ${row("開始日", "optional_start_date", null, v.insurances?.find(i=>i.type=="optional"))}
+  ${row("終了日", "optional_end_date", null, v.insurances?.find(i=>i.type=="optional"))}
+  ${row("証券番号", "optional_policy_no", null, v.insurances?.find(i=>i.type=="optional"))}
+
+  <tr><th colspan="2" class="table-secondary">自賠責保険</th></tr>
+  ${row("会社", "mandatory_company", null, v.insurances?.find(i=>i.type=="mandatory"))}
+  ${row("開始日", "mandatory_start_date", null, v.insurances?.find(i=>i.type=="mandatory"))}
+  ${row("終了日", "mandatory_end_date", null, v.insurances?.find(i=>i.type=="mandatory"))}
+  ${row("証券番号", "mandatory_policy_no", null, v.insurances?.find(i=>i.type=="mandatory"))}
+
+  <tr><th colspan="2" class="table-secondary">保証</th></tr>
+  ${row("開始日", "warranty_start_date", null, v.warranties?.[0])}
+  ${row("終了日", "warranty_end_date", null, v.warranties?.[0])}
+  ${row("プラン名", "warranty_plan_name", null, v.warranties?.[0])}
+  ${row("備考", "warranty_note", null, v.warranties?.[0])}
+  `;
+
+  function row(label, key, options=null, src=v) {
+    const val = src?.[key] ?? "";
+    let field;
+
+    if (editable) {
+      if (Array.isArray(options) && options.length && options[0].id) {
+        field = sel(key, val, options);
+      } else if (Array.isArray(options)) {
+        field = `<select name="${key}" class="form-select">
+                  ${options.map(o => `<option value="${o}" ${o==val?"selected":""}>${o}</option>`).join("")}
+                 </select>`;
+      } else if (key.includes("date")) {
+        field = date(key, val);
+      } else {
+        field = input(key, val);
+      }
+    } else {
+      if (key === "manufacturer_id") field = v.manufacturer_name || "-";
+      else if (key === "category_id") field = v.category_name || "-";
+      else if (key === "color_id") field = v.color_name || "-";
+      else field = val || "-";
+    }
+
+    return `<tr><th>${label}</th><td>${field}</td></tr>`;
+  }
+}
+
+// ----------------------------------------
+// 画像一覧取得
+// ----------------------------------------
+async function fetchImages() {
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/images/`);
+    const data = await res.json();
+
+    // pagination対応: data.results があればそれを使う
+    const list = Array.isArray(data) ? data : data.results || [];
+    renderImages(list);
+  } catch (err) {
+    console.error("画像取得失敗:", err);
+  }
+}
+
+
+// ----------------------------------------
+// 画像描画
+// ----------------------------------------
+function renderImages(list) {
+  const div = document.getElementById("images");
+  if (!list.length) {
+    div.innerHTML = "<p>画像はまだ登録されていません。</p>";
+    return;
+  }
+  div.innerHTML = list.map(img => {
+    // image_urlが存在しなければimageを使う（両対応）
+    const url = img.image_url || img.image;
+    return `
+      <div style="display:inline-block; margin:5px; text-align:center">
+        <img src="${url}" style="width:150px; height:auto; border:1px solid #ccc; border-radius:4px; object-fit:contain"><br>
+        <button class="btn btn-sm btn-danger mt-1" onclick="deleteImage(${img.id})">削除</button>
+      </div>
+    `;
+  }).join("");
+}
+
+// ----------------------------------------
+// 画像アップロード
+// ----------------------------------------
+document.getElementById("image-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fileInput = e.target.querySelector('input[name="image"]');
+  const file = fileInput.files[0];
+  if (!file) return alert("ファイルを選択してください。");
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/images/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrftoken },
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`アップロード失敗 (${res.status})`);
+    await fetchImages();
+    fileInput.value = "";
+    document.getElementById("image-errors").textContent = "";
+  } catch (err) {
+    document.getElementById("image-errors").textContent = err.message;
+  }
+});
+
+// ----------------------------------------
+// 画像削除
+// ----------------------------------------
+async function deleteImage(id) {
+  if (!confirm("削除してよろしいですか？")) return;
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/images/${id}/`, {
+      method: "DELETE",
+      headers: { "X-CSRFToken": csrftoken },
+    });
+    if (!res.ok) throw new Error(`削除失敗 (${res.status})`);
+    await fetchImages();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+// ----------------------------------------
+// 車両メモ 一覧取得
+// ----------------------------------------
+async function fetchMemos() {
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/memos/`);
+    const data = await res.json();
+
+    // pagination対応
+    const list = Array.isArray(data) ? data : data.results || [];
+    renderMemos(list);
+  } catch (err) {
+    console.error("メモ取得失敗:", err);
+    document.getElementById("memos").innerHTML =
+      `<li style="color:#b00">メモ取得に失敗しました</li>`;
+  }
+}
+
+// ----------------------------------------
+// メモ描画
+// ----------------------------------------
+function renderMemos(list) {
+  const ul = document.getElementById("memos");
+  if (!list.length) {
+    ul.innerHTML = "<li class='muted'>メモはまだ登録されていません。</li>";
+    return;
+  }
+
+  ul.innerHTML = list
+    .map(
+      (m) => `
+      <li style="margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">
+        <div><strong>${m.created_by || "（投稿者不明）"}</strong>　<span style="color:#888">${formatDate(m.created_at)}</span></div>
+        <div style="white-space:pre-wrap;margin:4px 0">${m.body}</div>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteMemo(${m.id})">削除</button>
+      </li>`
+    )
+    .join("");
+}
+
+// ----------------------------------------
+// メモ追加
+// ----------------------------------------
+document
+  .getElementById("memo-form")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const textarea = e.target.querySelector("textarea[name='body']");
+    const body = textarea.value.trim();
+    if (!body) return alert("メモを入力してください。");
+
+    const formData = new FormData();
+    formData.append("body", body);
+
+    try {
+      const res = await fetch(`/api/vehicles/${vehicleId}/memos/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrftoken },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`追加失敗 (${res.status})`);
+      textarea.value = "";
+      document.getElementById("memo-errors").textContent = "";
+      await fetchMemos();
+    } catch (err) {
+      document.getElementById("memo-errors").textContent = err.message;
+    }
+  });
+
+// ----------------------------------------
+// メモ削除
+// ----------------------------------------
+async function deleteMemo(id) {
+  if (!confirm("このメモを削除してよろしいですか？")) return;
+  try {
+    const res = await fetch(`/api/vehicles/${vehicleId}/memos/${id}/`, {
+      method: "DELETE",
+      headers: { "X-CSRFToken": csrftoken },
+    });
+    if (!res.ok) throw new Error(`削除失敗 (${res.status})`);
+    await fetchMemos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ----------------------------------------
+// 日付フォーマット
+// ----------------------------------------
+function formatDate(dt) {
+  const d = new Date(dt);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes()
+  ).padStart(2, "0")}`;
+}
+
+// ----------------------------------------
+// 初期ロードに追加
+// ----------------------------------------
+(async function init() {
+  await fetchMasters();
+  await fetchVehicle(vehicleId);
+  await fetchImages();
+  await fetchMemos(); // 👈 メモ一覧もロード
+})();
+
+</script>
+{% endblock %}

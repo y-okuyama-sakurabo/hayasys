@@ -1,0 +1,22 @@
+[
+  {
+    "model": "core.manufacturer",
+    "pk": 1,
+    "fields": {
+      "code": "HONDA",
+      "name": "ホンダ",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.manufacturer",
+    "pk": 2,
+    "fields": {
+      "code": "YAMAHA",
+      "name": "ヤマハ",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  }
+]

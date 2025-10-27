@@ -1,0 +1,22 @@
+[
+  {
+    "model": "core.color",
+    "pk": 1,
+    "fields": {
+      "code": "RED",
+      "name": "レッド",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 2,
+    "fields": {
+      "code": "BLU",
+      "name": "ブルー",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  }
+]

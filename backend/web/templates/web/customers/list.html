@@ -1,0 +1,150 @@
+{% extends "web/base.html" %}
+{% block content %}
+<h1>顧客一覧</h1>
+
+<!-- 検索フォーム -->
+<form id="search-form" style="display:flex;gap:8px;margin-bottom:12px">
+  <input type="text" id="search-input" placeholder="検索（名前・電話）">
+  <button class="btn" type="submit">検索</button>
+  <span id="result-info" class="muted"></span>
+</form>
+
+<a href="{% url 'customer_create' %}">顧客を作成</a>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>氏名(フリガナ)/E-mail</th>
+      <th>電話</th>
+      <th>住所</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="customer-list">
+    <tr><td colspan="5" class="muted">ロード中...</td></tr>
+  </tbody>
+</table>
+
+<div style="margin-top:12px; display:flex; gap:8px; align-items:center">
+  <button class="btn" id="prev-btn">Prev</button>
+  <span id="page-info"></span>
+  <button class="btn" id="next-btn">Next</button>
+</div>
+
+<script>
+  const tbody = document.getElementById("customer-list");
+  const resultInfo = document.getElementById("result-info");
+  const pageInfo = document.getElementById("page-info");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
+  const searchForm = document.getElementById("search-form");
+  const searchInput = document.getElementById("search-input");
+
+  let currentPage = 1;
+  let currentQuery = "";
+
+  // --- CSRFトークン取得関数
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie("csrftoken");
+
+  // --- 顧客一覧取得
+  async function fetchCustomers(page=1, q="") {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">ロード中...</td></tr>`;
+    try {
+      const url = new URL("/api/customers/", window.location.origin);
+      url.searchParams.set("page", page);
+      if (q) url.searchParams.set("search", q);
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      tbody.innerHTML = "";
+      if (data.results && data.results.length > 0) {
+        data.results.forEach(c => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${c.id}</td>
+            <td>${c.name} (${c.kana || ""})<br>${c.email || ""}</td>
+            <td>${c.phone || ""}<br>${c.mobile_phone || ""}</td>
+            <td>${c.postal_code || ""}<br>${c.address || ""}</td>
+            <td>
+              <a href="/customers/${c.id}/">詳細</a>
+              <button class="btn-delete" data-id="${c.id}" style="margin-left:8px;color:#fff;background:#c00;border:none;border-radius:3px;cursor:pointer;">削除</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // 削除ボタンイベント
+        document.querySelectorAll(".btn-delete").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const id = btn.dataset.id;
+            if (!confirm(`顧客 #${id} を削除しますか？`)) return;
+
+            try {
+              const res = await fetch(`/api/customers/${id}/`, {
+                method: "DELETE",
+                headers: { "X-CSRFToken": csrftoken }
+              });
+              if (!res.ok) throw new Error("削除失敗");
+              await fetchCustomers(currentPage, currentQuery); // 再読み込み
+            } catch (err) {
+              console.error(err);
+              alert("削除に失敗しました");
+            }
+          });
+        });
+
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">データがありません</td></tr>`;
+      }
+
+      // ページング情報
+      currentPage = page;
+      pageInfo.textContent = `${page}`;
+      resultInfo.textContent = `全 ${data.count} 件`;
+
+      prevBtn.disabled = !data.previous;
+      nextBtn.disabled = !data.next;
+
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">エラーが発生しました</td></tr>`;
+    }
+  }
+
+  // ページ切り替え
+  prevBtn.addEventListener("click", () => {
+    if (currentPage > 1) fetchCustomers(currentPage - 1, currentQuery);
+  });
+  nextBtn.addEventListener("click", () => {
+    fetchCustomers(currentPage + 1, currentQuery);
+  });
+
+  // 検索
+  searchForm.addEventListener("submit", e => {
+    e.preventDefault();
+    currentQuery = searchInput.value.trim();
+    fetchCustomers(1, currentQuery);
+  });
+
+  // 初回ロード
+  fetchCustomers();
+</script>
+
+{% endblock %}

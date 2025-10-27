@@ -1,0 +1,35 @@
+[
+  {
+    "model": "core.customerclass",
+    "pk": 1,
+    "fields": {
+      "code": "PERSONAL",
+      "name": "個人",
+      "is_wholesale": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.customerclass",
+    "pk": 2,
+    "fields": {
+      "code": "CORPORATE",
+      "name": "法人",
+      "is_wholesale": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.customerclass",
+    "pk": 3,
+    "fields": {
+      "code": "WHOLESALE",
+      "name": "業販",
+      "is_wholesale": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

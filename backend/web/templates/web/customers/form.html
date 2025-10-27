@@ -1,0 +1,393 @@
+{% extends "web/base.html" %}
+{% block content %}
+<h1>顧客を作成</h1>
+
+<form id="customer-form" style="max-width:520px">
+  <div class="mb-3">
+    <label>氏名 *</label>
+    <input type="text" name="name" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label>フリガナ</label>
+    <input type="text" name="kana" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>メール</label>
+    <input type="email" name="email" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>電話</label>
+    <input type="text" name="phone" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>携帯電話</label>
+    <input type="text" name="mobile_phone" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>郵便番号</label>
+    <input type="text" name="postal_code" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>住所</label>
+    <input type="text" name="address" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>会社名</label>
+    <input type="text" name="company" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>会社電話</label>
+    <input type="text" name="company_phone" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>誕生日</label>
+    <input type="date" name="birthdate" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>顧客分類 *</label>
+    <select name="customer_class" id="customer-class" class="form-select"></select>
+  </div>
+
+  <div class="mb-3">
+    <label>担当スタッフ</label>
+    <select name="staff" id="staff" class="form-select"></select>
+  </div>
+
+  <div class="mb-3">
+    <label>地域</label>
+    <select name="region" id="region" class="form-select"></select>
+  </div>
+
+  <div class="mb-3">
+    <label>性別</label>
+    <select name="gender" id="gender" class="form-select"></select>
+  </div>
+
+  <div class="mb-3">
+    <label>初回対応店舗</label>
+    <select name="first_shop" id="first-shop" class="form-select"></select>
+  </div>
+
+  <div class="mb-3">
+    <label>最終対応店舗</label>
+    <select name="last_shop" id="last-shop" class="form-select"></select>
+  </div>
+
+<h3>所有車両</h3>
+<div id="vehicle-fields" class="border p-3 mb-3">
+
+  <!-- 基本情報 -->
+  <div class="mb-3">
+    <label>車両名</label>
+    <input type="text" name="vehicle_name" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>排気量</label>
+    <input type="number" name="displacement" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>年式</label>
+    <input type="text" name="model_year" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>新車・中古車</label>
+    <select name="new_car_type" class="form-select">
+      <option value="">選択してください</option>
+      <option value="new">新車</option>
+      <option value="used">中古車</option>
+    </select>
+  </div>
+  <div class="mb-3">
+    <label>メーカー</label>
+    <select name="manufacturer_id" id="manufacturer" class="form-select"></select>
+  </div>
+  <div class="mb-3">
+    <label>カテゴリー</label>
+    <select name="category_id" id="category" class="form-select"></select>
+  </div>
+  <div class="mb-3">
+    <label>型式</label>
+    <input type="text" name="model_code" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>車台番号</label>
+    <input type="text" name="chassis_no" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>原動型</label>
+    <select name="engine_type" class="form-select">
+      <option value="">選択してください</option>
+      <option value="gasoline">ガソリン</option>
+      <option value="electric">電動</option>
+      <option value="hybrid">ハイブリッド</option>
+      <option value="other">その他</option>
+    </select>
+  </div>
+  <div class="mb-3">
+    <label>色</label>
+    <select name="color_id" id="color" class="form-select"></select>
+  </div>
+  <div class="mb-3">
+    <label>色名称</label>
+    <input type="text" name="color_name" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>色記号</label>
+    <input type="text" name="color_code" class="form-control">
+  </div>
+
+  <!-- 登録関係 -->
+  <h5 class="mt-4">登録情報</h5>
+  <div class="mb-3">
+    <label>登録地</label>
+    <select name="registration_location_id" id="registration-location" class="form-select"></select>
+  </div>
+  <div class="mb-3">
+    <label>登録番号</label>
+    <input type="text" name="registation_no" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>型認番号</label>
+    <input type="text" name="certification_no" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>初年度登録日</label>
+    <input type="date" name="first_registration_date" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>車検終了日</label>
+    <input type="date" name="inspection_expiration" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>防犯登録</label>
+    <input type="text" name="security_registration" class="form-control">
+  </div>
+
+  <!-- 保険 -->
+  <h5 class="mt-4">保険</h5>
+  <div class="mb-3">
+    <label>任意保険会社</label>
+    <input type="text" name="optional_insurance_company" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>任意保険開始日</label>
+    <input type="date" name="optional_insurance_start" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>任意保険終了日</label>
+    <input type="date" name="optional_insurance_end" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>任意保険証券番号</label>
+    <input type="text" name="optional_insurance_policy_no" class="form-control">
+  </div>
+
+  <div class="mb-3">
+    <label>自賠責保険会社</label>
+    <input type="text" name="mandatory_insurance_company" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>自賠責保険開始日</label>
+    <input type="date" name="mandatory_insurance_start" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>自賠責保険終了日</label>
+    <input type="date" name="mandatory_insurance_end" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>自賠責保険証券番号</label>
+    <input type="text" name="mandatory_insurance_policy_no" class="form-control">
+  </div>
+
+  <!-- 保証 -->
+  <h5 class="mt-4">保証</h5>
+  <div class="mb-3">
+    <label>保証開始日</label>
+    <input type="date" name="warranty_start" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>保証終了日</label>
+    <input type="date" name="warranty_end" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>保証プラン名</label>
+    <input type="text" name="warranty_plan_name" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label>保証備考</label>
+    <textarea name="warranty_note" class="form-control"></textarea>
+  </div>
+
+  <!-- メモ -->
+  <h5 class="mt-4">車両メモ</h5>
+  <div class="mb-3">
+    <textarea name="vehicle_memo" class="form-control"></textarea>
+  </div>
+</div>
+
+
+  <div id="errors" style="color:#b00;margin:10px 0"></div>
+
+  <button type="submit" class="btn btn-primary">作成する</button>
+</form>
+
+<script>
+(async function(){
+  // --- CSRFトークン取得 ---
+  const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1];
+
+  // --- マスタデータをロードしてセレクトに流し込む ---
+  const masters = {
+    "customer-class": "/api/masters/customer_classes/",
+    "staff":          "/api/masters/staffs/",
+    "region":         "/api/masters/regions/",
+    "gender":         "/api/masters/genders/",
+    "first-shop":     "/api/masters/shops/",
+    "last-shop":      "/api/masters/shops/",
+    "manufacturer":   "/api/masters/manufacturers/",
+    "category":       "/api/masters/vehiclecategories/",
+    "color":          "/api/masters/colors/",
+    "registration-location": "/api/masters/registration_locations/"
+  };
+
+  for (const [id, url] of Object.entries(masters)) {
+    const sel = document.getElementById(id);
+    if (!sel) continue;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to load " + url);
+      const data = await res.json();
+      sel.innerHTML = `<option value="">選択してください</option>` +
+        data.map(opt => `<option value="${opt.id}">${opt.name}</option>`).join("");
+    } catch (e) {
+      console.error(e);
+      sel.innerHTML = `<option value="">取得エラー</option>`;
+    }
+  }
+
+  // --- 顧客作成処理 ---
+  document.getElementById("customer-form").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const form = e.target;
+    const payload = Object.fromEntries(new FormData(form).entries());
+
+    // 空文字は null に
+    Object.keys(payload).forEach(k => {
+      if (payload[k] === "") payload[k] = null;
+    });
+
+// 車両データをまとめる
+const vehicle = {
+  vehicle_name: payload.vehicle_name,
+  model_year: payload.model_year,
+  chassis_no: payload.chassis_no,
+  color_name: payload.color_name,
+  registrations: [],
+  insurances: [],
+  warranties: [],
+  memos: []
+};
+
+// 登録情報
+if (payload.registation_area || payload.registation_no) {
+  vehicle.registrations.push({
+    registation_area: payload.registation_area,
+    registation_no: payload.registation_no,
+    inspection_expiration: payload.inspection_expiration || null
+  });
+}
+
+// 保険（自賠責）
+if (payload.mandatory_insurance_company) {
+  vehicle.insurances.push({
+    type: "mandatory",
+    company: payload.mandatory_insurance_company,
+    start_date: payload.mandatory_insurance_start || null,
+    end_date: payload.mandatory_insurance_end || null,
+    policy_no: payload.mandatory_insurance_policy || null
+  });
+}
+
+// 保険（任意）
+if (payload.optional_insurance_company) {
+  vehicle.insurances.push({
+    type: "optional",
+    company: payload.optional_insurance_company,
+    start_date: payload.optional_insurance_start || null,
+    end_date: payload.optional_insurance_end || null,
+    policy_no: payload.optional_insurance_policy || null
+  });
+}
+
+// 保証
+if (payload.warranty_plan) {
+  vehicle.warranties.push({
+    plan_name: payload.warranty_plan,
+    start_date: payload.warranty_start_date,
+    end_date: payload.warranty_end_date
+  });
+}
+
+// メモ
+if (payload.vehicle_memo) {
+  vehicle.memos.push({
+    body: payload.vehicle_memo
+  });
+}
+
+// payloadから車両フィールドを削除して整理
+delete payload.vehicle_name;
+delete payload.model_year;
+delete payload.chassis_no;
+delete payload.color_name;
+delete payload.registation_area;
+delete payload.registation_no;
+delete payload.inspection_expiration;
+delete payload.insurance_company;
+delete payload.insurance_start_date;
+delete payload.insurance_end_date;
+delete payload.warranty_plan;
+delete payload.warranty_start_date;
+delete payload.warranty_end_date;
+delete payload.vehicle_memo;
+delete payload.manufacturer_id;
+delete payload.category_id;
+delete payload.color_id;
+
+// 車両が入力されていれば追加
+payload.vehicles = [];
+if (vehicle.vehicle_name || vehicle.chassis_no) {
+  payload.vehicles.push(vehicle);
+}
+
+    const res = await fetch("/api/customers/", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken || ""   // ← ★ ここ追加！
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/customers/`;
+    } else {
+      const err = await res.json().catch(()=>({detail:"保存失敗"}));
+      document.getElementById("errors").textContent = JSON.stringify(err);
+    }
+  });
+})();
+</script>
+
+{% endblock %}

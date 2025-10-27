@@ -1,0 +1,32 @@
+[
+  {
+    "model": "core.VehicleCategory",
+    "pk": 1,
+    "fields": {
+      "code": "BIKE",
+      "name": "バイク",
+      "created_at": "2025-10-02T12:00:00Z",
+      "updated_at": "2025-10-02T12:00:00Z"
+    }
+  },
+  {
+    "model": "core.VehicleCategory",
+    "pk": 2,
+    "fields": {
+      "code": "BICYCLE",
+      "name": "自転車",
+      "created_at": "2025-10-02T12:00:00Z",
+      "updated_at": "2025-10-02T12:00:00Z"
+    }
+  },
+  {
+    "model": "core.VehicleCategory",
+    "pk": 3,
+    "fields": {
+      "code": "SCOOTER",
+      "name": "スクーター",
+      "created_at": "2025-10-02T12:00:00Z",
+      "updated_at": "2025-10-02T12:00:00Z"
+    }
+  }
+]

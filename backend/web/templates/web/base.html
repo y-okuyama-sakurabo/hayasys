@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}hayasys{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0}
+    header,main,aside{padding:16px}
+    header{border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+    .layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 58px)}
+    aside{border-right:1px solid #eee}
+    a{color:#0a58ca;text-decoration:none}
+    table{border-collapse:collapse;width:100%}
+    th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
+    .btn{border:1px solid #ddd;padding:6px 10px;border-radius:6px;display:inline-block}
+    .muted{opacity:.6}
+    .field{display:grid;gap:4px;margin-bottom:10px}
+    input,select{padding:8px;border:1px solid #ddd;border-radius:6px}
+  </style>
+</head>
+<body>
+<header>
+  <div><strong>hayasys</strong></div>
+  <nav>
+    {% if request.user.is_authenticated %}
+      <span class="muted">{{ request.user.login_id }}</span>
+      &nbsp;|&nbsp; <a href="{% url 'logout' %}">ログアウト</a>
+    {% else %}
+      <a href="{% url 'login' %}">ログイン</a>
+    {% endif %}
+  </nav>
+</header>
+<div class="layout">
+  <aside>
+    <nav class="nav" style="display:grid;gap:8px">
+      <a href="{% url 'dashboard' %}">ダッシュボード</a>
+      <a href="{% url 'customer_list' %}">顧客一覧</a>
+    </nav>
+  </aside>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,472 @@
+[
+  {
+    "model": "core.region",
+    "pk": 1,
+    "fields": {
+      "code": "01",
+      "name": "北海道",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 2,
+    "fields": {
+      "code": "02",
+      "name": "青森県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 3,
+    "fields": {
+      "code": "03",
+      "name": "岩手県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 4,
+    "fields": {
+      "code": "04",
+      "name": "宮城県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 5,
+    "fields": {
+      "code": "05",
+      "name": "秋田県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 6,
+    "fields": {
+      "code": "06",
+      "name": "山形県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 7,
+    "fields": {
+      "code": "07",
+      "name": "福島県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 8,
+    "fields": {
+      "code": "08",
+      "name": "茨城県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 9,
+    "fields": {
+      "code": "09",
+      "name": "栃木県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 10,
+    "fields": {
+      "code": "10",
+      "name": "群馬県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 11,
+    "fields": {
+      "code": "11",
+      "name": "埼玉県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 12,
+    "fields": {
+      "code": "12",
+      "name": "千葉県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 13,
+    "fields": {
+      "code": "13",
+      "name": "東京都",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 14,
+    "fields": {
+      "code": "14",
+      "name": "神奈川県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 15,
+    "fields": {
+      "code": "15",
+      "name": "新潟県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 16,
+    "fields": {
+      "code": "16",
+      "name": "富山県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 17,
+    "fields": {
+      "code": "17",
+      "name": "石川県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 18,
+    "fields": {
+      "code": "18",
+      "name": "福井県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 19,
+    "fields": {
+      "code": "19",
+      "name": "山梨県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 20,
+    "fields": {
+      "code": "20",
+      "name": "長野県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 21,
+    "fields": {
+      "code": "21",
+      "name": "岐阜県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 22,
+    "fields": {
+      "code": "22",
+      "name": "静岡県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 23,
+    "fields": {
+      "code": "23",
+      "name": "愛知県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 24,
+    "fields": {
+      "code": "24",
+      "name": "三重県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 25,
+    "fields": {
+      "code": "25",
+      "name": "滋賀県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 26,
+    "fields": {
+      "code": "26",
+      "name": "京都府",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 27,
+    "fields": {
+      "code": "27",
+      "name": "大阪府",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 28,
+    "fields": {
+      "code": "28",
+      "name": "兵庫県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 29,
+    "fields": {
+      "code": "29",
+      "name": "奈良県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 30,
+    "fields": {
+      "code": "30",
+      "name": "和歌山県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 31,
+    "fields": {
+      "code": "31",
+      "name": "鳥取県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 32,
+    "fields": {
+      "code": "32",
+      "name": "島根県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 33,
+    "fields": {
+      "code": "33",
+      "name": "岡山県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 34,
+    "fields": {
+      "code": "34",
+      "name": "広島県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 35,
+    "fields": {
+      "code": "35",
+      "name": "山口県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 36,
+    "fields": {
+      "code": "36",
+      "name": "徳島県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 37,
+    "fields": {
+      "code": "37",
+      "name": "香川県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 38,
+    "fields": {
+      "code": "38",
+      "name": "愛媛県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 39,
+    "fields": {
+      "code": "39",
+      "name": "高知県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 40,
+    "fields": {
+      "code": "40",
+      "name": "福岡県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 41,
+    "fields": {
+      "code": "41",
+      "name": "佐賀県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 42,
+    "fields": {
+      "code": "42",
+      "name": "長崎県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 43,
+    "fields": {
+      "code": "43",
+      "name": "熊本県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 44,
+    "fields": {
+      "code": "44",
+      "name": "大分県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 45,
+    "fields": {
+      "code": "45",
+      "name": "宮崎県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 46,
+    "fields": {
+      "code": "46",
+      "name": "鹿児島県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  },
+  {
+    "model": "core.region",
+    "pk": 47,
+    "fields": {
+      "code": "47",
+      "name": "沖縄県",
+      "created_at": "2025-09-25T01:08:24Z",
+      "updated_at": "2025-09-25T01:08:24Z"
+    }
+  }
+]

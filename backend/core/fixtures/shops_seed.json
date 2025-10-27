@@ -1,0 +1,152 @@
+[
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "KAMISUGI",
+      "name": "上杉本店",
+      "location": "宮城県仙台市青葉区上杉4-4-1",
+      "phone": "022-222-8969",
+      "fax": "022-222-6409",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "OTEMACHI",
+      "name": "大手町店",
+      "location": "宮城県仙台市青葉区大手町9-1",
+      "phone": "022-261-0666",
+      "fax": "022-261-0811",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "MS_OTEMACHI",
+      "name": "モーターステージ大手町",
+      "location": "宮城県仙台市青葉区大手町8-18",
+      "phone": "022-217-6855",
+      "fax": "022-217-6856",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "IZUMI_BP_ANNEX",
+      "name": "泉バイパスANNEX",
+      "location": "宮城県仙台市泉区松森字後田85-1",
+      "phone": "022-375-8481",
+      "fax": "022-375-8478",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "IZUMI_BP",
+      "name": "泉バイパス店",
+      "location": "宮城県仙台市泉区松森字後田81-1",
+      "phone": "022-374-7856",
+      "fax": "022-374-7857",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "HACHIMAN",
+      "name": "八幡町店",
+      "location": "宮城県仙台市青葉区八幡4-5-17",
+      "phone": "022-301-7123",
+      "fax": "022-301-7124",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "SENDAI_CHUO",
+      "name": "仙台中央店",
+      "location": "宮城県仙台市青葉区中央2丁目4-6",
+      "phone": "022-398-8195",
+      "fax": "022-398-8196",
+      "email": "",
+      "opening_hours": "11:00～19:00",
+      "note": "定休日: 第1火曜（祝日の場合翌日休）",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "HD_MIYAGI",
+      "name": "ハーレーダビッドソン宮城",
+      "location": "宮城県仙台市泉区松森浦田86",
+      "phone": "022-374-8880",
+      "fax": "022-374-8881",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "HUSQ_SENDAI",
+      "name": "ハスクバーナ仙台",
+      "location": "宮城県仙台市泉区松森後田81-1",
+      "phone": "022-344-8832",
+      "fax": "022-344-8831",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.shop",
+    "fields": {
+      "code": "YAMAGATA",
+      "name": "山形店",
+      "location": "山形県山形市浜崎6",
+      "phone": "023-629-8121",
+      "fax": "023-629-8122",
+      "email": "",
+      "opening_hours": "10:00～18:00",
+      "note": "定休日: 火曜・第1･3水曜",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]
