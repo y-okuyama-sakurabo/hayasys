@@ -184,7 +184,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             "chassis_no",
             "engine_type",
             "color_id",
-            "color_label",   # ←区別したフィールド名
+            "color_label",
             "color_name",
             "color_code",
             "registrations",
@@ -217,9 +217,9 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         model = VehicleImage
         fields = [
             "id",
-            "vehicle",        # ← 外部キー修正
+            "vehicle",     
             "image",
-            "image_url",      # ← URLを追加
+            "image_url",     
             "mime",
             "width",
             "height",
@@ -228,7 +228,7 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "vehicle",        # ← customer → vehicle に修正
+            "vehicle",    
             "mime",
             "width",
             "height",
@@ -243,8 +243,8 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         return None
 
 class VehicleMemosSerializer(serializers.ModelSerializer):
-    vehicle = serializers.StringRelatedField()  # 関連先Vehicleを文字列表示
-    created_by = serializers.StringRelatedField()  # 投稿者名を表示（User.username）
+    vehicle = serializers.StringRelatedField()  
+    created_by = serializers.StringRelatedField()
 
     class Meta:
         model = VehicleMemo

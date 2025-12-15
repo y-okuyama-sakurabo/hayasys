@@ -1,0 +1,54 @@
+[
+  {
+    "model": "core.product",
+    "pk": 1,
+    "fields": {
+      "small": 1,
+      "name": "ホンダ トゥデイ 新車",
+      "unit_price": "180000",
+      "tax_type": "taxable",
+      "is_active": true,
+      "created_at": "2025-10-28T00:00:00Z",
+      "updated_at": "2025-10-28T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 2,
+    "fields": {
+      "small": 2,
+      "name": "ヤマハ JOG 中古車",
+      "unit_price": "85000",
+      "tax_type": "taxable",
+      "is_active": true,
+      "created_at": "2025-10-28T00:00:00Z",
+      "updated_at": "2025-10-28T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 3,
+    "fields": {
+      "small": 3,
+      "name": "カワサキ Ninja250 新車",
+      "unit_price": "720000",
+      "tax_type": "taxable",
+      "is_active": true,
+      "created_at": "2025-10-28T00:00:00Z",
+      "updated_at": "2025-10-28T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.product",
+    "pk": 4,
+    "fields": {
+      "small": 4,
+      "name": "スズキ GSX250R 中古車",
+      "unit_price": "480000",
+      "tax_type": "taxable",
+      "is_active": true,
+      "created_at": "2025-10-28T00:00:00Z",
+      "updated_at": "2025-10-28T00:00:00Z"
+    }
+  }
+]

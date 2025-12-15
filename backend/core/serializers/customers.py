@@ -30,7 +30,7 @@ class VehicleMiniSerializer(serializers.ModelSerializer):
         )
 
     def get_registration_no(self, obj):
-        reg = obj.registrations.first()  # 最新だけ取るなら .last() でもOK
+        reg = obj.registrations.first() 
         return reg.registration_no if reg else None
 
 
@@ -50,9 +50,15 @@ class RegionMiniSerializer(serializers.ModelSerializer):
         fields = ("id", "code", "name")
 
 class UserTinySerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "login_id")
+        fields = ("id", "login_id", "full_name")
+
+    def get_full_name(self, obj):
+        return f"{obj.last_name} {obj.first_name}"
+
 
 
 # ---- List ----
@@ -60,6 +66,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
     owned_vehicle_count = serializers.IntegerField(read_only=True)
     first_shop = ShopTinySerializer(read_only=True)
     last_shop  = ShopTinySerializer(read_only=True)
+    staff = UserTinySerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Customer
@@ -68,9 +75,11 @@ class CustomerListSerializer(serializers.ModelSerializer):
             "phone", "mobile_phone",
             "first_shop", "last_shop",
             "owned_vehicle_count",
-            "postal_code",  # ← これ追加
+            "postal_code",
             "address",
+            "staff",
         )
+
 
 
 # ---- Detail (Read) ----
@@ -108,11 +117,13 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
         )
 
 
-# ---- Write (Create/Update) ----
+
 class CustomerWriteSerializer(serializers.ModelSerializer):
-    # 外部キーはIDで受ける
+
     customer_class = serializers.PrimaryKeyRelatedField(
-        queryset=CustomerClass.objects.all(), required=True
+        queryset=CustomerClass.objects.all(),
+        required=True,
+        allow_null=True
     )
     staff = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(is_active=True),
@@ -135,7 +146,6 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
         required=False, allow_null=True
     )
 
-    # 追加: 車両をネストで受け取れる
     vehicles = VehicleWriteSerializer(many=True, required=False)
 
     class Meta:
@@ -147,26 +157,24 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
             "company", "company_phone",
             "customer_class", "staff", "region", "gender",
             "birthdate", "first_shop", "last_shop",
-            "vehicles",   # ← 追加
+            "vehicles",
         )
 
-    # 文字列の空→None 正規化
     def _blank_to_none(self, v):
         return None if isinstance(v, str) and v.strip() == "" else v
 
     def to_internal_value(self, data):
         data = data.copy()
-        # 文字列系
+
         for key in ("email","postal_code","address","phone","mobile_phone","company","company_phone"):
             if key in data:
                 data[key] = self._blank_to_none(data[key])
-        # FK 系：空文字は None に
+
         for key in ("customer_class","staff","region","gender","first_shop","last_shop"):
             if key in data and isinstance(data[key], str) and data[key].strip() == "":
                 data[key] = None
         return super().to_internal_value(data)
 
-    # 軽い正規化
     def validate_email(self, v):
         return v.lower() if v else v
 

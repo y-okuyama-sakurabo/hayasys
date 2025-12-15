@@ -1,0 +1,22 @@
+[
+  {
+    "model": "core.gender",
+    "pk": 1,
+    "fields": {
+      "code": "male",
+      "name": "男性",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.gender",
+    "pk": 2,
+    "fields": {
+      "code": "female",
+      "name": "女性",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

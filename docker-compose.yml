@@ -33,19 +33,29 @@ services:
       - db
 
   frontend:
-    build:
-      context: .
-      dockerfile: docker/frontend/Dockerfile
-    command: sh -lc "npm run dev -- --host"
-    working_dir: /usr/src/app
-    environment:
-      VITE_API_BASE: http://localhost:8000
-    volumes:
-      - ./frontend:/usr/src/app
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
+      build:
+        context: .
+        dockerfile: docker/frontend/Dockerfile
+      working_dir: /usr/src/app
+      command: npm run dev # command はシンプルに戻し、host設定は vite.config.js または Dockerfile CMDで行います
+      # command: sh -lc "npm run dev -- --host 0.0.0.0" # もし vite.config.js がなければこれで代用
+
+      environment:
+        VITE_API_BASE_URL: http://backend:8000/api/
+      volumes:
+        # 1. ソースコードはマウントする (設定ファイル、srcなど)
+        - ./frontend:/usr/src/app
+
+        # ★ 2. node_modules ディレクトリをローカルではなく、コンテナ内の匿名ボリュームにマウントする
+        #    これにより、ホストのファイルで上書きされるのを防ぎ、RUN npm install でインストールされた状態を保持する
+        - /usr/src/app/node_modules
+        
+      ports:
+        - "3000:3000"
+      depends_on:
+        - backend
+
+
 
 volumes:
   db-data: {}

@@ -25,7 +25,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         extra_kwargs = {
-            "staff": {"read_only": True},   # ← これを追加！
-            "shop": {"required": False, "allow_null": True},  # ← 店舗未所属でもOK
+            "staff": {"read_only": True},
+            "shop": {"required": False, "allow_null": True},
             "customer": {"required": False, "allow_null": True},
         }

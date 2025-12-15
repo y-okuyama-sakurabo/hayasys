@@ -8,6 +8,7 @@ from core.serializers.customers import (
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count
 from rest_framework.pagination import PageNumberPagination
+import jaconv
 
 class DefaultPagination(PageNumberPagination):
     page_size = 20
@@ -30,19 +31,28 @@ class CustomerListCreateView(ListCreateAPIView):
         q = self.request.query_params.get("search")  # ← ?search=キーワード
 
         if q:
-            qs = qs.filter(
-                Q(name__icontains=q)
-                | Q(kana__icontains=q)
-                | Q(phone__icontains=q)
-                | Q(mobile_phone__icontains=q)
-                | Q(address__icontains=q)
-                | Q(postal_code__icontains=q)
-                | Q(email__icontains=q)
-                | Q(company__icontains=q)
-                | Q(memos__body__icontains=q)  # ← 顧客メモ本文で検索
-                | Q(customer_vehicles__vehicle__registrations__registation_no__icontains=q)
-                | Q(customer_vehicles__vehicle__registrations__registation_area__icontains=q)
+            # ✅ 正規化：全角・半角・ひらがな・カタカナ両対応
+            q_norm = jaconv.normalize(q, "NFKC")
+            q_hira = jaconv.kata2hira(q_norm)
+            q_kata = jaconv.hira2kata(q_norm)
 
+            # ✅ kana がない顧客も対象にするため、nameでも必ずヒットさせる
+            qs = qs.filter(
+                Q(name__icontains=q_norm)
+                | Q(name__icontains=q_hira)
+                | Q(name__icontains=q_kata)
+                | Q(kana__icontains=q_norm)
+                | Q(kana__icontains=q_hira)
+                | Q(kana__icontains=q_kata)
+                | Q(phone__icontains=q_norm)
+                | Q(mobile_phone__icontains=q_norm)
+                | Q(address__icontains=q_norm)
+                | Q(postal_code__icontains=q_norm)
+                | Q(email__icontains=q_norm)
+                | Q(company__icontains=q_norm)
+                | Q(memos__body__icontains=q_norm)
+                | Q(customer_vehicles__vehicle__registrations__registration_no__icontains=q_norm)
+                | Q(customer_vehicles__vehicle__registrations__registration_area__icontains=q_norm)
             )
 
         return qs.annotate(
@@ -50,8 +60,7 @@ class CustomerListCreateView(ListCreateAPIView):
                 "customer_vehicles",
                 filter=Q(customer_vehicles__owned_to__isnull=True),
             )
-        ).order_by("-id")
-
+        ).order_by("id")
 
 class CustomerRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     queryset = Customer.objects.all()

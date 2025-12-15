@@ -397,7 +397,7 @@ document.getElementById("memo-form").addEventListener("submit", async (e) => {
         <tr><th>住所</th><td>${data.address || "-"}</td></tr>
         <tr><th>会社名</th><td>${data.company || "-"}</td></tr>
         <tr><th>会社電話</th><td>${data.company_phone || "-"}</td></tr>
-        <tr><th>担当スタッフ</th><td>${data.staff?.name || "-"}</td></tr>
+        <tr><th>担当スタッフ</th><td>${data.staff?.full_name || "-"}</td></tr>
         <tr><th>地域</th><td>${data.region?.name || "-"}</td></tr>
         <tr><th>性別</th><td>${data.gender?.name || "-"}</td></tr>
         <tr><th>誕生日</th><td>${fmtDate(data.birthdate)}</td></tr>

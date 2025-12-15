@@ -1,0 +1,39 @@
+[
+  { "model": "core.productcategorylarge", "pk": 1, "fields": { "name": "バイク", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorylarge", "pk": 2, "fields": { "name": "自転車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorylarge", "pk": 3, "fields": { "name": "バイク部品", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+
+  { "model": "core.productcategorymiddle", "pk": 1, "fields": { "large": 1, "name": "原付", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 2, "fields": { "large": 1, "name": "軽二輪", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 3, "fields": { "large": 1, "name": "小型二輪", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 4, "fields": { "large": 1, "name": "ハーレー逆", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 5, "fields": { "large": 2, "name": "クロスバイク", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 6, "fields": { "large": 3, "name": "ワイヤー・レバー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorymiddle", "pk": 7, "fields": { "large": 3, "name": "フレーム・フェンダー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+
+  { "model": "core.productcategorysmall", "pk": 1, "fields": { "middle": 1, "name": "新車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 2, "fields": { "middle": 1, "name": "中古車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 3, "fields": { "middle": 2, "name": "新車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 4, "fields": { "middle": 2, "name": "中古車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 5, "fields": { "middle": 3, "name": "新車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 6, "fields": { "middle": 3, "name": "中古車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 7, "fields": { "middle": 4, "name": "新車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 8, "fields": { "middle": 4, "name": "中古車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 9, "fields": { "middle": 5, "name": "新車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 10, "fields": { "middle": 5, "name": "中古車", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+
+  { "model": "core.productcategorysmall", "pk": 11, "fields": { "middle": 6, "name": "ブレーキワイヤー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 12, "fields": { "middle": 6, "name": "クラッチワイヤー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 13, "fields": { "middle": 6, "name": "スロットルワイヤー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 14, "fields": { "middle": 6, "name": "チョークワイヤー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 15, "fields": { "middle": 6, "name": "タコメーターケーブル", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 16, "fields": { "middle": 6, "name": "スピードメーターケーブル", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 17, "fields": { "middle": 6, "name": "ブレーキレバー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 18, "fields": { "middle": 6, "name": "クラッチレバー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 19, "fields": { "middle": 6, "name": "チョークレバー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+
+  { "model": "core.productcategorysmall", "pk": 20, "fields": { "middle": 7, "name": "フレーム", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 21, "fields": { "middle": 7, "name": "フロントフェンダー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 22, "fields": { "middle": 7, "name": "リアフェンダー", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } },
+  { "model": "core.productcategorysmall", "pk": 23, "fields": { "middle": 7, "name": "レグシールド", "created_at": "2025-10-28T00:00:00Z", "updated_at": "2025-10-28T00:00:00Z" } }
+]

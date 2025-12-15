@@ -18,7 +18,6 @@ class CustomerVehicleCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         vehicle_data = validated_data.pop("vehicle")
-        # ここを修正: Serializerを経由して保存する
         vehicle_serializer = VehicleWriteSerializer(data=vehicle_data)
         vehicle_serializer.is_valid(raise_exception=True)
         vehicle = vehicle_serializer.save()

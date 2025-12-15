@@ -1,0 +1,53 @@
+[
+  {
+    "model": "core.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$720000$UZNGa2N1kWQddfp8EVeXmw$4MYvVbD7rQ8MuRWb+Gr47dAi4XjZjSL7ZhzDFDFwXAE=",
+      "is_superuser": false,
+      "first_name": "太郎",
+      "last_name": "上杉",
+      "email": "uesugi@example.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-01-01T00:00:00Z",
+      "login_id": "uesugi_taro",
+      "shop": 1,
+      "role": "staff"
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$720000$UZNGa2N1kWQddfp8EVeXmw$4MYvVbD7rQ8MuRWb+Gr47dAi4XjZjSL7ZhzDFDFwXAE=",
+      "is_superuser": false,
+      "first_name": "花子",
+      "last_name": "大手町",
+      "email": "otemachi@example.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-01-01T00:00:00Z",
+      "login_id": "otemachi_hanako",
+      "shop": 2,
+      "role": "staff"
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 3,
+    "fields": {
+      "password": "pbkdf2_sha256$720000$UZNGa2N1kWQddfp8EVeXmw$4MYvVbD7rQ8MuRWb+Gr47dAi4XjZjSL7ZhzDFDFwXAE=",
+      "is_superuser": true,
+      "first_name": "管理者",
+      "last_name": "全店",
+      "email": "admin@example.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-01-01T00:00:00Z",
+      "login_id": "admin",
+      "shop": null,
+      "role": "admin"
+    }
+  }
+]
