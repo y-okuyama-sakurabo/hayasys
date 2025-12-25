@@ -41,36 +41,39 @@ class ScheduleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
 # トップページ用スケジュール一覧・登録
 # -----------------------------
 class ScheduleListCreateAPIView(generics.ListCreateAPIView):
-    """
-    - 通常ユーザー: 自身の所属店舗のスケジュールを表示
-    - 管理者（is_staff=True or role='admin'）: 全店舗を表示
-    """
     serializer_class = ScheduleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
+        qs = Schedule.objects.select_related("customer", "shop", "staff")
 
-        # 管理者は全店舗のスケジュール
-        if user.is_staff or getattr(user, "role", "") == "admin":
-            return Schedule.objects.select_related("customer", "shop", "staff").order_by("-start_at")
+        # -------------------------
+        # 店舗フィルタ（最優先）
+        # -------------------------
+        shop_id = self.request.query_params.get("shop_id")
+        if shop_id:
+            qs = qs.filter(shop_id=shop_id)
+        else:
+            # shop_id 未指定時のデフォルト挙動
+            if not (user.is_staff or getattr(user, "role", "") == "admin"):
+                if user.shop:
+                    qs = qs.filter(shop=user.shop)
+                else:
+                    qs = qs.filter(staff=user)
 
-        # 所属店舗があるユーザー
-        if user.shop:
-            return (
-                Schedule.objects
-                .filter(shop=user.shop)
-                .select_related("customer", "shop", "staff")
-                .order_by("-start_at")
+        # -------------------------
+        # 期間フィルタ（カレンダー用）
+        # -------------------------
+        start = self.request.query_params.get("start")
+        end = self.request.query_params.get("end")
+        if start and end:
+            qs = qs.filter(
+                start_at__lt=end,
+                end_at__gte=start
             )
 
-        # 所属店舗がない場合は自分のスケジュールのみ
-        return (
-            Schedule.objects
-            .filter(staff=user)
-            .select_related("customer", "shop", "staff")
-            .order_by("-start_at")
-        )
+        return qs.order_by("start_at")
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -78,3 +81,4 @@ class ScheduleListCreateAPIView(generics.ListCreateAPIView):
             staff=user,
             shop=getattr(user, "shop", None),
         )
+

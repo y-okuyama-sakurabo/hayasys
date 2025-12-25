@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import generics, permissions, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import status
 from core.models.payments import Payment
 
 from core.models import (
@@ -104,23 +105,53 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
 # ======================================
 # 受注単体
 # ======================================
+
 class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Order.objects.all().select_related(
-        "customer",
-        "shop",
-        "created_by",
-    ).prefetch_related("items", "order_vehicles")
+    queryset = Order.objects.all().prefetch_related(
+        "items",
+        "items__deliveryitem_set",   # ← ここが正解
+        "deliveries",
+        "order_vehicles",
+        "payment_management__records",
+    )
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.request.method == "GET":
             return OrderDetailSerializer
         return OrderSerializer
-
-    def perform_update(self, serializer):
-        staff = getattr(self.request.user, "staff", None)
-        shop = getattr(staff, "shop", None)
+    
+    def perform_update(self, serializer): 
+        staff = getattr(self.request.user, "staff", None) 
+        shop = getattr(staff, "shop", None) 
         serializer.save(shop=shop)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        order = self.get_object()
+
+        # ① DeliveryItem（最優先）
+        for item in order.items.all():
+            item.deliveryitem_set.all().delete()
+
+        # ② Delivery
+        order.deliveries.all().delete()
+
+        # ③ OrderItem
+        order.items.all().delete()
+
+        # ④ OrderVehicle
+        order.order_vehicles.all().delete()
+
+        # ⑤ PaymentManagement（records は CASCADE）
+        if hasattr(order, "payment_management"):
+            order.payment_management.delete()
+
+        # ⑥ Order
+        order.delete()
+
+        return Response(status=204)
+
 
 
 # ======================================

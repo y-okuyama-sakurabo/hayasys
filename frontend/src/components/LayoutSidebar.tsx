@@ -29,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import MailIcon from "@mui/icons-material/Mail"; // 追加
 
 const drawerWidth = 240;
 
@@ -42,18 +43,20 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
 
   // === 初期ロード：ユーザー情報 ===
   React.useEffect(() => {
-    const storedRole = localStorage.getItem("user_role");
-    setRole(storedRole);
-
     const fetchUser = async () => {
       try {
         const res = await apiClient.get("/auth/user/");
+
         setDisplayName(res.data.display_name || res.data.login_id || "未設定");
         setShopName(res.data.shop_name || "");
+
+        // ★ ここが重要
+        setRole(res.data.role); // ← admin / staff など
       } catch (err) {
         console.error("ユーザー情報取得失敗:", err);
       }
     };
+
     fetchUser();
   }, []);
 
@@ -88,12 +91,16 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
 
   // === メニュー定義 ===
   const baseMenus = [
-    { text: "ダッシュボード", icon: <Dashboard />, path: "/dashboard" },
     { text: "顧客管理", icon: <People />, path: "/dashboard/customers" },
     { text: "見積管理", icon: <Description />, path: "/dashboard/estimates" },
     { text: "受注管理", icon: <Description />, path: "/dashboard/orders" },
     { text: "納品入金管理", icon: <Description />, path: "/dashboard/management" },
     { text: "スケジュール", icon: <Schedule />, path: "/dashboard/schedules" },
+    {
+      text: "業務連絡",
+      icon: <MailIcon />,
+      path: "/dashboard/business-communications",
+    },
   ];
 
   const adminMenus =

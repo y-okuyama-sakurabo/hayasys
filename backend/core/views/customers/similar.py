@@ -10,8 +10,7 @@ from core.models import Customer
 
 class SimilarCustomerAPIView(APIView):
     """
-    顧客の重複候補を検索するAPI。
-    受注作成・見積作成時に利用。
+    顧客の重複候補を検索するAPI
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -24,50 +23,48 @@ class SimilarCustomerAPIView(APIView):
         if not name and not phone and not email:
             return Response(
                 {"detail": "name / phone / email のいずれかは必要です"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # ==============================
-        # 類似候補の検索ロジック
-        # ==============================
 
         q = Q()
 
-        # ● 名前＋電話 or 名前＋メール
-        if name and phone:
-            q |= Q(name=name, phone=phone)
-        if name and email:
-            q |= Q(name=name, email=email)
+        # --------------------
+        # 電話番号正規化
+        # --------------------
+        def normalize_phone(p):
+            return p.replace("-", "").replace(" ", "") if p else None
 
-        # ● 電話だけ一致
-        if phone:
-            q |= Q(phone=phone)
+        phone_norm = normalize_phone(phone)
 
-        # ● メールだけ一致
+        # --------------------
+        # 名前
+        # --------------------
+        if name:
+            q |= Q(name__icontains=name)
+
+        # --------------------
+        # 電話
+        # --------------------
+        if phone_norm:
+            q |= Q(phone__icontains=phone_norm)
+
+        # --------------------
+        # メール
+        # --------------------
         if email:
             q |= Q(email=email)
 
-        # ● 住所一致（任意。強すぎるので一応）
+        # --------------------
+        # 住所（補助）
+        # --------------------
         if address:
             q |= Q(address__icontains=address)
 
         similar = Customer.objects.filter(q).distinct()
 
-        # ==============================
-        # レスポンス作成
-        # ==============================
-        if not similar.exists():
-            return Response(
-                {
-                    "has_similar": False,
-                    "candidates": []
-                },
-                status=200,
-            )
-
         return Response(
             {
-                "has_similar": True,
+                "has_similar": similar.exists(),
                 "candidates": [
                     {
                         "id": c.id,
@@ -77,7 +74,7 @@ class SimilarCustomerAPIView(APIView):
                         "address": c.address,
                     }
                     for c in similar
-                ]
+                ],
             },
-            status=200,
+            status=status.HTTP_200_OK,
         )

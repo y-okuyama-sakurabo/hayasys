@@ -78,15 +78,26 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
 
 
 class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Estimate.objects.all().select_related(
-        "party", 
-        "shop", 
-        "created_by",
-        "party__customer_class", 
-        "party__region", 
-        "party__gender",
-    )
     permission_classes = [permissions.IsAuthenticated]
+
+    queryset = (
+        Estimate.objects
+        .select_related(
+            "party",
+            "shop",
+            "created_by",
+            "party__customer_class",
+            "party__region",
+            "party__gender",
+        )
+        .prefetch_related(
+            "items",
+            "items__product",
+            "items__product__small",
+            "items__product__small__middle",
+            "items__product__small__middle__large",
+        )
+    )
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -112,7 +123,6 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
             shop = user_shop
 
         serializer.save(shop=shop)
-
 
 class EstimateNextNoAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]

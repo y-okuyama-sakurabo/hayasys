@@ -1,8 +1,9 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
-from core.models import BusinessCommunication, Customer, Shop
+from core.models import BusinessCommunication, Customer
 from core.serializers.business_communications import (
     BusinessCommunicationSerializer,
     BusinessCommunicationWriteSerializer,
@@ -17,10 +18,20 @@ class CustomerBusinessCommunicationListCreateAPIView(generics.ListCreateAPIView)
 
     def get_queryset(self):
         customer_id = self.kwargs["customer_id"]
+        user = self.request.user
+        shop = getattr(user, "shop", None)
+
+        if not shop:
+            return BusinessCommunication.objects.none()
+
         return (
-            BusinessCommunication.objects
-            .filter(customer_id=customer_id)
-            .select_related("customer", "sender_shop", "receiver_shop", "staff")
+        BusinessCommunication.objects.filter(
+            Q(sender_shop=shop) | Q(receiver_shop=shop),
+            customer_id=customer_id,
+        )
+
+
+            .select_related("customer", "sender_shop", "receiver_shop", "created_by")
             .order_by("-created_at")
         )
 
@@ -31,11 +42,6 @@ class CustomerBusinessCommunicationListCreateAPIView(generics.ListCreateAPIView)
         return BusinessCommunicationSerializer
 
     def perform_create(self, serializer):
-        """
-        登録時に自動で:
-        - 送信店舗 = ログインユーザーの所属店舗
-        - 投稿者（staff） = ログインユーザー
-        """
         customer_id = self.kwargs["customer_id"]
         customer = get_object_or_404(Customer, pk=customer_id)
 
@@ -45,7 +51,7 @@ class CustomerBusinessCommunicationListCreateAPIView(generics.ListCreateAPIView)
         serializer.save(
             customer=customer,
             sender_shop=sender_shop,
-            staff=user,
+            created_by=user,
         )
 
 
@@ -66,7 +72,7 @@ class ShopBusinessCommunicationListAPIView(generics.ListAPIView):
         return (
             BusinessCommunication.objects
             .filter(receiver_shop=shop)
-            .select_related("customer", "sender_shop", "receiver_shop", "staff")
+            .select_related("customer", "sender_shop", "receiver_shop", "created_by")
             .order_by("-created_at")
         )
 
@@ -80,6 +86,16 @@ class BusinessCommunicationStatusUpdateAPIView(generics.UpdateAPIView):
 
     def patch(self, request, *args, **kwargs):
         instance = self.get_object()
+        user = request.user
+        user_shop = getattr(user, "shop", None)
+
+        # 受信店舗のみステータス更新可能
+        if instance.receiver_shop != user_shop:
+            return Response(
+                {"detail": "この業務連絡を更新する権限がありません"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         new_status = request.data.get("status")
 
         if new_status not in ["pending", "done"]:
@@ -89,9 +105,12 @@ class BusinessCommunicationStatusUpdateAPIView(generics.UpdateAPIView):
             )
 
         instance.status = new_status
-        instance.save(update_fields=["status", "updated_at"])
+        instance.save(update_fields=["status"])
 
         return Response(
-            {"message": "ステータスを更新しました", "status": instance.status},
+            {
+                "message": "ステータスを更新しました",
+                "status": instance.status,
+            },
             status=status.HTTP_200_OK,
         )

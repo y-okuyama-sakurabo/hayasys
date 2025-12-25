@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Box,
   TextField,
@@ -11,14 +11,12 @@ import {
   Typography,
   Grid,
   MenuItem,
-  InputAdornment,
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import apiClient from "@/lib/apiClient";
 import { debounce } from "lodash";
-import SearchIcon from "@mui/icons-material/Search";
 
 type Customer = {
   id: number;
@@ -31,12 +29,37 @@ type Customer = {
   mobile_phone?: string;
   company?: string;
   company_phone?: string;
-  customer_class?: number;
-  region?: number;
-  gender?: number;
-  first_shop?: number;
-  last_shop?: number;
-  birthdate?: string;
+  // ※ detail API だと object の場合があるので any で受ける
+  customer_class?: any;
+  region?: any;
+  gender?: any;
+  birthdate?: string | null;
+};
+
+type EstimatePartyPayload = {
+  // ★ここが肝：元顧客IDをスナップショットとして持つ
+  source_customer?: number | null;
+
+  name: string;
+  kana?: string | null;
+  email?: string | null;
+  postal_code?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  mobile_phone?: string | null;
+  company?: string | null;
+  company_phone?: string | null;
+
+  customer_class?: number | null;
+  region?: number | null;
+  gender?: number | null;
+  birthdate?: string | null;
+
+  // ここは画面で使ってないなら無くてもOK
+  first_shop?: number | null;
+  last_shop?: number | null;
+
+  staff?: number | null;
 };
 
 export default function PartySelector({
@@ -56,7 +79,7 @@ export default function PartySelector({
   setEstimateData: (data: any) => void;
   formData?: any;
   setFormData?: (data: any) => void;
-  party?: Customer;
+  party?: any;
 }) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Customer[]>([]);
@@ -68,12 +91,45 @@ export default function PartySelector({
   const [estimateDate, setEstimateDate] = useState(dayjs());
 
   // ==============================
-  // 共通更新関数
+  // helper: detail/customer → new_party payload
   // ==============================
-  const handleChange = (field: string, value: any) => {
-    let normalizedValue = value;
+  const toPartyPayload = (detail: any): EstimatePartyPayload => {
+    const getId = (v: any) => (v && typeof v === "object" ? v.id : v ?? null);
+
+    return {
+      // ★元顧客
+      source_customer: detail?.id ?? null,
+
+      name: detail?.name || "",
+      kana: detail?.kana ?? "",
+      email: detail?.email ?? "",
+      postal_code: detail?.postal_code ?? "",
+      address: detail?.address ?? "",
+      phone: detail?.phone ?? "",
+      mobile_phone: detail?.mobile_phone ?? "",
+      company: detail?.company ?? "",
+      company_phone: detail?.company_phone ?? "",
+
+      customer_class: getId(detail?.customer_class),
+      region: getId(detail?.region),
+      gender: getId(detail?.gender),
+      birthdate: detail?.birthdate ?? null,
+
+      first_shop: getId(detail?.first_shop),
+      last_shop: getId(detail?.last_shop),
+
+      staff: getId(detail?.staff),
+    };
+  };
+
+  // ==============================
+  // 共通更新関数（フォーム入力 → new_party 更新）
+  // ==============================
+  const handleChange = (field: keyof EstimatePartyPayload, value: any) => {
+    let normalizedValue: any = value;
 
     if (field === "birthdate") {
+      // DatePicker から来る Dayjs / null を YYYY-MM-DD or null に
       if (dayjs.isDayjs(value)) {
         normalizedValue = value.isValid() ? value.format("YYYY-MM-DD") : null;
       } else if (!value || value === "") {
@@ -85,9 +141,14 @@ export default function PartySelector({
       }
     }
 
-    const updated = { ...newParty, [field]: normalizedValue };
+    const updated: EstimatePartyPayload = {
+      ...(newParty || {}),
+      [field]: normalizedValue,
+    };
+
     setNewParty(updated);
 
+    // ★保存用 formData も必ず new_party を更新
     if (setFormData) {
       setFormData((prev: any) => ({
         ...prev,
@@ -120,90 +181,128 @@ export default function PartySelector({
         });
       })
       .catch((err) => console.error("初期データ取得失敗:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ==============================
-  // 編集モード：既存顧客 初期化
+  // 編集モード：既存見積の party をフォームへ初期表示
   // ==============================
   useEffect(() => {
-    if (party && Object.keys(party).length > 0 && !newParty?.id) {
-      const initParty = {
-        id: party.id,
-        name: party.name || "",
-        kana: party.kana || "",
-        email: party.email || "",
-        postal_code: party.postal_code || "",
-        address: party.address || "",
-        phone: party.phone || "",
-        mobile_phone: party.mobile_phone || "",
-        company: party.company || "",
-        company_phone: party.company_phone || "",
+    if (party && Object.keys(party).length > 0 && !newParty?.name) {
+      // 既存見積の party は EstimateParty なので source_customer があればそれも引き継ぎ
+      const initParty: EstimatePartyPayload = {
+        source_customer: party?.source_customer ?? null,
+
+        name: party?.name || "",
+        kana: party?.kana ?? "",
+        email: party?.email ?? "",
+        postal_code: party?.postal_code ?? "",
+        address: party?.address ?? "",
+        phone: party?.phone ?? "",
+        mobile_phone: party?.mobile_phone ?? "",
+        company: party?.company ?? "",
+        company_phone: party?.company_phone ?? "",
+
         customer_class:
-          party.customer_class && typeof party.customer_class === "object"
+          party?.customer_class && typeof party.customer_class === "object"
             ? party.customer_class.id
-            : party.customer_class ?? null,
+            : party?.customer_class ?? null,
         region:
-          party.region && typeof party.region === "object"
+          party?.region && typeof party.region === "object"
             ? party.region.id
-            : party.region ?? null,
+            : party?.region ?? null,
         gender:
-          party.gender && typeof party.gender === "object"
+          party?.gender && typeof party.gender === "object"
             ? party.gender.id
-            : party.gender ?? null,
-        birthdate: party.birthdate ?? null,
+            : party?.gender ?? null,
+
+        birthdate: party?.birthdate ?? null,
+
+        first_shop:
+          party?.first_shop && typeof party.first_shop === "object"
+            ? party.first_shop.id
+            : party?.first_shop ?? null,
+        last_shop:
+          party?.last_shop && typeof party.last_shop === "object"
+            ? party.last_shop.id
+            : party?.last_shop ?? null,
+
+        staff:
+          party?.staff && typeof party.staff === "object"
+            ? party.staff.id
+            : party?.staff ?? null,
       };
+
       setNewParty(initParty);
-      setSearch(party.name || "");
+
+      if (setFormData) {
+        setFormData((prev: any) => ({
+          ...prev,
+          new_party: initParty,
+        }));
+      }
+
+      setSearch(party?.name || "");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [party]);
 
   // ==============================
   // リアルタイム検索（インクリメンタルサーチ）
   // ==============================
-  const debouncedSearch = debounce(async (value: string) => {
-    if (!value || value.trim() === "") {
-      setResults([]);
-      return;
-    }
-
-    try {
-      const res = await apiClient.get(`/customers/?search=${value}`);
-      setResults(res.data.results || res.data);
-    } catch (err) {
-      console.error("リアルタイム顧客検索失敗:", err);
-    }
-  }, 300);
+  const debouncedSearch = useMemo(
+    () =>
+      debounce(async (value: string) => {
+        if (!value || value.trim() === "") {
+          setResults([]);
+          return;
+        }
+        try {
+          const res = await apiClient.get(`/customers/?search=${value}`);
+          setResults(res.data.results || res.data || []);
+        } catch (err) {
+          console.error("リアルタイム顧客検索失敗:", err);
+        }
+      }, 300),
+    []
+  );
 
   useEffect(() => {
     debouncedSearch(search);
     return () => debouncedSearch.cancel();
-  }, [search]);
+  }, [search, debouncedSearch]);
 
   // ==============================
-  // 顧客選択
+  // 顧客選択：必ず detail を取り、new_party（スナップショット）として保存する
   // ==============================
-  const handleSelect = (customer: Customer) => {
-    onSelectParty(customer);
+  const handleSelect = async (customer: Customer) => {
+    try {
+      const res = await apiClient.get(`/customers/${customer.id}/`);
+      const detail = res.data;
 
-    const partyData = {
-      ...customer,
-      customer_class:
-        typeof customer.customer_class === "object"
-          ? customer.customer_class.id
-          : customer.customer_class ?? null,
-      region:
-        typeof customer.region === "object"
-          ? customer.region.id
-          : customer.region ?? null,
-      gender:
-        typeof customer.gender === "object"
-          ? customer.gender.id
-          : customer.gender ?? null,
-    };
+      const partyData = toPartyPayload(detail);
 
-    setNewParty(partyData);
-    setResults([]);
-    setSearch(customer.name);
+      setNewParty(partyData);
+
+      if (setFormData) {
+        setFormData((prev: any) => ({
+          ...prev,
+          // ✅ 既存顧客でも「new_party」で送る（party_id / customer_id は使わない）
+          new_party: partyData,
+
+          // ✅ 事故防止：もし残ってたら消す
+          customer_id: undefined,
+          party_id: undefined,
+        }));
+      }
+
+      onSelectParty(detail);
+
+      setResults([]);
+      setSearch(detail.name || "");
+    } catch (err) {
+      console.error("顧客詳細取得失敗:", err);
+    }
   };
 
   return (
@@ -217,9 +316,8 @@ export default function PartySelector({
             label="顧客検索"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: 300 }}   // ← 🔹固定幅
+            sx={{ width: 300 }}
           />
-          {/* 検索ボタンはあってもなくてもOK */}
           <Button variant="outlined" onClick={() => debouncedSearch(search)}>
             検索
           </Button>
@@ -240,7 +338,10 @@ export default function PartySelector({
                 }}
               >
                 {results.map((customer) => (
-                  <ListItemButton key={customer.id} onClick={() => handleSelect(customer)}>
+                  <ListItemButton
+                    key={customer.id}
+                    onClick={() => handleSelect(customer)}
+                  >
                     <ListItemText
                       primary={customer.name}
                       secondary={customer.phone || customer.address || ""}
@@ -274,7 +375,6 @@ export default function PartySelector({
         </Typography>
 
         <Grid container spacing={3}>
-          {/* 基本情報 */}
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="氏名"
@@ -283,6 +383,7 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="カナ"
@@ -291,6 +392,7 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="メールアドレス"
@@ -301,7 +403,6 @@ export default function PartySelector({
             />
           </Grid>
 
-          {/* 2行目 */}
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="電話番号"
@@ -310,6 +411,7 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="携帯電話"
@@ -318,6 +420,7 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="郵便番号"
@@ -327,7 +430,6 @@ export default function PartySelector({
             />
           </Grid>
 
-          {/* 3行目 */}
           <Grid item xs={12}>
             <TextField
               label="住所"
@@ -337,7 +439,6 @@ export default function PartySelector({
             />
           </Grid>
 
-          {/* 4行目 */}
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="会社名"
@@ -346,6 +447,7 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               label="会社電話番号"
@@ -354,32 +456,29 @@ export default function PartySelector({
               fullWidth
             />
           </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <DatePicker
               label="生年月日"
               value={newParty?.birthdate ? dayjs(newParty.birthdate) : null}
               onChange={(newDate: any) => {
-                let formatted: string | null = null;
-
-                if (dayjs.isDayjs(newDate)) {
-                  formatted = newDate.isValid() ? newDate.format("YYYY-MM-DD") : null;
-                } else {
-                  formatted = null;
-                }
-
-                handleChange("birthdate", formatted);
+                handleChange("birthdate", newDate);
               }}
               slotProps={{ textField: { fullWidth: true } }}
             />
           </Grid>
 
-          {/* マスタ */}
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               select
               label="顧客区分"
-              value={newParty?.customer_class || ""}
-              onChange={(e) => handleChange("customer_class", Number(e.target.value))}
+              value={newParty?.customer_class ?? ""}
+              onChange={(e) =>
+                handleChange(
+                  "customer_class",
+                  e.target.value === "" ? null : Number(e.target.value)
+                )
+              }
               fullWidth
             >
               {classes.map((c) => (
@@ -394,8 +493,13 @@ export default function PartySelector({
             <TextField
               select
               label="地域"
-              value={newParty?.region || ""}
-              onChange={(e) => handleChange("region", Number(e.target.value))}
+              value={newParty?.region ?? ""}
+              onChange={(e) =>
+                handleChange(
+                  "region",
+                  e.target.value === "" ? null : Number(e.target.value)
+                )
+              }
               fullWidth
             >
               {regions.map((r) => (
@@ -410,8 +514,13 @@ export default function PartySelector({
             <TextField
               select
               label="性別"
-              value={newParty?.gender || ""}
-              onChange={(e) => handleChange("gender", Number(e.target.value))}
+              value={newParty?.gender ?? ""}
+              onChange={(e) =>
+                handleChange(
+                  "gender",
+                  e.target.value === "" ? null : Number(e.target.value)
+                )
+              }
               fullWidth
             >
               {genders.map((g) => (

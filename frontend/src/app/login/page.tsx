@@ -32,7 +32,7 @@ export default function LoginPage() {
       // Cookie に保存されるため localStorage は不要
 
       // → ダッシュボードへ遷移
-      router.push("/dashboard");
+      router.push("/");
     } catch (err: any) {
       if (err.response?.status === 401) {
         setError("ユーザー名またはパスワードが正しくありません。");

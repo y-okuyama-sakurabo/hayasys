@@ -88,6 +88,8 @@ class EstimateSerializer(serializers.ModelSerializer):
 
     # === 新規作成 ===
     def create(self, validated_data):
+        print("=== CREATE validated_data ===")
+        print(validated_data)
         new_party_data = validated_data.pop("new_party", None)
 
         if new_party_data and not validated_data.get("party"):
@@ -123,71 +125,13 @@ class EstimateSerializer(serializers.ModelSerializer):
 
     # === 更新 ===
     def update(self, instance, validated_data):
-        print("=== DEBUG: Request Data (validated_data) ===")
-        print(validated_data)
+        # 🔥 party 系は一切更新しない
+        validated_data.pop("new_party", None)
+        validated_data.pop("party", None)
+        validated_data.pop("party_id", None)
 
-        new_party_data = validated_data.pop("new_party", None)
-        print("=== DEBUG: new_party_data ===")
-        print(new_party_data)
+        return super().update(instance, validated_data)
 
-        if new_party_data:
-            if not new_party_data.get("birthdate"):
-                new_party_data["birthdate"] = None
-
-            fk_fields = ["customer_class", "region", "gender"]
-
-            # --- 外部キーID変換 ---
-            fk_id_updates = {}
-            for fk in fk_fields:
-                if fk in new_party_data:
-                    value = new_party_data[fk]
-
-                    # モデルインスタンス（<CustomerClass: 個人>など）の場合
-                    if hasattr(value, "id"):
-                        fk_id_updates[f"{fk}_id"] = value.id
-
-                    # ID（intまたは数字文字列）の場合
-                    elif isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
-                        fk_id_updates[f"{fk}_id"] = int(value)
-
-                    # Noneや空文字ならNULL扱い
-                    elif value in [None, ""]:
-                        fk_id_updates[f"{fk}_id"] = None
-
-                    # それ以外の型はスキップ
-                    else:
-                        fk_id_updates[f"{fk}_id"] = None
-
-                    new_party_data.pop(fk, None)
-
-            # --- 更新 or 新規作成 ---
-            if instance.party:
-                party = instance.party
-
-                # 外部キーIDセット
-                for fk_id_field, value in fk_id_updates.items():
-                    setattr(party, fk_id_field, value)
-
-                # 通常フィールド更新
-                for field, value in new_party_data.items():
-                    setattr(party, field, value)
-
-                party.save(update_fields=None)
-
-            else:
-                new_party_data.update(fk_id_updates)
-                new_party = EstimateParty.objects.create(**new_party_data)
-                instance.party = new_party
-
-        # === 見積ヘッダ更新 ===
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        if instance.party_id:
-            instance.party.refresh_from_db()
-
-        return instance
     
     def get_created_by(self, obj):    
         if not obj.created_by:
