@@ -15,3 +15,5 @@ from .order_delivery_payment import (
     PaymentManagement,
     PaymentRecord,
 )
+from .business_communication_attachments import BusinessCommunicationAttachment
+

@@ -4,11 +4,56 @@ from rest_framework import serializers
 from core.models import (
     Customer, CustomerVehicle, Vehicle, Shop,
     CustomerClass, Gender, Region, CustomerImage,
-    CustomerMemo,
+    CustomerMemo, Order, Estimate,
 )
 from .vehicles import VehicleWriteSerializer
 
 User = get_user_model()
+
+class CustomerShopMixin:
+    def _get_actions(self, obj):
+        orders = (
+            Order.objects
+            .filter(customer_id=obj.id)
+            .select_related("shop")
+            .values("shop__id", "shop__name", "shop__code", "created_at")
+        )
+
+        estimates = (
+            Estimate.objects
+            .filter(
+                party__source_customer_id=obj.id,
+            )
+            .select_related("shop")
+            .values("shop__id", "shop__name", "shop__code", "created_at")
+        )
+
+        return list(orders) + list(estimates)
+
+    def get_first_shop(self, obj):
+        actions = self._get_actions(obj)
+        if not actions:
+            return None
+
+        first = min(actions, key=lambda x: x["created_at"])
+        return {
+            "id": first["shop__id"],
+            "name": first["shop__name"],
+            "code": first["shop__code"],
+        }
+
+    def get_last_shop(self, obj):
+        actions = self._get_actions(obj)
+        if not actions:
+            return None
+
+        last = max(actions, key=lambda x: x["created_at"])
+        return {
+            "id": last["shop__id"],
+            "name": last["shop__name"],
+            "code": last["shop__code"],
+        }
+
 
 # ---- Tiny / Mini serializers ----
 class ShopTinySerializer(serializers.ModelSerializer):
@@ -57,15 +102,16 @@ class UserTinySerializer(serializers.ModelSerializer):
         fields = ("id", "login_id", "full_name")
 
     def get_full_name(self, obj):
-        return f"{obj.last_name} {obj.first_name}"
+        # display_name があればそれ、なければ login_id
+        return obj.display_name or obj.login_id
 
 
 
 # ---- List ----
-class CustomerListSerializer(serializers.ModelSerializer):
+class CustomerListSerializer(CustomerShopMixin, serializers.ModelSerializer):
     owned_vehicle_count = serializers.IntegerField(read_only=True)
-    first_shop = ShopTinySerializer(read_only=True)
-    last_shop  = ShopTinySerializer(read_only=True)
+    first_shop = serializers.SerializerMethodField()
+    last_shop  = serializers.SerializerMethodField()
     staff = UserTinySerializer(read_only=True, allow_null=True)
 
     class Meta:
@@ -89,13 +135,13 @@ class OwnedVehicleSerializer(serializers.ModelSerializer):
         model = CustomerVehicle
         fields = ("id", "owned_from", "owned_to", "vehicle")
 
-class CustomerDetailSerializer(serializers.ModelSerializer):
+class CustomerDetailSerializer(CustomerShopMixin, serializers.ModelSerializer):
     customer_class = CustomerClassMiniSerializer(read_only=True, allow_null=True)
     staff         = UserTinySerializer(read_only=True, allow_null=True)
     region        = RegionMiniSerializer(read_only=True, allow_null=True)
     gender        = GenderMiniSerializer(read_only=True, allow_null=True)
-    first_shop    = ShopTinySerializer(read_only=True, allow_null=True)
-    last_shop     = ShopTinySerializer(read_only=True, allow_null=True)
+    first_shop = serializers.SerializerMethodField()
+    last_shop  = serializers.SerializerMethodField()
 
     owned_vehicles = serializers.SerializerMethodField()
 

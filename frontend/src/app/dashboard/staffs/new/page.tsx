@@ -141,7 +141,7 @@ export default function StaffNewPage() {
         {/* パスワード */}
         <TextField
           fullWidth
-          label="パスワード（未入力の場合は自動生成）"
+          label="パスワード"
           variant="outlined"
           type="password"
           value={form.password}

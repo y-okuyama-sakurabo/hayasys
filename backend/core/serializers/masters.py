@@ -43,17 +43,17 @@ class StaffSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "display_name",   # ✅ 表示名
-            "login_id",       # ✅ ログインID
-            "shop",           # ✅ 所属店舗（ID）
-            "shop_name",      # ✅ 店舗名（リードオンリー）
-            "role",           # ✅ 権限（staff / admin）
-            "password",       # ✅ パスワード
-            "is_active",      # ✅ 有効フラグ
+            "display_name",   
+            "login_id",      
+            "shop",           
+            "shop_name",    
+            "role",       
+            "password",      
+            "is_active",      
         ]
         extra_kwargs = {
             "login_id": {"required": True},
-            "display_name": {"required": True},  # ✅ 表示名を必須化（UIに合わせる）
+            "display_name": {"required": True},  
             "shop": {"required": False, "allow_null": True},
             "role": {"required": False},
         }
@@ -62,7 +62,7 @@ class StaffSerializer(serializers.ModelSerializer):
         """スタッフ登録時（新規作成）"""
         password = validated_data.pop("password", None)
         user = User(**validated_data)
-        user.set_password(password or "password123")  # ✅ デフォルトパスワード設定
+        user.set_password(password or "password123")  
         user.save()
         return user
 
