@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
+
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import theme from "@/theme"; // 自作theme。なければ後述の暫定でもOK
 
