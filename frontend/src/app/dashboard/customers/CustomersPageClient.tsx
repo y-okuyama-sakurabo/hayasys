@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -53,6 +53,7 @@ export default function CustomerListPage() {
   }>({});
 
   const search = searchParams.get("search") || "";
+  const refreshKey = searchParams.get("_r") || "";
 
   // ============================
   // データ取得
@@ -78,17 +79,14 @@ export default function CustomerListPage() {
     };
 
     fetchCustomers();
-  }, [page, search, searchParams.get("_r")]);
+  }, [page, search, refreshKey]);
 
   const maxPage = Math.ceil(count / pageSize);
 
   // ============================
   // メニュー操作
   // ============================
-  const openMenu = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    id: number
-  ) => {
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, id: number) => {
     e.stopPropagation();
     setMenuAnchor((prev) => ({ ...prev, [id]: e.currentTarget }));
   };
@@ -121,9 +119,7 @@ export default function CustomerListPage() {
 
         <Button
           variant="contained"
-          onClick={() =>
-            router.push(`/dashboard/customers/new?_r=${Date.now()}`)
-          }
+          onClick={() => router.push(`/dashboard/customers/new?_r=${Date.now()}`)}
         >
           顧客を作成
         </Button>
@@ -148,9 +144,7 @@ export default function CustomerListPage() {
                 key={c.id}
                 hover
                 sx={{ cursor: "pointer" }}
-                onClick={() =>
-                  router.push(`/dashboard/customers/${c.id}`)
-                }
+                onClick={() => router.push(`/dashboard/customers/${c.id}`)}
               >
                 <TableCell>{c.id}</TableCell>
 
@@ -182,10 +176,7 @@ export default function CustomerListPage() {
                 </TableCell>
 
                 {/* === 操作（︙メニュー） === */}
-                <TableCell
-                  align="center"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                   <IconButton
                     aria-label="操作メニュー"
                     onClick={(e) => openMenu(e, c.id)}
@@ -213,12 +204,8 @@ export default function CustomerListPage() {
                     <MenuItem
                       onClick={async () => {
                         closeMenu(c.id);
-                        if (
-                          !confirm(
-                            `顧客「${c.name}」を削除しますか？`
-                          )
-                        )
-                          return;
+                        if (!confirm(`顧客「${c.name}」を削除しますか？`)) return;
+
                         try {
                           await apiClient.delete(`/customers/${c.id}/`);
                           setCustomers((prev) =>

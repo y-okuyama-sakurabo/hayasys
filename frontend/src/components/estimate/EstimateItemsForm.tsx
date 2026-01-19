@@ -128,7 +128,7 @@ export default function EstimateItemsForm({
         <Box key={index} mb={2} p={2} border="1px solid #ddd" borderRadius={2}>
           <Grid container spacing={2} alignItems="center">
             {/* 商品名 */}
-            <Grid item xs={12} md={3}>
+            <Grid size={{ xs: 12, md: 3 }}>
               <Box
                 onClick={() => {
                   setTargetIndex(index);
@@ -148,7 +148,7 @@ export default function EstimateItemsForm({
               </Box>
             </Grid>
 
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="数量"
                 type="number"
@@ -160,7 +160,7 @@ export default function EstimateItemsForm({
               />
             </Grid>
 
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="単価"
                 type="number"
@@ -172,7 +172,7 @@ export default function EstimateItemsForm({
               />
             </Grid>
 
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="小計"
                 value={
@@ -183,7 +183,7 @@ export default function EstimateItemsForm({
               />
             </Grid>
 
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="値引き"
                 type="number"
@@ -195,7 +195,7 @@ export default function EstimateItemsForm({
               />
             </Grid>
 
-            <Grid item xs={12} md={0.6}>
+            <Grid size={{ xs: 12, md: 0.6 }}>
               <IconButton color="error" onClick={() => handleDeleteItem(index)}>
                 <Delete />
               </IconButton>

@@ -1,7 +1,8 @@
 "use client";
 
 import { Stack, CircularProgress, Typography, Paper } from "@mui/material";
-import BusinessCommunicationItem, { BusinessCommunication } from "./BusinessCommunicationItem";
+import BusinessCommunicationItem, { type BusinessCommunication } from "./BusinessCommunicationItem";
+export type { BusinessCommunication };
 
 export default function BusinessCommunicationList({
   items,

@@ -32,7 +32,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 label="クレジット会社"
@@ -40,7 +40,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
                 onChange={(e) => handleChange("credit_company", e.target.value)}
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 label="回数"
@@ -51,7 +51,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
                 }
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 label="初回支払額"
@@ -62,7 +62,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
                 }
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 label="2回目以降支払額"
@@ -73,7 +73,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
                 }
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 label="ボーナス支払い額"
@@ -84,7 +84,7 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
                 }
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField
                 fullWidth
                 type="month"

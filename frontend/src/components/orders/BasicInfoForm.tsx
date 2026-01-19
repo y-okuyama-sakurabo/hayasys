@@ -64,7 +64,7 @@ export default function BasicInfoForm({ formData, setFormData }: any) {
   return (
     
     <Paper sx={{ p: 2, mb: 3 }}>
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
         <DatePicker
           label="受注日"
           value={formData.order_date ? dayjs(formData.order_date) : dayjs()}

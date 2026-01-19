@@ -128,7 +128,7 @@ export default function EstimateDetailPage() {
         </Typography>
 
         <Grid container justifyContent="space-between" mb={2}>
-          <Grid item>
+          <Grid>
             <Typography variant="subtitle1">
               見積番号：{estimate.estimate_no}
             </Typography>
@@ -138,7 +138,7 @@ export default function EstimateDetailPage() {
           </Grid>
 
           {/* ✅ 顧客情報 */}
-          <Grid item textAlign="right">
+          <Grid textAlign="right">
             <Typography variant="subtitle1">
               {estimate.party?.name || "（顧客名なし）"}
             </Typography>

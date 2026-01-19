@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Box, Typography, Paper, Divider, Button } from "@mui/material";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Box,
+  Typography,
+  Paper,
+  Divider,
+  Button,
+  CircularProgress,
+} from "@mui/material";
+
 import BasicInfoForm from "@/components/estimate/BasicInfoForm";
 import EstimateItemsForm from "@/components/estimate/EstimateItemsForm";
 import VehicleInfoForm from "@/components/estimate/VehicleInfoForm";
 import EstimatePaymentForm from "@/components/estimate/EstimatePaymentForm";
 import apiClient from "@/lib/apiClient";
 
-export default function EstimateNewPage() {
+function EstimateNewInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const copyFrom = searchParams.get("copy_from"); // ← ?copy_from=ID で複製元を指定
+
+  // ?copy_from=ID
+  const copyFrom = useMemo(() => searchParams.get("copy_from"), [searchParams]);
 
   const [formData, setFormData] = useState<any>({
     estimate_no: "",
@@ -29,29 +40,25 @@ export default function EstimateNewPage() {
   useEffect(() => {
     const initForm = async () => {
       try {
-        // 🔹 ログインユーザー情報を取得
         const userRes = await apiClient.get("/auth/user/");
         const user = userRes.data;
 
-        // 🔹 見積番号を取得
         const res = await apiClient.get("/estimates/next-no/");
         const nextNo = res.data.next_estimate_no;
 
-        // 🔹 フォーム初期値に反映
         setFormData((prev: any) => ({
           ...prev,
-          estimate_no: nextNo,           // 見積番号
-          shop: user.shop_id || null,    // 所属店舗（バックエンド送信用）
-          shop_name: user.shop_name || "", // 表示用に保持しておくと便利
+          estimate_no: nextNo,
+          shop: user.shop_id || null,
+          shop_name: user.shop_name || "",
         }));
       } catch (err: any) {
-        console.error("❌ 初期ロード失敗:", err.response?.data || err);
+        console.error("❌ 初期ロード失敗:", err?.response?.data || err);
       }
     };
 
     initForm();
   }, []);
-
 
   // === 複製元のデータ読み込み ===
   useEffect(() => {
@@ -59,12 +66,17 @@ export default function EstimateNewPage() {
 
     const fetchCopySource = async () => {
       try {
-        const [estimateRes, itemsRes, vehiclesRes, paymentsRes] = await Promise.all([
-          apiClient.get(`/estimates/${copyFrom}/`),
-          apiClient.get(`/estimates/${copyFrom}/items/`),
-          apiClient.get(`/estimates/${copyFrom}/vehicles/`).catch(() => ({ data: [] })),
-          apiClient.get(`/estimates/${copyFrom}/payments/`).catch(() => ({ data: [] })),
-        ]);
+        const [estimateRes, itemsRes, vehiclesRes, paymentsRes] =
+          await Promise.all([
+            apiClient.get(`/estimates/${copyFrom}/`),
+            apiClient.get(`/estimates/${copyFrom}/items/`),
+            apiClient
+              .get(`/estimates/${copyFrom}/vehicles/`)
+              .catch(() => ({ data: [] })),
+            apiClient
+              .get(`/estimates/${copyFrom}/payments/`)
+              .catch(() => ({ data: [] })),
+          ]);
 
         const estimate = estimateRes.data;
         const itemsData = itemsRes.data.results || itemsRes.data || [];
@@ -91,6 +103,7 @@ export default function EstimateNewPage() {
         }));
 
         setItems(itemsData);
+
         setHasBike(
           itemsData.some(
             (item: any) =>
@@ -116,6 +129,7 @@ export default function EstimateNewPage() {
   // === 保存処理 ===
   const handleSubmit = async () => {
     console.log("🟢 保存処理開始:", formData, items);
+
     try {
       setLoading(true);
 
@@ -127,18 +141,20 @@ export default function EstimateNewPage() {
       // 2️⃣ 明細登録
       for (const item of items) {
         await apiClient.post(`/estimates/${newEstimateId}/items/`, {
-          product_id: item.product?.id || item.product_id || null, // ✅ product_id を明示的に送る
+          product_id: item.product?.id || item.product_id || null,
           ...item,
         });
       }
 
       // 3️⃣ 車両情報登録（バイクが含まれている場合のみ）
       if (hasBike) {
-        const vehicles = [];
-        if (formData.target?.vehicle_name)
+        const vehicles: any[] = [];
+        if (formData.target?.vehicle_name) {
           vehicles.push({ ...formData.target, is_trade_in: false });
-        if (formData.tradeIn?.vehicle_name)
+        }
+        if (formData.tradeIn?.vehicle_name) {
           vehicles.push({ ...formData.tradeIn, is_trade_in: true });
+        }
 
         for (const v of vehicles) {
           await apiClient.post(`/estimates/${newEstimateId}/vehicles/`, {
@@ -160,18 +176,21 @@ export default function EstimateNewPage() {
       };
 
       console.log("支払い情報送信:", paymentPayload);
-      await apiClient.post(`/estimates/${newEstimateId}/payments/`, paymentPayload);
+      await apiClient.post(
+        `/estimates/${newEstimateId}/payments/`,
+        paymentPayload
+      );
 
       alert("✅ 見積を登録しました！");
+      router.push(`/dashboard/estimates/${newEstimateId}`);
     } catch (err: any) {
-      console.error("登録エラー詳細:", err.response?.data || err);
+      console.error("登録エラー詳細:", err?.response?.data || err);
       alert("登録に失敗しました。詳細はコンソールを確認してください。");
     } finally {
       setLoading(false);
     }
   };
 
-  // === JSX ===
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" fontWeight="bold" mb={3}>
@@ -213,7 +232,7 @@ export default function EstimateNewPage() {
 
       {/* ボタン群 */}
       <Box display="flex" justifyContent="flex-end" gap={2}>
-        <Button variant="outlined" color="secondary">
+        <Button variant="outlined" color="secondary" onClick={() => router.back()}>
           キャンセル
         </Button>
         <Button
@@ -226,5 +245,19 @@ export default function EstimateNewPage() {
         </Button>
       </Box>
     </Box>
+  );
+}
+
+export default function EstimateNewPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box display="flex" justifyContent="center" mt={10}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <EstimateNewInner />
+    </Suspense>
   );
 }

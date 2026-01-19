@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Box, TextField, List, ListItemButton, ListItemText,
-  Typography, Grid, MenuItem
+  Box,
+  TextField,
+  List,
+  ListItemButton,
+  ListItemText,
+  Typography,
+  MenuItem,
+  Grid,
 } from "@mui/material";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -11,16 +17,44 @@ import dayjs from "dayjs";
 import apiClient from "@/lib/apiClient";
 import { debounce } from "lodash";
 
+type Master = { id: number; name: string };
+
+type Customer = {
+  id?: number;
+  name?: string;
+  kana?: string;
+  email?: string;
+  phone?: string;
+  mobile_phone?: string;
+  postal_code?: string;
+  address?: string;
+  company?: string;
+  company_phone?: string;
+  birthdate?: string | null;
+  customer_class?: number | "" | null;
+  region?: number | "" | null;
+  gender?: number | "" | null;
+};
+
+type Props = {
+  customer: Customer;
+  onCustomerChange: (field: keyof Customer | string, value: any) => void;
+  onSelectParty: (c: any) => void;
+};
+
+const toArray = (d: any): any[] =>
+  Array.isArray(d) ? d : d?.results ?? d?.data ?? [];
+
 export default function OrderPartySelector({
   customer,
   onCustomerChange,
   onSelectParty,
-}: any) {
+}: Props) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [classes, setClasses] = useState([]);
-  const [regions, setRegions] = useState([]);
-  const [genders, setGenders] = useState([]);
+  const [classes, setClasses] = useState<Master[]>([]);
+  const [regions, setRegions] = useState<Master[]>([]);
+  const [genders, setGenders] = useState<Master[]>([]);
 
   // ===============================
   // 初期ロード（マスター）
@@ -32,9 +66,9 @@ export default function OrderPartySelector({
       apiClient.get("/masters/genders/"),
     ])
       .then(([cls, reg, gen]) => {
-        setClasses(cls.data);
-        setRegions(reg.data);
-        setGenders(gen.data);
+        setClasses(toArray(cls.data));
+        setRegions(toArray(reg.data));
+        setGenders(toArray(gen.data));
       })
       .catch(console.error);
   }, []);
@@ -42,20 +76,23 @@ export default function OrderPartySelector({
   // ===============================
   // 顧客検索
   // ===============================
-  const debouncedSearch = debounce(async (value: string) => {
-    if (!value.trim()) {
-      setResults([]);
-      return;
-    }
-
-    const res = await apiClient.get(`/customers/?search=${value}`);
-    setResults(res.data.results || res.data);
-  }, 300);
+  const debouncedSearch = useMemo(
+    () =>
+      debounce(async (value: string) => {
+        if (!value.trim()) {
+          setResults([]);
+          return;
+        }
+        const res = await apiClient.get(`/customers/?search=${value}`);
+        setResults(toArray(res.data));
+      }, 300),
+    []
+  );
 
   useEffect(() => {
     debouncedSearch(search);
     return () => debouncedSearch.cancel();
-  }, [search]);
+  }, [search, debouncedSearch]);
 
   // ===============================
   // UI
@@ -63,7 +100,6 @@ export default function OrderPartySelector({
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
-
         {/* 検索 */}
         <TextField
           label="顧客検索"
@@ -91,10 +127,7 @@ export default function OrderPartySelector({
                   setResults([]);
                 }}
               >
-                <ListItemText
-                  primary={c.name}
-                  secondary={c.phone || c.address}
-                />
+                <ListItemText primary={c.name} secondary={c.phone || c.address} />
               </ListItemButton>
             ))}
           </List>
@@ -106,9 +139,8 @@ export default function OrderPartySelector({
         </Typography>
 
         <Grid container spacing={3}>
-
           {/* 氏名 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="氏名"
               value={customer?.name || ""}
@@ -118,7 +150,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* カナ */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="カナ"
               value={customer?.kana || ""}
@@ -128,7 +160,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* メール */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="メールアドレス"
               type="email"
@@ -139,7 +171,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 電話 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="電話番号"
               value={customer?.phone || ""}
@@ -149,7 +181,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 携帯 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="携帯電話"
               value={customer?.mobile_phone || ""}
@@ -159,7 +191,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 郵便番号 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="郵便番号"
               value={customer?.postal_code || ""}
@@ -169,7 +201,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 住所 */}
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               label="住所"
               value={customer?.address || ""}
@@ -179,7 +211,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 会社 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="会社名"
               value={customer?.company || ""}
@@ -189,7 +221,7 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 会社電話 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="会社電話番号"
               value={customer?.company_phone || ""}
@@ -199,25 +231,29 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 生年月日 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <DatePicker
               label="生年月日"
               value={customer?.birthdate ? dayjs(customer.birthdate) : null}
-              onChange={(d) =>
-                onCustomerChange("birthdate", d ? d.format("YYYY-MM-DD") : null)
-              }
+              onChange={(d) => {
+                const v = d ? d.format("YYYY-MM-DD") : null;
+                onCustomerChange("birthdate", v);
+              }}
               slotProps={{ textField: { fullWidth: true } }}
             />
           </Grid>
 
           {/* 顧客区分 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="顧客区分"
-              value={customer?.customer_class || ""}
+              value={customer?.customer_class ?? ""}
               onChange={(e) =>
-                onCustomerChange("customer_class", Number(e.target.value))
+                onCustomerChange(
+                  "customer_class",
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
               }
               fullWidth
             >
@@ -230,13 +266,16 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 地域 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="地域"
-              value={customer?.region || ""}
+              value={customer?.region ?? ""}
               onChange={(e) =>
-                onCustomerChange("region", Number(e.target.value))
+                onCustomerChange(
+                  "region",
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
               }
               fullWidth
             >
@@ -249,13 +288,16 @@ export default function OrderPartySelector({
           </Grid>
 
           {/* 性別 */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="性別"
-              value={customer?.gender || ""}
+              value={customer?.gender ?? ""}
               onChange={(e) =>
-                onCustomerChange("gender", Number(e.target.value))
+                onCustomerChange(
+                  "gender",
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
               }
               fullWidth
             >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -47,9 +47,9 @@ type Estimate = {
   created_by?: {
     id: number;
     display_name?: string;
-    name?: string;       // ← バックエンドが name 返す場合
-    login_id?: string;   // ← login_id 返す場合
-    username?: string;   // ← username がある場合
+    name?: string;
+    login_id?: string;
+    username?: string;
     role?: string;
   } | null;
 };
@@ -59,34 +59,31 @@ type Shop = {
   name: string;
 };
 
-export default function EstimateListPage() {
+/** ✅ useSearchParams を使うのは Suspense の内側だけ */
+function EstimateListPageInner() {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<number | "all">("all");
   const [loading, setLoading] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<{ [key: number]: HTMLElement | null }>({});
   const [deleteTarget, setDeleteTarget] = useState<Estimate | null>(null);
+
   const router = useRouter();
   const searchParams = useSearchParams();
+  const refreshKey = searchParams.get("_r"); // ← これがあるから useSearchParams が必要
 
-  // === 初期ロード ===
+  // === 初期ロード & URLパラメータ変化で再フェッチ ===
   useEffect(() => {
     const fetchInitial = async () => {
       try {
-        // 🔹 ログインユーザー情報取得
         const meRes = await apiClient.get("/auth/user/");
-        // 例：{ id, login_id, shop_id, shop_name, role, ... }
         const staffShopId = meRes.data?.shop_id ?? "all";
 
-        // 🔹 店舗一覧取得
         const shopRes = await apiClient.get("/masters/shops/");
         const shopList = shopRes.data.results || shopRes.data;
         setShops(shopList);
 
-        // 🔹 デフォルト店舗設定
         setSelectedShop(staffShopId);
-
-        // 🔹 見積一覧取得
         await fetchEstimates(staffShopId);
       } catch (err) {
         console.error("初期ロード失敗:", err);
@@ -97,7 +94,8 @@ export default function EstimateListPage() {
     };
 
     fetchInitial();
-  }, [searchParams.get("_r")]); // ← URLパラメータ変化で再フェッチ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]); // ← searchParams.get("_r") じゃなく、値を変数化して依存配列へ
 
   // === 見積取得 ===
   const fetchEstimates = async (shopId: number | "all") => {
@@ -139,16 +137,14 @@ export default function EstimateListPage() {
       case "duplicate":
         router.push(`/dashboard/estimates/new?copy_from=${id}&_r=${Date.now()}`);
         break;
-      case "order": {
+      case "order":
         router.push(`/dashboard/orders/new?from_estimate=${id}`);
         break;
-      }
-
-
-      case "delete":
+      case "delete": {
         const target = estimates.find((e) => e.id === id);
         if (target) setDeleteTarget(target);
         break;
+      }
     }
   };
 
@@ -187,15 +183,9 @@ export default function EstimateListPage() {
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
-          {/* 店舗選択 */}
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="shop-select-label">店舗</InputLabel>
-            <Select
-              labelId="shop-select-label"
-              value={selectedShop}
-              label="店舗"
-              onChange={handleShopChange}
-            >
+            <Select labelId="shop-select-label" value={selectedShop} label="店舗" onChange={handleShopChange}>
               <MenuItem value="all">全店舗</MenuItem>
               {shops.map((shop) => (
                 <MenuItem key={shop.id} value={shop.id}>
@@ -205,12 +195,7 @@ export default function EstimateListPage() {
             </Select>
           </FormControl>
 
-          {/* 新規作成 */}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => router.push(`/dashboard/estimates/new?_r=${Date.now()}`)}
-          >
+          <Button variant="contained" color="primary" onClick={() => router.push(`/dashboard/estimates/new?_r=${Date.now()}`)}>
             新規作成
           </Button>
         </Box>
@@ -232,9 +217,7 @@ export default function EstimateListPage() {
           <TableBody>
             {estimates.map((est) => {
               const productName =
-                est.items && est.items.length > 0
-                  ? est.items[0].product?.name || est.items[0].name
-                  : "-";
+                est.items && est.items.length > 0 ? est.items[0].product?.name || est.items[0].name : "-";
 
               return (
                 <TableRow
@@ -246,38 +229,43 @@ export default function EstimateListPage() {
                   <TableCell>{new Date(est.created_at).toLocaleDateString("ja-JP")}</TableCell>
                   <TableCell>{est.party?.name || "（顧客なし）"}</TableCell>
                   <TableCell>{productName}</TableCell>
-                  <TableCell>
-                    {est.created_by?.display_name || "-"}
-                  </TableCell>
+                  <TableCell>{est.created_by?.display_name || "-"}</TableCell>
                   <TableCell align="right">{formatPrice(est.grand_total)}</TableCell>
+
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                     <IconButton aria-label="操作メニュー" onClick={(event) => handleMenuOpen(event, est.id)}>
                       <MoreVertIcon />
                     </IconButton>
 
-                    <Menu
-                      anchorEl={menuAnchor[est.id]}
-                      open={Boolean(menuAnchor[est.id])}
-                      onClose={() => handleMenuClose(est.id)}
-                    >
+                    <Menu anchorEl={menuAnchor[est.id]} open={Boolean(menuAnchor[est.id])} onClose={() => handleMenuClose(est.id)}>
                       <MenuItem onClick={() => handleAction("edit", est.id)}>
-                        <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <EditIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="編集" />
                       </MenuItem>
                       <MenuItem onClick={() => handleAction("detail", est.id)}>
-                        <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <DescriptionIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="詳細" />
                       </MenuItem>
                       <MenuItem onClick={() => handleAction("duplicate", est.id)}>
-                        <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <ContentCopyIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="複製して新規作成" />
                       </MenuItem>
                       <MenuItem onClick={() => handleAction("order", est.id)}>
-                        <ListItemIcon><AddTaskIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <AddTaskIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="受注作成" />
                       </MenuItem>
                       <MenuItem onClick={() => handleAction("delete", est.id)}>
-                        <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                        <ListItemIcon>
+                          <DeleteIcon fontSize="small" color="error" />
+                        </ListItemIcon>
                         <ListItemText primary="削除" />
                       </MenuItem>
                     </Menu>
@@ -288,7 +276,9 @@ export default function EstimateListPage() {
 
             {estimates.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center">データがありません</TableCell>
+                <TableCell colSpan={6} align="center">
+                  データがありません
+                </TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -306,9 +296,20 @@ export default function EstimateListPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteTarget(null)}>キャンセル</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">削除する</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            削除する
+          </Button>
         </DialogActions>
       </Dialog>
     </>
+  );
+}
+
+export default function EstimateListPage() {
+  // ✅ ここで Suspense で包む
+  return (
+    <Suspense fallback={<Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>}>
+      <EstimateListPageInner />
+    </Suspense>
   );
 }

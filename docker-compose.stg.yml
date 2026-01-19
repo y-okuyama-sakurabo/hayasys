@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      TZ: Asia/Tokyo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # 検証ではDBを外に出さないのが本番寄り
+    # ports:
+    #   - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./docker/backend/Dockerfile
+    working_dir: /app
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DB_NAME: app
+      DB_USER: app
+      DB_PASSWORD: app
+      DB_HOST: db
+      DB_PORT: "5432"
+      TZ: Asia/Tokyo
+      DEBUG: "0"
+      ALLOWED_HOSTS: "*"
+    command: >
+      bash -lc "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+      "
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    # 本番寄せなのでマウントしない
+    # volumes:
+    #   - ./backend:/app
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile.prod
+    working_dir: /usr/src/app
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000/api"
+      # ↑ ブラウザから見えるURLにする（同一ホスト想定）
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    # 本番寄せなのでマウントしない
+    # volumes:
+    #   - ./frontend:/usr/src/app
+
+volumes:
+  db-data: {}

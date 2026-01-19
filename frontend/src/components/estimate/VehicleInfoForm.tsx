@@ -98,7 +98,7 @@ export default function VehicleInfoForm({
 
       <Grid container spacing={2}>
         {/* 車両名 */}
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <TextField
             label="車両名"
             value={data.vehicle_name || ""}
@@ -108,7 +108,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 排気量 */}
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <TextField
             label="排気量"
             type="number"
@@ -119,7 +119,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 年式 */}
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <TextField
             label="年式"
             value={data.model_year || ""}
@@ -129,7 +129,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 新車/中古 */}
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <TextField
             select
             label="新車/中古"
@@ -143,7 +143,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 型式 */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             label="型式"
             value={data.model_code || ""}
@@ -153,7 +153,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* メーカー */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             select
             label="メーカー"
@@ -170,7 +170,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 色名 */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             label="色名"
             value={data.color_name || ""}
@@ -180,7 +180,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 色コード */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             label="カラーコード"
             value={data.color_code || ""}
@@ -190,7 +190,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* 車台番号 */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             label="車台番号"
             value={data.chassis_no || ""}
@@ -200,7 +200,7 @@ export default function VehicleInfoForm({
         </Grid>
 
         {/* エンジン型式 */}
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <TextField
             label="エンジン型式"
             value={data.engine_type || ""}

@@ -43,52 +43,52 @@ export default function NewCustomerDetailDialog({
         <Divider sx={{ mb: 2 }} />
 
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2">氏名</Typography>
             <Typography>{customer.name || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2">カナ</Typography>
             <Typography>{customer.kana || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">電話番号</Typography>
             <Typography>{customer.phone || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">携帯電話</Typography>
             <Typography>{customer.mobile_phone || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2">メールアドレス</Typography>
             <Typography>{customer.email || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2">住所</Typography>
             <Typography>{customer.address || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">会社名</Typography>
             <Typography>{customer.company || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">会社電話</Typography>
             <Typography>{customer.company_phone || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">顧客区分</Typography>
             <Typography>{customer.customer_class?.name || "-"}</Typography>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="subtitle2">地域</Typography>
             <Typography>{customer.region?.name || "-"}</Typography>
           </Grid>

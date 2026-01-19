@@ -16,7 +16,7 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import apiClient from "@/lib/apiClient";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 
 type Customer = {
   id: number;
@@ -375,7 +375,7 @@ export default function PartySelector({
         </Typography>
 
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="氏名"
               value={newParty?.name || ""}
@@ -384,7 +384,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="カナ"
               value={newParty?.kana || ""}
@@ -393,7 +393,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="メールアドレス"
               type="email"
@@ -403,7 +403,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="電話番号"
               value={newParty?.phone || ""}
@@ -412,7 +412,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="携帯電話"
               value={newParty?.mobile_phone || ""}
@@ -421,7 +421,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="郵便番号"
               value={newParty?.postal_code || ""}
@@ -430,7 +430,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               label="住所"
               value={newParty?.address || ""}
@@ -439,7 +439,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="会社名"
               value={newParty?.company || ""}
@@ -448,7 +448,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               label="会社電話番号"
               value={newParty?.company_phone || ""}
@@ -457,7 +457,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <DatePicker
               label="生年月日"
               value={newParty?.birthdate ? dayjs(newParty.birthdate) : null}
@@ -468,7 +468,7 @@ export default function PartySelector({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="顧客区分"
@@ -489,7 +489,7 @@ export default function PartySelector({
             </TextField>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="地域"
@@ -510,7 +510,7 @@ export default function PartySelector({
             </TextField>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               select
               label="性別"
@@ -541,7 +541,7 @@ export default function PartySelector({
           </Typography>
 
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <DatePicker
                 label="見積日"
                 value={dayjs(estimateData?.estimate_date) || estimateDate}

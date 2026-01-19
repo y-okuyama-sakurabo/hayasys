@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -29,7 +29,6 @@ import {
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,6 +47,7 @@ type Order = {
     display_name?: string;
     name?: string;
   } | null;
+  party_name?: string | null;
 };
 
 type Shop = {
@@ -55,7 +55,7 @@ type Shop = {
   name: string;
 };
 
-export default function OrderListPage() {
+function OrderListPageInner() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<number | "all">("all");
@@ -65,6 +65,7 @@ export default function OrderListPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const refreshKey = searchParams.get("_r"); // ✅ 依存用に変数化
 
   // =========================
   // 初期ロード
@@ -91,7 +92,8 @@ export default function OrderListPage() {
     };
 
     fetchInitial();
-  }, [searchParams.get("_r")]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // =========================
   // 受注一覧取得
@@ -100,9 +102,6 @@ export default function OrderListPage() {
     try {
       const query = shopId !== "all" ? `?shop_id=${shopId}` : "";
       const res = await apiClient.get(`/orders/${query}`);
-
-      console.log("🔥 orders API response:", res.data);
-
       setOrders(res.data.results || res.data || []);
     } catch (err) {
       console.error("受注一覧取得失敗:", err);
@@ -144,15 +143,11 @@ export default function OrderListPage() {
         router.push(`/dashboard/orders/${id}?_r=${Date.now()}`);
         break;
 
-      case "duplicate":
-        // 受注を複製して新規作成は通常あまり無いが、必要ならここで実装
-        alert("受注の複製は未実装です");
-        break;
-
-      case "delete":
+      case "delete": {
         const target = orders.find((o) => o.id === id);
         if (target) setDeleteTarget(target);
         break;
+      }
     }
   };
 
@@ -190,7 +185,6 @@ export default function OrderListPage() {
     <>
       {/* ヘッダー */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-
         <Typography variant="h5" fontWeight="bold">
           受注一覧
         </Typography>
@@ -199,12 +193,7 @@ export default function OrderListPage() {
           {/* 店舗選択 */}
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="shop-select-label">店舗</InputLabel>
-            <Select
-              labelId="shop-select-label"
-              value={selectedShop}
-              label="店舗"
-              onChange={handleShopChange}
-            >
+            <Select labelId="shop-select-label" value={selectedShop} label="店舗" onChange={handleShopChange}>
               <MenuItem value="all">全店舗</MenuItem>
               {shops.map((shop) => (
                 <MenuItem key={shop.id} value={shop.id}>
@@ -215,11 +204,7 @@ export default function OrderListPage() {
           </FormControl>
 
           {/* 新規作成 */}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => router.push(`/dashboard/orders/new?_r=${Date.now()}`)}
-          >
+          <Button variant="contained" color="primary" onClick={() => router.push(`/dashboard/orders/new?_r=${Date.now()}`)}>
             新規受注
           </Button>
         </Box>
@@ -241,17 +226,10 @@ export default function OrderListPage() {
 
           <TableBody>
             {orders.map((o) => {
-              const productName =
-                o.items && o.items.length > 0
-                  ? o.items[0].product?.name || o.items[0].name
-                  : "-";
+              const productName = o.items && o.items.length > 0 ? o.items[0].product?.name || o.items[0].name : "-";
 
               return (
-                <TableRow
-                  key={o.id}
-                  hover
-                  onClick={() => router.push(`/dashboard/orders/${o.id}?_r=${Date.now()}`)}
-                >
+                <TableRow key={o.id} hover onClick={() => router.push(`/dashboard/orders/${o.id}?_r=${Date.now()}`)}>
                   <TableCell>{new Date(o.order_date).toLocaleDateString("ja-JP")}</TableCell>
                   <TableCell>{o.party_name || "（顧客なし）"}</TableCell>
                   <TableCell>{productName}</TableCell>
@@ -263,23 +241,25 @@ export default function OrderListPage() {
                       <MoreVertIcon />
                     </IconButton>
 
-                    <Menu
-                      anchorEl={menuAnchor[o.id]}
-                      open={Boolean(menuAnchor[o.id])}
-                      onClose={() => handleMenuClose(o.id)}
-                    >
+                    <Menu anchorEl={menuAnchor[o.id]} open={Boolean(menuAnchor[o.id])} onClose={() => handleMenuClose(o.id)}>
                       <MenuItem onClick={() => handleAction("edit", o.id)}>
-                        <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <EditIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="編集" />
                       </MenuItem>
 
                       <MenuItem onClick={() => handleAction("detail", o.id)}>
-                        <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
+                        <ListItemIcon>
+                          <DescriptionIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText primary="詳細" />
                       </MenuItem>
 
                       <MenuItem onClick={() => handleAction("delete", o.id)}>
-                        <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                        <ListItemIcon>
+                          <DeleteIcon fontSize="small" color="error" />
+                        </ListItemIcon>
                         <ListItemText primary="削除" />
                       </MenuItem>
                     </Menu>
@@ -304,8 +284,7 @@ export default function OrderListPage() {
         <DialogTitle>受注削除の確認</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            受注「{deleteTarget?.order_no}」を削除しますか？  
-            この操作は取り消せません。
+            受注「{deleteTarget?.order_no}」を削除しますか？ この操作は取り消せません。
           </DialogContentText>
         </DialogContent>
 
@@ -317,5 +296,19 @@ export default function OrderListPage() {
         </DialogActions>
       </Dialog>
     </>
+  );
+}
+
+export default function OrderListPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box display="flex" justifyContent="center" mt={10}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <OrderListPageInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -43,6 +43,16 @@ type Schedule = {
   shop_name?: string | null;
 };
 
+// 編集用
+type ScheduleEdit = {
+  id: number;
+  title: string;
+  description?: string;
+  start_at: string;
+  end_at?: string;
+  shop: number | "";
+};
+
 export default function CustomerSchedules({
   customerId,
 }: {
@@ -60,12 +70,11 @@ export default function CustomerSchedules({
     description: "",
   });
 
-  const [editTarget, setEditTarget] = useState<Schedule | null>(null);
+  const [editTarget, setEditTarget] = useState<ScheduleEdit | null>(null);
 
-  // --- 操作メニュー用 ---
-  const [menuAnchor, setMenuAnchor] = useState<{
-    [key: number]: HTMLElement | null;
-  }>({});
+  // ✅ Record を使う
+  const [menuAnchor, setMenuAnchor] =
+    useState<Record<number, HTMLElement | null>>({});
 
   // -------------------------
   // 初期ロード
@@ -85,6 +94,7 @@ export default function CustomerSchedules({
       }
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // -------------------------
@@ -106,7 +116,7 @@ export default function CustomerSchedules({
     await apiClient.post(`/customers/${customerId}/schedules/`, {
       ...form,
       end_at: form.end_at || null,
-      shop: shopId,
+      shop: shopId === "" ? null : shopId,
     });
 
     setForm({ title: "", start_at: "", end_at: "", description: "" });
@@ -124,7 +134,7 @@ export default function CustomerSchedules({
       start_at: editTarget.start_at,
       end_at: editTarget.end_at || null,
       description: editTarget.description,
-      shop: editTarget.shop?.id,
+      shop: editTarget.shop === "" ? null : editTarget.shop,
     });
 
     setEditTarget(null);
@@ -141,9 +151,12 @@ export default function CustomerSchedules({
   };
 
   // -------------------------
-  // メニュー制御
+  // メニュー制御（★ 修正ポイント）
   // -------------------------
-  const openMenu = (e: React.MouseEvent, id: number) => {
+  const openMenu = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    id: number
+  ) => {
     e.stopPropagation();
     setMenuAnchor((prev) => ({ ...prev, [id]: e.currentTarget }));
   };
@@ -151,6 +164,17 @@ export default function CustomerSchedules({
   const closeMenu = (id: number) => {
     setMenuAnchor((prev) => ({ ...prev, [id]: null }));
   };
+
+  if (loading) {
+    return (
+      <Box mt={4}>
+        <Typography variant="h6" mb={2}>
+          スケジュール
+        </Typography>
+        <Paper sx={{ p: 2 }}>読み込み中...</Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box mt={4}>
@@ -209,6 +233,7 @@ export default function CustomerSchedules({
             追加
           </Button>
         </Box>
+
         <TextField
           label="内容"
           size="small"
@@ -241,7 +266,13 @@ export default function CustomerSchedules({
               <TableRow key={s.id}>
                 <TableCell>{s.title}</TableCell>
                 <TableCell>{s.staff_name || "-"}</TableCell>
-                <TableCell>{s.shop_name || "-"}</TableCell>
+                <TableCell>
+                  {s.shop_name ??
+                    (s.shop
+                      ? shops.find((x) => x.id === s.shop)
+                          ?.name ?? "-"
+                      : "-")}
+                </TableCell>
                 <TableCell>
                   {new Date(s.start_at).toLocaleString("ja-JP")}
                 </TableCell>
@@ -251,7 +282,9 @@ export default function CustomerSchedules({
                     : "-"}
                 </TableCell>
                 <TableCell align="center">
-                  <IconButton onClick={(e) => openMenu(e, s.id)}>
+                  <IconButton
+                    onClick={(e) => openMenu(e, s.id)}
+                  >
                     <MoreVertIcon />
                   </IconButton>
 
@@ -263,7 +296,14 @@ export default function CustomerSchedules({
                     <MenuItem
                       onClick={() => {
                         closeMenu(s.id);
-                        setEditTarget(s);
+                        setEditTarget({
+                          id: s.id,
+                          title: s.title,
+                          start_at: s.start_at,
+                          end_at: s.end_at ?? "",
+                          description: s.description ?? "",
+                          shop: s.shop ?? "",
+                        });
                       }}
                     >
                       編集
@@ -293,8 +333,12 @@ export default function CustomerSchedules({
       </TableContainer>
 
       {/* === 編集ダイアログ === */}
-      <Dialog open={!!editTarget} onClose={() => setEditTarget(null)}>
+      <Dialog
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+      >
         <DialogTitle>スケジュール編集</DialogTitle>
+
         {editTarget && (
           <DialogContent>
             <TextField
@@ -309,6 +353,7 @@ export default function CustomerSchedules({
                 })
               }
             />
+
             <TextField
               type="datetime-local"
               label="開始"
@@ -323,6 +368,7 @@ export default function CustomerSchedules({
                 })
               }
             />
+
             <TextField
               type="datetime-local"
               label="終了"
@@ -337,21 +383,16 @@ export default function CustomerSchedules({
                 })
               }
             />
+
             <FormControl fullWidth margin="dense">
               <InputLabel>店舗</InputLabel>
               <Select
                 label="店舗"
-                value={editTarget.shop?.id || ""}
+                value={editTarget.shop}
                 onChange={(e) =>
                   setEditTarget({
                     ...editTarget,
-                    shop: {
-                      id: e.target.value as number,
-                      name:
-                        shops.find(
-                          (s) => s.id === e.target.value
-                        )?.name || "",
-                    },
+                    shop: e.target.value as number,
                   })
                 }
               >
@@ -362,6 +403,7 @@ export default function CustomerSchedules({
                 ))}
               </Select>
             </FormControl>
+
             <TextField
               label="内容"
               fullWidth
@@ -377,6 +419,7 @@ export default function CustomerSchedules({
             />
           </DialogContent>
         )}
+
         <DialogActions>
           <Button onClick={() => setEditTarget(null)}>
             キャンセル

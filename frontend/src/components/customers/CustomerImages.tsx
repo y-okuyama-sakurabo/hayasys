@@ -138,7 +138,7 @@ export default function CustomerImages({ customerId }: Props) {
       ) : (
         <Grid container spacing={2}>
           {images.map((img) => (
-            <Grid item key={img.id}>
+            <Grid key={img.id}>
               <Box
                 sx={{
                   position: "relative",

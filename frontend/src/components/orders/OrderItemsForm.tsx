@@ -137,7 +137,7 @@ export default function OrderItemsForm({
         <Box key={index} mb={2} p={2} border="1px solid #ddd" borderRadius={2}>
           <Grid container spacing={2} alignItems="center">
             {/* 商品名 */}
-            <Grid item xs={12} md={3}>
+            <Grid size={{ xs: 12, md: 3 }}>
               <Box
                 onClick={() => {
                   setTargetIndex(index);
@@ -158,7 +158,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 数量 */}
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="数量"
                 type="number"
@@ -171,7 +171,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 単価 */}
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="単価"
                 type="number"
@@ -184,7 +184,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 小計 */}
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="小計"
                 value={
@@ -197,7 +197,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 値引き */}
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 label="値引き"
                 type="number"
@@ -210,7 +210,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 課税区分 */}
-            <Grid item xs={6} md={1.2}>
+            <Grid size={{ xs: 6, md: 1.2 }}>
               <TextField
                 select
                 label="課税区分"
@@ -229,7 +229,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 担当者 */}
-            <Grid item xs={6} md={1.8}>
+            <Grid size={{ xs: 6, md: 1.8 }}>
               <TextField
                 select
                 label="担当者"
@@ -246,7 +246,7 @@ export default function OrderItemsForm({
             </Grid>
 
             {/* 削除 */}
-            <Grid item xs={12} md={0.6}>
+            <Grid size={{ xs: 12, md: 0.6 }}>
               <IconButton color="error" onClick={() => handleDeleteItem(index)}>
                 <Delete />
               </IconButton>

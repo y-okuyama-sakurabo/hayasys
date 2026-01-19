@@ -181,15 +181,15 @@ export default function ManagementDetailPage() {
         <Divider sx={{ my: 2 }} />
 
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField fullWidth label="顧客名" value={order.customer_name} InputProps={{ readOnly: true }} />
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField fullWidth label="受注日" value={order.order_date} InputProps={{ readOnly: true }} />
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField
               fullWidth
               label="受注金額"
@@ -198,7 +198,7 @@ export default function ManagementDetailPage() {
             />
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField
               fullWidth
               label="売上日"
@@ -342,7 +342,7 @@ export default function ManagementDetailPage() {
 
   {/* --- 入金入力欄 --- */}
   <Grid container spacing={2} sx={{ mb: 2 }}>
-    <Grid item xs={3}>
+    <Grid size={{ xs: 3 }}>
       <TextField
         label="入金額"
         type="number"
@@ -360,7 +360,7 @@ export default function ManagementDetailPage() {
       />
     </Grid>
 
-    <Grid item xs={3}>
+    <Grid size={{ xs: 3 }}>
       <TextField
         label="入金日"
         type="date"
@@ -371,7 +371,7 @@ export default function ManagementDetailPage() {
       />
     </Grid>
 
-    <Grid item xs={3}>
+    <Grid size={{ xs: 3 }}>
       <TextField
         label="方法"
         fullWidth

@@ -115,7 +115,7 @@ export default function OrderDetailPage() {
 
         {/* ヘッダ情報 */}
         <Grid container justifyContent="space-between" mb={2}>
-          <Grid item>
+          <Grid>
             <Typography variant="subtitle1">
               受注番号：{order.order_no}
             </Typography>
@@ -133,7 +133,7 @@ export default function OrderDetailPage() {
           </Grid>
 
           {/* 顧客スナップショット */}
-          <Grid item textAlign="right">
+          <Grid textAlign="right">
             <Typography variant="subtitle1">
               {order.party_name || "（顧客名なし）"}
             </Typography>

@@ -28,8 +28,8 @@ export default function OrderEditPage() {
   const [formData, setFormData] = useState<any>({
     customer: {},
     new_customer: {},
-    target: {},
-    tradeIn: {},
+    target: null as any,   // ★ {} をやめる
+    tradeIn: null as any,  // ★ {} をやめる
     payment_method: "現金",
   });
 
@@ -66,8 +66,8 @@ export default function OrderEditPage() {
         setItems(orderItems || []);
 
         // --- 車両データ仕分け ---
-        let target = {};
-        let tradeIn = {};
+        let target: any = null;   // ★ {} をやめる
+        let tradeIn: any = null;  // ★ {} をやめる
 
         if (vehicles && Array.isArray(vehicles)) {
           vehicles.forEach((v) => {
@@ -84,9 +84,10 @@ export default function OrderEditPage() {
           });
         }
 
-        setHasBike(!!(target.vehicle_name || tradeIn.vehicle_name));
+        // ★ hasBike 判定は optional chaining でOK
+        setHasBike(!!(target?.vehicle_name || tradeIn?.vehicle_name));
 
-        const payment = payments?.[0] || {};
+        const payment = payments?.[0] ?? null;
 
         setFormData({
           ...order,
@@ -111,7 +112,7 @@ export default function OrderEditPage() {
 
           new_customer: {},
 
-          // 車両（そのまま渡して OK → update 時に clean する）
+          // 車両（そのまま渡してOK → update時に clean する）
           target,
           tradeIn,
 
@@ -124,8 +125,8 @@ export default function OrderEditPage() {
           credit_installments: payment?.credit_installments || "",
           credit_start_month: payment?.credit_start_month || "",
         });
-      } catch (err) {
-        console.error("受注ロードエラー:", err);
+      } catch (err: any) {
+        console.error("受注ロードエラー:", err?.response?.data || err);
       } finally {
         setLoading(false);
       }
@@ -220,14 +221,13 @@ export default function OrderEditPage() {
 
       alert("受注を更新しました！");
       router.push(`/dashboard/orders/${id}`);
-    } catch (err) {
-      console.error("受注更新エラー:", err.response?.data || err);
+    } catch (err: any) {
+      console.error("受注更新エラー:", err?.response?.data || err);
       alert("受注更新でエラーが発生しました。");
     } finally {
       setLoading(false);
     }
   };
-
 
   if (loading)
     return (

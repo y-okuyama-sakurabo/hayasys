@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import {
-  Box,
-  Typography,
-  Paper,
-  Divider,
-  Button,
-} from "@mui/material";
+import { Box, Typography, Paper, Divider, Button, CircularProgress } from "@mui/material";
 import dayjs from "dayjs";
 import apiClient from "@/lib/apiClient";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -22,7 +16,7 @@ import OrderPaymentForm from "@/components/orders/OrderPaymentForm";
 import SimilarCustomerDialog from "@/components/customers/SimilarCustomerDialog";
 import CustomerDetailDialog from "@/components/customers/CustomerDetailDialog";
 
-export default function OrderNewPage() {
+function OrderNewInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromEstimate = searchParams.get("from_estimate");
@@ -61,10 +55,7 @@ export default function OrderNewPage() {
   // ==============================
   const buildItemsPayload = (items: any[]) =>
     items.map((item) => {
-      const product_id =
-        typeof item.product === "object"
-          ? item.product.id
-          : item.product ?? null;
+      const product_id = typeof item.product === "object" ? item.product.id : item.product ?? null;
 
       const cleaned = { ...item };
       delete cleaned.product;
@@ -87,10 +78,7 @@ export default function OrderNewPage() {
         credit_first_payment: formData.credit_first_payment || null,
         credit_second_payment: formData.credit_second_payment || null,
         credit_bonus_payment: formData.credit_bonus_payment || null,
-        credit_installments:
-          formData.credit_installments !== ""
-            ? Number(formData.credit_installments)
-            : null,
+        credit_installments: formData.credit_installments !== "" ? Number(formData.credit_installments) : null,
         credit_start_month: formData.credit_start_month || null,
       },
     ];
@@ -103,10 +91,7 @@ export default function OrderNewPage() {
     const init = async () => {
       try {
         if (fromEstimate) {
-          const res = await apiClient.post(
-            "/orders/prepare-from-estimate/",
-            { estimate_id: fromEstimate }
-          );
+          const res = await apiClient.post("/orders/prepare-from-estimate/", { estimate_id: fromEstimate });
 
           const d = res.data;
           setEstimateId(Number(fromEstimate));
@@ -154,8 +139,8 @@ export default function OrderNewPage() {
     setForceUseExistingCustomer(false);
 
     handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forceUseExistingCustomer, formData.customer_id]);
-
 
   // ==============================
   // 類似顧客検索（保存前）
@@ -194,6 +179,7 @@ export default function OrderNewPage() {
           return;
         }
       }
+
       const payload: any = {
         estimate: estimateId ?? null,
         order_date: formData.order_date,
@@ -234,27 +220,17 @@ export default function OrderNewPage() {
         </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>
-          <OrderItemsForm
-            items={items}
-            setItems={setItems}
-            setHasBike={setHasBike}
-          />
+          <OrderItemsForm items={items} setItems={setItems} setHasBike={setHasBike} />
         </Paper>
 
         {hasBike && (
           <Paper sx={{ p: 3, mb: 3 }}>
-            <VehicleInfoForm
-              formData={formData}
-              setFormData={setFormData}
-            />
+            <VehicleInfoForm formData={formData} setFormData={setFormData} />
           </Paper>
         )}
 
         <Paper sx={{ p: 3, mb: 3 }}>
-          <OrderPaymentForm
-            formData={formData}
-            setFormData={setFormData}
-          />
+          <OrderPaymentForm formData={formData} setFormData={setFormData} />
         </Paper>
 
         <Divider sx={{ my: 3 }} />
@@ -303,8 +279,21 @@ export default function OrderNewPage() {
             setDetailOpen(false);
           }}
         />
-
       </Box>
     </LocalizationProvider>
+  );
+}
+
+export default function OrderNewPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box display="flex" justifyContent="center" mt={10}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <OrderNewInner />
+    </Suspense>
   );
 }
