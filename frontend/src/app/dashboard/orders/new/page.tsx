@@ -112,7 +112,7 @@ function OrderNewInner() {
               address: customer.address || "",
               company: customer.company || "",
               company_phone: customer.company_phone || "",
-              birthdate: customer.birthdate || "",
+              birthdate: customer.birthdate || null,
               customer_class: customer.customer_class?.id || null,
               gender: customer.gender?.id || null,
               region: customer.region?.id || null,
