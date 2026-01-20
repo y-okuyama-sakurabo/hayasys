@@ -1,26 +1,22 @@
 // src/lib/apiClient.ts
 import axios from "axios";
 
-const apiClient = axios.create({
-  baseURL: "http://localhost:8000/api/",
-  withCredentials: true, // ← Cookie が自動で送られる
-});
+const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
-// --- Cookie から Authorization を付ける必要はない（HttpOnly のため）
-//     ここは削除！！
-// apiClient.interceptors.request.use...
+const apiClient = axios.create({
+  baseURL,
+  withCredentials: true, // Cookie を送る
+});
 
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config;
 
-    // access token が期限切れ → refresh 実行
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // refresh は Cookie で自動的に refresh_token が送信される
         await apiClient.post("/auth/refresh/");
         return apiClient(originalRequest);
       } catch {
@@ -33,3 +29,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+

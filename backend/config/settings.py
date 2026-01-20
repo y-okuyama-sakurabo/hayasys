@@ -68,6 +68,7 @@ USE_I18N = True
 USE_TZ = False   # ← 東京時間で保存したいなら False（お好みで True でもOK）
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ここが無いと auth.User と core.User が衝突します（最重要）
@@ -101,11 +102,13 @@ CORS_ALLOW_CREDENTIALS = True    # ★ 必須
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://52.193.197.122",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://52.193.197.122",
 ]
 
 SESSION_COOKIE_SAMESITE = "Lax"
