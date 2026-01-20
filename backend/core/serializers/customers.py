@@ -197,6 +197,7 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = (
+            "id",
             "name", "kana", "email",
             "postal_code", "address",
             "phone", "mobile_phone",

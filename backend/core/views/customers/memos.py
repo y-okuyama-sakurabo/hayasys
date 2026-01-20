@@ -14,7 +14,7 @@ class CustomerMemoListCreateView(generics.ListCreateAPIView):
         serializer.save(customer_id=customer_id)
 
 
-class CustomerMemoDeleteView(generics.DestroyAPIView):
+class CustomerMemoRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerMemosSerializer
     lookup_url_kwarg = "pk"
 

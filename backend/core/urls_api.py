@@ -19,7 +19,10 @@ from core.views.masters.registration_locations import RegistrationLocationListVi
 # === Customers ===
 from core.views.customers.views import CustomerListCreateView, CustomerRetrieveUpdateDestroyView
 from core.views.customers.images import CustomerImageListCreateView, CustomerImageDeleteView
-from core.views.customers.memos import CustomerMemoListCreateView, CustomerMemoDeleteView
+from core.views.customers.memos import (
+    CustomerMemoListCreateView,
+    CustomerMemoRetrieveUpdateDestroyView,
+)
 from core.views.customers.similar import SimilarCustomerAPIView
 
 # === Vehicles (vehicle master) ===
@@ -137,7 +140,7 @@ urlpatterns = [
     path("customers/<int:customer_id>/images/", CustomerImageListCreateView.as_view()),
     path("customers/<int:customer_id>/images/<int:pk>/", CustomerImageDeleteView.as_view()),
     path("customers/<int:customer_id>/memos/", CustomerMemoListCreateView.as_view()),
-    path("customers/<int:customer_id>/memos/<int:pk>/", CustomerMemoDeleteView.as_view()),
+    path("customers/<int:customer_id>/memos/<int:pk>/", CustomerMemoRetrieveUpdateDestroyView.as_view()),
 
     # 類似顧客
     path("customers/similar/", SimilarCustomerAPIView.as_view(), name="customer-similar"),
@@ -169,8 +172,8 @@ urlpatterns = [
     # Vehicle画像/メモ
     path("vehicles/<int:vehicle_id>/images/", VehicleImageListCreateView.as_view()),
     path("vehicles/<int:vehicle_id>/images/<int:pk>/", VehicleImageDeleteView.as_view()),
-    path("vehicles/<int:vehicle_id>/memos/", VehicleMemoListCreateView.as_view()),
-    path("vehicles/<int:vehicle_id>/memos/<int:pk>/", VehicleMemoDeleteView.as_view()),
+    path("customers/<int:customer_id>/memos/", CustomerMemoListCreateView.as_view()),
+    path("customers/<int:customer_id>/memos/<int:pk>/", CustomerMemoRetrieveUpdateDestroyView.as_view()),
 
     # ------------------------------------------------------------------
     # スケジュール
