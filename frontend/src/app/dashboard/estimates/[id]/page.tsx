@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Box,
@@ -16,6 +16,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AddTaskIcon from "@mui/icons-material/AddTask";
 import apiClient from "@/lib/apiClient";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 export default function EstimateDetailPage() {
   const params = useParams();
@@ -25,6 +27,9 @@ export default function EstimateDetailPage() {
 
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ A4部分をPDF化するためのref
+  const a4Ref = useRef<HTMLDivElement | null>(null);
 
   // === 詳細データの取得 ===
   useEffect(() => {
@@ -73,10 +78,7 @@ export default function EstimateDetailPage() {
     router.push(`/dashboard/estimates/${id}/edit?_r=${Date.now()}`);
   };
 
-  const handlePrint = () => window.print();
-
   const handleDuplicate = () => {
-    // ✅ 新規作成ページに複製モードで遷移
     router.push(`/dashboard/estimates/new?copy_from=${id}&_r=${Date.now()}`);
   };
 
@@ -84,7 +86,33 @@ export default function EstimateDetailPage() {
     router.push(`/dashboard/orders/new?from_estimate=${id}`);
   };
 
+  // ✅ A4(Paper)部分だけPDF出力
+  const handlePdf = async () => {
+    if (!a4Ref.current) return;
 
+    const canvas = await html2canvas(a4Ref.current, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      scrollX: 0,
+      scrollY: -window.scrollY,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4"); // A4縦
+    const pdfW = 210;
+    const pdfH = 297;
+
+    const imgW = pdfW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    // 1ページ想定（A4なので基本ここでOK）
+    // はみ出す可能性がある場合は複数ページ対応に切り替えてください
+    pdf.addImage(imgData, "PNG", 0, 0, imgW, imgH);
+
+    pdf.save(`estimate_${estimate.estimate_no || id}.pdf`);
+  };
 
   return (
     <Box p={3}>
@@ -93,19 +121,33 @@ export default function EstimateDetailPage() {
         <Button variant="outlined" startIcon={<EditIcon />} onClick={handleEdit}>
           編集
         </Button>
-        <Button variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePrint}>
+        <Button
+          variant="outlined"
+          startIcon={<PictureAsPdfIcon />}
+          onClick={handlePdf}
+        >
           PDF
         </Button>
-        <Button variant="outlined" startIcon={<ContentCopyIcon />} onClick={handleDuplicate}>
+        <Button
+          variant="outlined"
+          startIcon={<ContentCopyIcon />}
+          onClick={handleDuplicate}
+        >
           複製して新規作成
         </Button>
-        <Button variant="contained" startIcon={<AddTaskIcon />} onClick={handleCreateOrder}>
+        <Button
+          variant="contained"
+          startIcon={<AddTaskIcon />}
+          onClick={handleCreateOrder}
+        >
           受注作成
         </Button>
       </Box>
 
       {/* === 見積書レイアウト === */}
       <Paper
+        ref={a4Ref}
+        component="div"
         elevation={3}
         sx={{
           width: "210mm",
@@ -162,11 +204,21 @@ export default function EstimateDetailPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f5f5f5" }}>
-                <th style={{ border: "1px solid #ddd", padding: "8px" }}>品名</th>
-                <th style={{ border: "1px solid #ddd", padding: "8px" }}>分類</th>
-                <th style={{ border: "1px solid #ddd", padding: "8px" }}>数量</th>
-                <th style={{ border: "1px solid #ddd", padding: "8px" }}>単価</th>
-                <th style={{ border: "1px solid #ddd", padding: "8px" }}>金額</th>
+                <th style={{ border: "1px solid #ddd", padding: "8px" }}>
+                  品名
+                </th>
+                <th style={{ border: "1px solid #ddd", padding: "8px" }}>
+                  分類
+                </th>
+                <th style={{ border: "1px solid #ddd", padding: "8px" }}>
+                  数量
+                </th>
+                <th style={{ border: "1px solid #ddd", padding: "8px" }}>
+                  単価
+                </th>
+                <th style={{ border: "1px solid #ddd", padding: "8px" }}>
+                  金額
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -178,12 +230,16 @@ export default function EstimateDetailPage() {
                   "-";
                 const qty = parseFloat(item.quantity || 0);
                 const unit = parseFloat(item.unit_price || 0);
-                const subtotal = parseFloat(item.subtotal || unit * qty);
+                const rowSubtotal = parseFloat(item.subtotal || unit * qty);
 
                 return (
                   <tr key={idx}>
-                    <td style={{ border: "1px solid #ddd", padding: "8px" }}>{name}</td>
-                    <td style={{ border: "1px solid #ddd", padding: "8px" }}>{category}</td>
+                    <td style={{ border: "1px solid #ddd", padding: "8px" }}>
+                      {name}
+                    </td>
+                    <td style={{ border: "1px solid #ddd", padding: "8px" }}>
+                      {category}
+                    </td>
                     <td
                       style={{
                         border: "1px solid #ddd",
@@ -209,7 +265,7 @@ export default function EstimateDetailPage() {
                         textAlign: "right",
                       }}
                     >
-                      ¥{formatPrice(subtotal)}
+                      ¥{formatPrice(rowSubtotal)}
                     </td>
                   </tr>
                 );
@@ -238,7 +294,9 @@ export default function EstimateDetailPage() {
 
         <Box mt={5} textAlign="right">
           <Typography variant="body2">株式会社ハヤサカサイクル</Typography>
-          <Typography variant="body2">〒980-0011 仙台市青葉区○○町1-1-1</Typography>
+          <Typography variant="body2">
+            〒980-0011 仙台市青葉区○○町1-1-1
+          </Typography>
           <Typography variant="body2">TEL：022-000-0000</Typography>
         </Box>
       </Paper>
