@@ -147,17 +147,29 @@ function OrderNewInner() {
   // ==============================
   const checkSimilarCustomer = async () => {
     const c = formData.new_customer;
-    if (!c?.name) return false;
+
+    // ✅ name必須をやめる（kana/phone/mobile/email のどれかでOK）
+    const hasAnyKey =
+      !!c?.name ||
+      !!c?.kana ||
+      !!c?.phone ||
+      !!c?.mobile_phone ||
+      !!c?.email;
+
+    if (!hasAnyKey) return false;
 
     const res = await apiClient.post("/customers/similar/", {
-      name: c.name,
-      phone: c.phone,
-      email: c.email,
-      address: c.address,
+      name: c?.name || null,
+      kana: c?.kana || null,
+      phone: c?.phone || null,
+      mobile_phone: c?.mobile_phone || null,
+      email: c?.email || null,
+      address: c?.address || null,
     });
 
     if (res.data.has_similar) {
-      setSimilarCandidates(res.data.candidates);
+      // candidatesは既に score順で返ってくる想定
+      setSimilarCandidates(res.data.candidates || []);
       setSimilarOpen(true);
       return true;
     }

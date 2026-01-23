@@ -107,6 +107,8 @@ from core.views.sales.views import SalesListCreateAPIView, SalesRetrieveAPIView
 from core.views.orders.order_management_list_view import OrderManagementListAPIView
 from core.views.management.management_list_view import ManagementOrderListAPIView
 
+# === Audit Logs ===
+from core.views.audit_logs.views import AuditLogViewSet
 
 urlpatterns = [
     # ------------------------------------------------------------------
@@ -253,4 +255,13 @@ urlpatterns = [
     path("order-management/", OrderManagementListAPIView.as_view()),
     path("management/orders/<int:order_id>/", ManagementOrderDetailAPIView.as_view()),
     path("management/orders/", ManagementOrderListAPIView.as_view()),
+
+        # ------------------------------------------------------------------
+    # 操作ログ（監査ログ）
+    # ------------------------------------------------------------------
+    path(
+        "audit-logs/",
+        AuditLogViewSet.as_view({"get": "list"}),
+        name="audit-log-list",
+    ),
 ]
