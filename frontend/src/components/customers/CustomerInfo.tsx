@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Paper,
   Typography,
@@ -57,7 +58,7 @@ export default function CustomerInfo({ customer, onUpdated }: any) {
     </TableRow>
   );
 
-  const rowEdit = (label: string, field: JSX.Element) => (
+  const rowEdit = (label: string, field: ReactNode) => (
     <TableRow>
       <TableCell sx={{ width: 200, fontWeight: "bold", verticalAlign: "top", pt: 2 }}>
         {label}
