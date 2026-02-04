@@ -29,6 +29,7 @@ function OrderNewInner() {
   // ==============================
   const [formData, setFormData] = useState<any>({
     order_date: dayjs().format("YYYY-MM-DD"),
+    shop: null,
     customer: {},
     customer_id: null,
     new_customer: {},
@@ -38,7 +39,9 @@ function OrderNewInner() {
   });
 
   const [items, setItems] = useState<any[]>([]);
+  const [categoryTree, setCategoryTree] = useState<any[]>([]);
   const [hasBike, setHasBike] = useState(false);
+  const [staffs, setStaffs] = useState<any[]>([]);
 
   // ==============================
   // 類似顧客関連 state
@@ -54,17 +57,16 @@ function OrderNewInner() {
   // 明細 payload 整形
   // ==============================
   const buildItemsPayload = (items: any[]) =>
-    items.map((item) => {
-      const product_id = typeof item.product === "object" ? item.product.id : item.product ?? null;
-
-      const cleaned = { ...item };
-      delete cleaned.product;
-
-      return {
-        ...cleaned,
-        product_id,
-      };
-    });
+    items.map((item) => ({
+      name: item.name,
+      category_id: item.category?.id ?? null,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount: item.discount,
+      tax_type: item.tax_type,
+      staff: item.staff ?? null,
+      sale_type: item.sale_type ?? null,
+    }));
 
   const buildPaymentPayload = (formData: any) => {
     if (formData.payment_method !== "クレジット") {
@@ -78,11 +80,98 @@ function OrderNewInner() {
         credit_first_payment: formData.credit_first_payment || null,
         credit_second_payment: formData.credit_second_payment || null,
         credit_bonus_payment: formData.credit_bonus_payment || null,
-        credit_installments: formData.credit_installments !== "" ? Number(formData.credit_installments) : null,
+        credit_installments:
+          formData.credit_installments !== "" ? Number(formData.credit_installments) : null,
         credit_start_month: formData.credit_start_month || null,
       },
     ];
   };
+
+  // ==============================
+  // ✅ スタッフ取得（全スタッフ：/masters/staffs/）
+  // ==============================
+  useEffect(() => {
+    apiClient
+      .get("/masters/staffs/")
+      .then((res) => {
+        const data = res.data?.results ?? res.data ?? [];
+        setStaffs(data);
+      })
+      .catch(console.error);
+  }, []);
+
+  // ==============================
+  // category tree ロード（parent を付与）
+  // ==============================
+  const attachParents = (nodes: any[], parent: any = null): any[] =>
+    (nodes || []).map((n) => {
+      const node = { ...n, parent };
+      node.children = attachParents(n.children || [], node);
+      return node;
+    });
+
+  useEffect(() => {
+    apiClient.get("/categories/tree/").then((res) => {
+      const data = res.data.results || res.data;
+      setCategoryTree(attachParents(data));
+    });
+  }, []);
+
+  const findCategoryById = (nodes: any[], id: number): any | null => {
+    for (const n of nodes) {
+      if (n.id === id) return n;
+      const found = findCategoryById(n.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // ==============================
+  // 見積→受注で返ってくる {category:{id,name}} を
+  // tree にあるフルnode（parent付き）に復元する
+  // ==============================
+  useEffect(() => {
+    if (!categoryTree.length) return;
+    if (!items.length) return;
+
+    setItems((prev) =>
+      prev.map((item) => {
+        if (!item.category?.id) return item;
+
+        // すでに parent があれば復元済み
+        if (item.category.parent) return item;
+
+        const fullCategory = findCategoryById(categoryTree, item.category.id);
+        if (!fullCategory) return item;
+
+        return {
+          ...item,
+          category: fullCategory,
+          category_id: fullCategory.id,
+        };
+      })
+    );
+  }, [categoryTree, items.length]);
+
+  // === 所属店舗の自動セット（受注用）===
+  useEffect(() => {
+    const initForm = async () => {
+      try {
+        const userRes = await apiClient.get("/auth/user/");
+        const user = userRes.data;
+
+        setFormData((prev: any) => ({
+          ...prev,
+          shop: user.shop_id || null,
+          shop_name: user.shop_name || "",
+        }));
+      } catch (err: any) {
+        console.error("❌ 初期ロード失敗:", err?.response?.data || err);
+      }
+    };
+
+    initForm();
+  }, []);
 
   // ==============================
   // 初期ロード（見積 → 受注）
@@ -91,7 +180,9 @@ function OrderNewInner() {
     const init = async () => {
       try {
         if (fromEstimate) {
-          const res = await apiClient.post("/orders/prepare-from-estimate/", { estimate_id: fromEstimate });
+          const res = await apiClient.post("/orders/prepare-from-estimate/", {
+            estimate_id: fromEstimate,
+          });
 
           const d = res.data;
           setEstimateId(Number(fromEstimate));
@@ -148,14 +239,7 @@ function OrderNewInner() {
   const checkSimilarCustomer = async () => {
     const c = formData.new_customer;
 
-    // ✅ name必須をやめる（kana/phone/mobile/email のどれかでOK）
-    const hasAnyKey =
-      !!c?.name ||
-      !!c?.kana ||
-      !!c?.phone ||
-      !!c?.mobile_phone ||
-      !!c?.email;
-
+    const hasAnyKey = !!c?.name || !!c?.kana || !!c?.phone || !!c?.mobile_phone || !!c?.email;
     if (!hasAnyKey) return false;
 
     const res = await apiClient.post("/customers/similar/", {
@@ -168,7 +252,6 @@ function OrderNewInner() {
     });
 
     if (res.data.has_similar) {
-      // candidatesは既に score順で返ってくる想定
       setSimilarCandidates(res.data.candidates || []);
       setSimilarOpen(true);
       return true;
@@ -183,7 +266,6 @@ function OrderNewInner() {
     try {
       setLoading(true);
 
-      // 🔥 類似顧客チェック（新規顧客時のみ）
       if (!formData.customer_id && !forceUseExistingCustomer) {
         const hasSimilar = await checkSimilarCustomer();
         if (hasSimilar) {
@@ -194,6 +276,7 @@ function OrderNewInner() {
 
       const payload: any = {
         estimate: estimateId ?? null,
+        shop: formData.shop,    
         order_date: formData.order_date,
         payment_method: formData.payment_method,
         items: buildItemsPayload(items),
@@ -202,11 +285,8 @@ function OrderNewInner() {
         trade_in_vehicle: formData.tradeIn || null,
       };
 
-      if (formData.customer_id) {
-        payload.customer_id = formData.customer_id;
-      } else {
-        payload.new_customer = formData.new_customer;
-      }
+      if (formData.customer_id) payload.customer_id = formData.customer_id;
+      else payload.new_customer = formData.new_customer;
 
       const res = await apiClient.post("/orders/", payload);
       router.push(`/dashboard/orders/${res.data.id}`);
@@ -232,7 +312,12 @@ function OrderNewInner() {
         </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>
-          <OrderItemsForm items={items} setItems={setItems} setHasBike={setHasBike} />
+          <OrderItemsForm
+            items={items}
+            setItems={setItems}
+            setHasBike={setHasBike}
+            staffs={staffs}
+          />
         </Paper>
 
         {hasBike && (

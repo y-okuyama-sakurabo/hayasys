@@ -28,28 +28,56 @@ export default function OrderEditPage() {
   const [formData, setFormData] = useState<any>({
     customer: {},
     new_customer: {},
-    target: null as any,   // ★ {} をやめる
-    tradeIn: null as any,  // ★ {} をやめる
+    target: null,
+    tradeIn: null,
     payment_method: "現金",
   });
 
   const [items, setItems] = useState<any[]>([]);
   const [hasBike, setHasBike] = useState(false);
+  const [staffs, setStaffs] = useState<any[]>([]);
 
-  // 車両データの order/id を除去
-  const cleanVehicle = (v: any) => {
-    if (!v) return null;
+  // ============================
+  // スタッフ一覧（全店舗共通）
+  // ============================
+  useEffect(() => {
+    apiClient
+      .get("/masters/staffs/")
+      .then((res) => setStaffs(res.data.results || res.data))
+      .catch(console.error);
+  }, []);
 
-    const cleaned = { ...v };
-    delete cleaned.id;
-    delete cleaned.order;
-    delete cleaned.is_trade_in;
-    return cleaned;
+  // ============================
+  // カテゴリツリー
+  // ============================
+  const [categoryTree, setCategoryTree] = useState<any[]>([]);
+
+  const attachParents = (nodes: any[], parent: any = null): any[] =>
+    (nodes || []).map((n) => {
+      const node = { ...n, parent };
+      node.children = attachParents(n.children || [], node);
+      return node;
+    });
+
+  const findCategoryById = (nodes: any[], id: number): any | null => {
+    for (const n of nodes) {
+      if (n.id === id) return n;
+      const found = findCategoryById(n.children || [], id);
+      if (found) return found;
+    }
+    return null;
   };
 
-  // ======================================================
+  useEffect(() => {
+    apiClient.get("/categories/tree/").then((res) => {
+      const data = res.data.results || res.data;
+      setCategoryTree(attachParents(data));
+    });
+  }, []);
+
+  // ============================
   // 初期ロード
-  // ======================================================
+  // ============================
   useEffect(() => {
     if (!id) return;
 
@@ -57,43 +85,36 @@ export default function OrderEditPage() {
       try {
         setLoading(true);
 
-        const orderRes = await apiClient.get(`/orders/${id}/`);
-        const order = orderRes.data;
+        const res = await apiClient.get(`/orders/${id}/`);
+        const order = res.data;
 
         const { customer, items: orderItems, vehicles, payments } = order;
 
-        // 明細
         setItems(orderItems || []);
 
-        // --- 車両データ仕分け ---
-        let target: any = null;   // ★ {} をやめる
-        let tradeIn: any = null;  // ★ {} をやめる
+        // --- 車両 ---
+        let target: any = null;
+        let tradeIn: any = null;
 
-        if (vehicles && Array.isArray(vehicles)) {
-          vehicles.forEach((v) => {
-            const normalized = {
-              ...v,
-              manufacturer: v.manufacturer?.id ?? null,
-            };
+        vehicles?.forEach((v: any) => {
+          const normalized = {
+            ...v,
+            manufacturer: v.manufacturer?.id ?? null,
+          };
 
-            if (v.is_trade_in) {
-              tradeIn = normalized;
-            } else {
-              target = normalized;
-            }
-          });
-        }
+          if (v.is_trade_in) tradeIn = normalized;
+          else target = normalized;
+        });
 
-        // ★ hasBike 判定は optional chaining でOK
         setHasBike(!!(target?.vehicle_name || tradeIn?.vehicle_name));
 
         const payment = payments?.[0] ?? null;
 
         setFormData({
           ...order,
+          shop: order.shop?.id ?? null,
           customer_id: customer?.id || null,
 
-          // 顧客
           customer: {
             name: customer?.name || "",
             kana: customer?.kana || "",
@@ -112,11 +133,9 @@ export default function OrderEditPage() {
 
           new_customer: {},
 
-          // 車両（そのまま渡してOK → update時に clean する）
           target,
           tradeIn,
 
-          payment_id: payment?.id || null,
           payment_method: payment?.payment_method || "現金",
           credit_company: payment?.credit_company || "",
           credit_first_payment: payment?.credit_first_payment || "",
@@ -125,8 +144,8 @@ export default function OrderEditPage() {
           credit_installments: payment?.credit_installments || "",
           credit_start_month: payment?.credit_start_month || "",
         });
-      } catch (err: any) {
-        console.error("受注ロードエラー:", err?.response?.data || err);
+      } catch (e) {
+        console.error("受注ロードエラー:", e);
       } finally {
         setLoading(false);
       }
@@ -135,95 +154,90 @@ export default function OrderEditPage() {
     fetchData();
   }, [id]);
 
-  // ======================================================
-  // 更新処理（1発で更新できる）
-  // ======================================================
+  // ============================
+  // category 復元（Edit 用）
+  // ============================
+  useEffect(() => {
+    if (!categoryTree.length) return;
+
+    setItems((prev) =>
+      prev.map((item) => {
+        if (!item.category?.id) return item;
+        if (item.category.parent) return item;
+
+        const full = findCategoryById(categoryTree, item.category.id);
+        if (!full) return item;
+
+        return { ...item, category: full };
+      })
+    );
+  }, [categoryTree]);
+
+  // ============================
+  // 更新
+  // ============================
   const handleUpdate = async () => {
     try {
       setLoading(true);
 
-      // --- 顧客データ ---
-      let customer_id = formData.customer_id ?? null;
-      let customer_data = null;
-      let new_customer = null;
+      const itemsPayload = items.map((item) => ({
+        name: item.name,
+        category_id: item.category?.id ?? null,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        discount: item.discount,
+        tax_type: item.tax_type,
+        staff: item.staff ?? null,
+        sale_type: item.sale_type ?? null,
+      }));
 
-      if (customer_id) {
-        // 既存顧客 → 編集した内容を送る
-        customer_data = formData.customer;
-      } else {
-        // 新規顧客
-        new_customer = formData.customer;
-      }
-
-      // --- items 整形 ---
-      const itemsPayload = items.map((item) => {
-        const product_id =
-          typeof item.product === "object"
-            ? item.product.id
-            : item.product ?? null;
-
-        const cleaned = { ...item };
-        delete cleaned.product;
-
-        return {
-          ...cleaned,
-          product_id,
-        };
-      });
-
-      // --- 車両 ---
-      const target_vehicle = cleanVehicle(formData.target);
-      const trade_in_vehicle = cleanVehicle(formData.tradeIn);
-
-      // --- 支払い ---
-      const isCredit = formData.payment_method === "クレジット";
-
-      const paymentsPayload = [
-        {
-          payment_method: formData.payment_method,
-
-          credit_company: isCredit ? formData.credit_company : null,
-          credit_first_payment: isCredit
-            ? Number(formData.credit_first_payment) || null
-            : null,
-          credit_second_payment: isCredit
-            ? Number(formData.credit_second_payment) || null
-            : null,
-          credit_bonus_payment: isCredit
-            ? Number(formData.credit_bonus_payment) || null
-            : null,
-          credit_installments: isCredit
-            ? Number(formData.credit_installments) || null
-            : null,
-          credit_start_month: isCredit ? formData.credit_start_month || null : null,
-        },
-      ];
-
-      // --- 最終 payload ---
       const payload = {
-        shop: formData.shop,
         order_date: formData.order_date,
         payment_method: formData.payment_method,
-
-        customer_id,
-        customer_data,
-        new_customer,
-
+        customer_id: formData.customer_id ?? null,
+        customer_data: formData.customer_id ? formData.customer : null,
+        new_customer: formData.customer_id ? null : formData.customer,
         items: itemsPayload,
-        target_vehicle,
-        trade_in_vehicle,
-
-        payments: paymentsPayload,
+        target_vehicle: formData.target,
+        trade_in_vehicle: formData.tradeIn,
+        payments: [
+          {
+            payment_method: formData.payment_method,
+            credit_company:
+              formData.payment_method === "クレジット"
+                ? formData.credit_company
+                : null,
+            credit_first_payment:
+              formData.payment_method === "クレジット"
+                ? Number(formData.credit_first_payment) || null
+                : null,
+            credit_second_payment:
+              formData.payment_method === "クレジット"
+                ? Number(formData.credit_second_payment) || null
+                : null,
+            credit_bonus_payment:
+              formData.payment_method === "クレジット"
+                ? Number(formData.credit_bonus_payment) || null
+                : null,
+            credit_installments:
+              formData.payment_method === "クレジット"
+                ? Number(formData.credit_installments) || null
+                : null,
+            credit_start_month:
+              formData.payment_method === "クレジット"
+                ? formData.credit_start_month || null
+                : null,
+          },
+        ],
       };
 
-      // --- PUT 実行 ---
       await apiClient.put(`/orders/${id}/`, payload);
 
-      alert("受注を更新しました！");
+      alert("受注を更新しました");
       router.push(`/dashboard/orders/${id}`);
-    } catch (err: any) {
-      console.error("受注更新エラー:", err?.response?.data || err);
-      alert("受注更新でエラーが発生しました。");
+    } catch (e) {
+      console.error("更新エラー:", e);
+      alert("更新に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -252,6 +266,7 @@ export default function OrderEditPage() {
             items={items}
             setItems={setItems}
             setHasBike={setHasBike}
+            staffs={staffs}
           />
         </Paper>
 

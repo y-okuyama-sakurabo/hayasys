@@ -65,7 +65,6 @@ export default function EstimateEditPage() {
         );
         setHasBike(containsBike);
 
-        // フォーム全体に初期値を格納
         setFormData({
           ...estimate,
           party_id: estimate.party?.id || null,
@@ -83,9 +82,9 @@ export default function EstimateEditPage() {
           credit_start_month: payment?.credit_start_month || "",
         });
 
-        console.log("✅ 編集ロード完了:", { estimate, itemsData, vehicleList, payment });
+        console.log("編集ロード完了:", { estimate, itemsData, vehicleList, payment });
       } catch (err) {
-        console.error("❌ データ読み込みエラー:", err);
+        console.error("データ読み込みエラー:", err);
       } finally {
         setLoading(false);
       }
@@ -94,12 +93,29 @@ export default function EstimateEditPage() {
     fetchData();
   }, [id]);
 
+  const buildItemPayload = (item: any) => {
+    return {
+      category_id: item.category_id ?? item.category?.id ?? null,
+      product_id: item.product?.id ?? item.product_id ?? null,
+
+      name: item.name ?? "",
+      quantity: Number(item.quantity ?? 0),
+      unit_price: Number(item.unit_price ?? 0),
+      discount: Number(item.discount ?? 0),
+      tax_type: item.tax_type ?? "taxable",
+
+      staff: item.staff?.id ?? item.staff ?? null,
+      sale_type: item.sale_type ?? null,
+
+    };
+  };
+
+
   // === 更新処理 ===
   const handleUpdate = async () => {
     try {
       setLoading(true);
 
-      // === 1️⃣ 見積本体 ===
       const payload = {
         estimate_no: formData.estimate_no,
         party_id: formData.party_id || null,
@@ -110,14 +126,16 @@ export default function EstimateEditPage() {
       console.log("📤 見積更新 payload:", payload);
       await apiClient.put(`/estimates/${id}/`, payload);
 
-      // === 2️⃣ 明細 ===
       for (const item of items) {
-        if (item.id)
-          await apiClient.patch(`/estimates/${id}/items/${item.id}/`, item);
-        else await apiClient.post(`/estimates/${id}/items/`, item);
+        const itemPayload = buildItemPayload(item);
+
+        if (item.id) {
+          await apiClient.patch(`/estimates/${id}/items/${item.id}/`, itemPayload);
+        } else {
+          await apiClient.post(`/estimates/${id}/items/`, itemPayload);
+        }
       }
 
-      // === 3️⃣ 車両（バイクカテゴリが含まれている場合のみ）===
       if (hasBike) {
         const vehicles = [];
         if (formData.target?.vehicle_name)
@@ -126,7 +144,6 @@ export default function EstimateEditPage() {
           vehicles.push({ ...formData.tradeIn, is_trade_in: true });
 
         for (const v of vehicles) {
-          // 見積IDを確実に含める
           const vehiclePayload = {
             ...v,
             estimate: Number(id),
@@ -138,7 +155,6 @@ export default function EstimateEditPage() {
         }
       }
 
-      // === 4️⃣ 支払い情報 ===
       const paymentPayload = {
         payment_method: formData.payment_method || "現金",
         credit_company:
@@ -178,10 +194,10 @@ export default function EstimateEditPage() {
         console.error("⚠️ 支払い登録・更新エラー:", err);
       }
 
-      alert("✅ 見積を更新しました！");
+      alert("見積を更新しました！");
       router.push(`/dashboard/estimates/${id}?_r=${Date.now()}`);
     } catch (err) {
-      console.error("❌ 更新エラー:", err);
+      console.error("更新エラー:", err);
       alert("更新中にエラーが発生しました。詳細はコンソールを確認してください。");
     } finally {
       setLoading(false);
@@ -195,7 +211,6 @@ export default function EstimateEditPage() {
       </Box>
     );
 
-  // === JSX ===
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" fontWeight="bold" mb={3}>

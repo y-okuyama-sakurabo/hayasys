@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { Typography, Paper, Grid } from "@mui/material";
+import { useEffect, useState } from "react";
+import apiClient from "@/lib/apiClient";
+import { Typography,
+         Paper,
+         Grid,
+         FormControl,
+         InputLabel,
+         Select,
+         MenuItem, } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import dayjs from "dayjs";
 import OrderPartySelector from "@/components/orders/OrderPartySelector";
@@ -9,6 +16,18 @@ import OrderPartySelector from "@/components/orders/OrderPartySelector";
 export default function BasicInfoForm({ formData, setFormData }: any) {
 
   const isEdit = !!formData.id; // ★新規 or 編集判定
+  const [shops, setShops] = useState<any[]>([]);
+
+    // === 店舗一覧取得 ===
+  useEffect(() => {
+    apiClient
+      .get("/masters/shops/")
+      .then((res) => {
+        setShops(res.data?.results ?? res.data ?? []);
+      })
+      .catch((err) => console.error("🏪 店舗取得失敗:", err));
+  }, []);
+
 
   // 編集の場合のみ初期値セット
   useEffect(() => {
@@ -77,6 +96,26 @@ export default function BasicInfoForm({ formData, setFormData }: any) {
           slotProps={{ textField: { fullWidth: true } }}
         />
       </Grid>
+      <FormControl size="small" sx={{ mb: 3, minWidth: 240 }}>
+        <InputLabel>店舗を選択</InputLabel>
+        <Select
+          value={formData.shop || ""}
+          label="店舗を選択"
+          onChange={(e) =>
+            setFormData((prev: any) => ({
+              ...prev,
+              shop: e.target.value,
+            }))
+          }
+        >
+          {shops.map((shop) => (
+            <MenuItem key={shop.id} value={shop.id}>
+              {shop.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
       <Typography variant="subtitle1" fontWeight="bold" mb={1}>
         顧客情報
       </Typography>

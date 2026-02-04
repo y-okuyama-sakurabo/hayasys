@@ -59,7 +59,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
     # --- read only ---
     created_by = CreatedBySerializer(read_only=True)
-    shop = serializers.PrimaryKeyRelatedField(read_only=True)
+    shop = serializers.PrimaryKeyRelatedField(
+        queryset=Shop.objects.all(),
+        required=False,
+        allow_null=False,
+    )
 
     # 顧客スナップショット
     party_name = serializers.CharField(read_only=True)
@@ -262,8 +266,13 @@ class OrderSerializer(serializers.ModelSerializer):
         })
 
         # 注文ヘッダ更新
+        shop = validated_data.pop("shop", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if shop is not None:
+            instance.shop = shop
+
         instance.save()
 
         # --- 明細 ---

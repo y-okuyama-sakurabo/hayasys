@@ -36,6 +36,37 @@ function EstimateNewInner() {
   const [loading, setLoading] = useState(false);
   const [hasBike, setHasBike] = useState(false);
 
+  // ===== 送信用payloadを作る（循環参照を含めない） =====
+  const buildEstimatePayload = (fd: any) => {
+    return {
+      estimate_no: fd.estimate_no ?? "",
+      party_id: fd.party_id ?? fd.party?.id ?? null,
+      new_party: fd.new_party ?? null,
+      shop: fd.shop?.id ?? fd.shop ?? null,
+
+      // BasicInfoForm側で必要なフィールドが他にもあるならここに明示で追加
+      // 例: staff, memo, valid_until, etc...
+    };
+  };
+
+  const buildItemPayload = (item: any) => {
+    return {
+      category_id: item.category_id ?? item.category?.id ?? null,
+      product_id: item.product?.id ?? item.product_id ?? null,
+
+      name: item.name ?? "",
+      quantity: Number(item.quantity ?? 0),
+      unit_price: Number(item.unit_price ?? 0),
+      discount: Number(item.discount ?? 0),
+      tax_type: item.tax_type ?? "taxable",
+
+      staff: item.staff?.id ?? item.staff ?? null,
+      sale_type: item.sale_type ?? null,
+
+      saveAsProduct: item.saveAsProduct === true,
+    };
+  };
+
   // === 見積番号と所属店舗の自動セット ===
   useEffect(() => {
     const initForm = async () => {
@@ -114,8 +145,8 @@ function EstimateNewInner() {
 
         console.log("✅ 複製元読み込み完了:", {
           estimate,
-          itemsData,
-          vehicles,
+          itemsDataCount: Array.isArray(itemsData) ? itemsData.length : 0,
+          vehiclesCount: Array.isArray(vehicles) ? vehicles.length : 0,
           payment,
         });
       } catch (err) {
@@ -133,30 +164,30 @@ function EstimateNewInner() {
     try {
       setLoading(true);
 
-      // 1️⃣ 見積ヘッダー登録
-      const res = await apiClient.post("/estimates/", formData);
+      // 1️⃣ 見積ヘッダー登録（安全payload）
+      const estimatePayload = buildEstimatePayload(formData);
+      const res = await apiClient.post("/estimates/", estimatePayload);
       const newEstimateId = res.data.id;
       setEstimateId(newEstimateId);
 
-      // 2️⃣ 明細登録
+      // 2️⃣ 明細登録（安全payload）
       for (const item of items) {
-        await apiClient.post(`/estimates/${newEstimateId}/items/`, {
-          product_id: item.product?.id || item.product_id || null,
-          ...item,
-        });
+        const itemPayload = buildItemPayload(item);
+        await apiClient.post(`/estimates/${newEstimateId}/items/`, itemPayload);
       }
 
       // 3️⃣ 車両情報登録（バイクが含まれている場合のみ）
       if (hasBike) {
-        const vehicles: any[] = [];
+        const vehiclesToCreate: any[] = [];
         if (formData.target?.vehicle_name) {
-          vehicles.push({ ...formData.target, is_trade_in: false });
+          vehiclesToCreate.push({ ...formData.target, is_trade_in: false });
         }
         if (formData.tradeIn?.vehicle_name) {
-          vehicles.push({ ...formData.tradeIn, is_trade_in: true });
+          vehiclesToCreate.push({ ...formData.tradeIn, is_trade_in: true });
         }
 
-        for (const v of vehicles) {
+        for (const v of vehiclesToCreate) {
+          // ここも、不要なオブジェクトが入ってたら落ちる可能性あるので必要なら絞る
           await apiClient.post(`/estimates/${newEstimateId}/vehicles/`, {
             estimate: newEstimateId,
             ...v,

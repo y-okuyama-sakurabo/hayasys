@@ -67,13 +67,12 @@ from core.views.estimates.items import (
     EstimateItemListCreateAPIView,
     EstimateItemRetrieveUpdateDestroyAPIView,
 )
-from core.views.products.views import (
-    LargeCategoryListAPIView,
-    MiddleCategoryListAPIView,
-    SmallCategoryListAPIView,
-    ProductListAPIView,
-)
+
 from core.views.estimates import estimate_vehicle_views as ev
+
+# === Categories / Products ===
+from core.views.categories.views import CategoryListAPIView, ProductListAPIView, CategoryRetrieveAPIView, CategoryTreeAPIView, ProductSearchAPIView
+
 
 # === Payments ===
 from core.views.payments.views import EstimatePaymentListCreateView, PaymentUpdateView
@@ -208,10 +207,14 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/vehicles/", ev.EstimateVehicleListCreateAPIView.as_view(), name="estimate-vehicle-list"),
     path("estimates/<int:estimate_id>/vehicles/<int:pk>/", ev.EstimateVehicleRetrieveUpdateDestroyAPIView.as_view(), name="estimate-vehicle-detail"),
 
-    path("categories/large/", LargeCategoryListAPIView.as_view(), name="category-large-list"),
-    path("categories/middle/", MiddleCategoryListAPIView.as_view(), name="category-middle-list"),
-    path("categories/small/", SmallCategoryListAPIView.as_view(), name="category-small-list"),
+    # ------------------------------------------------------------------
+    # カテゴリ & 商品
+    # ------------------------------------------------------------------
+    path("categories/", CategoryListAPIView.as_view(), name="category-list"),
     path("products/", ProductListAPIView.as_view(), name="product-list"),
+    path("categories/<int:pk>/", CategoryRetrieveAPIView.as_view(), name="category-detail"),
+    path("categories/tree/", CategoryTreeAPIView.as_view(), name="category-tree"),
+    path("products/search/", ProductSearchAPIView.as_view(), name="product-search"),
 
     # ------------------------------------------------------------------
     # 支払い（見積単位）

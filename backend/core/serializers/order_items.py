@@ -1,18 +1,34 @@
-# core/serializers/orders.py
 from decimal import Decimal, InvalidOperation
 from rest_framework import serializers
-from core.models import Order, OrderItem, Customer, Estimate
+from core.models import OrderItem, Category, Product
 from core.serializers.products import ProductSerializer
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.none(),  # 後で差し替え
+        queryset=Product.objects.all(),
         source="product",
         write_only=True,
         required=False,
         allow_null=True
+    )
+
+    # ★ カテゴリ（read / write 分離）
+    category = serializers.SerializerMethodField(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        source="category",
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
+    # ★ UI専用フラグ（DBには保存しない）
+    saveAsProduct = serializers.BooleanField(
+        write_only=True,
+        required=False,
+        default=False,
     )
 
     class Meta:
@@ -21,26 +37,36 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "id",
             "product",
             "product_id",
+
+            "category",
+            "category_id",
+
             "name",
             "quantity",
             "unit_price",
             "tax_type",
             "discount",
+            "sale_type",
             "subtotal",
+
+            # ★ UIフラグ
+            "saveAsProduct",
+
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "subtotal", "created_at", "updated_at"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Product の queryset を遅延セット（循環 import 回避）
-        from core.models import Product
-        self.fields["product_id"].queryset = Product.objects.all()
+    def get_category(self, obj):
+        if not obj.category:
+            return None
+        return {
+            "id": obj.category.id,
+            "name": obj.category.name,
+        }
 
     def validate(self, data):
-        """数量 × 単価 − 値引 で小計を自動計算"""
+        """数量 × 単価 − 値引"""
         try:
             qty = Decimal(str(data.get("quantity") or "1"))
             price = Decimal(str(data.get("unit_price") or "0"))
@@ -50,3 +76,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
         data["subtotal"] = (qty * price) - discount
         return data
+
+    def create(self, validated_data):
+        # ★ UI用フラグは model に無いので除外
+        validated_data.pop("saveAsProduct", None)
+        return super().create(validated_data)

@@ -52,26 +52,27 @@ class ProductCategorySmall(models.Model):
 # ==========================
 # 商品
 # ==========================
-class Product(models.Model):
-    small = models.ForeignKey(
-        ProductCategorySmall, on_delete=models.PROTECT, related_name="products"
-    )
-    name = models.CharField("商品名", max_length=200)
-    unit_price = models.DecimalField("単価", max_digits=10, decimal_places=2, default=0)
-    tax_type = models.CharField(
-        "課税区分",
-        max_length=20,
-        choices=[("taxable", "課税"), ("non_taxable", "非課税")],
-        default="taxable",
-    )
-    is_active = models.BooleanField(default=True)
+# class Product(models.Model):
+#     small = models.ForeignKey(
+#         ProductCategorySmall, on_delete=models.PROTECT, related_name="products"
+#     )
+#     name = models.CharField("商品名", max_length=200)
+#     unit_price = models.DecimalField("単価", max_digits=10, decimal_places=2, default=0)
+#     tax_type = models.CharField(
+#         "課税区分",
+#         max_length=20,
+#         choices=[("taxable", "課税"), ("non_taxable", "非課税")],
+#         default="taxable",
+#     )
+#     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        db_table = "products"
-        ordering = ["name"]
+#     class Meta:
+#         db_table = "products"
+#         ordering = ["name"]
 
-    def __str__(self):
-        return f"{self.name} ({self.small.name})"
+#     def __str__(self):
+#         return f"{self.name} ({self.small.name})"
+    

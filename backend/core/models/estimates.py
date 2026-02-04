@@ -96,9 +96,6 @@ class Estimate(models.Model):
 # core/models/estimates.py
 
 class EstimateItem(models.Model):
-    """
-    見積明細
-    """
     estimate = models.ForeignKey(
         "core.Estimate",
         on_delete=models.CASCADE,
@@ -111,6 +108,14 @@ class EstimateItem(models.Model):
         null=True, blank=True,
         help_text="商品マスタに存在しない場合は手入力可"
     )
+    category = models.ForeignKey(   # 👈 追加！
+        "core.Category",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="estimate_items",
+        help_text="分析用カテゴリ（車両・メーカー・新車/中古など）"
+    )
+
     name = models.CharField("項目名", max_length=200)
     quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, default=1)
     unit_price = models.DecimalField("単価", max_digits=10, decimal_places=2, default=0)
@@ -129,9 +134,19 @@ class EstimateItem(models.Model):
         help_text="作業担当スタッフ"
     )
 
-    # 計算結果
     subtotal = models.DecimalField("小計", max_digits=12, decimal_places=2, default=0)
-
+    SALE_TYPE_CHOICES = [
+        ("new", "新車"),
+        ("used", "中古車"),
+        ("rental_up", "レンタルアップ"),
+        ("consignment", "委託販売"),
+    ]
+    sale_type = models.CharField(
+        max_length=20,
+        choices=SALE_TYPE_CHOICES,
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

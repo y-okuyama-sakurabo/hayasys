@@ -17,4 +17,4 @@ from .order_delivery_payment import (
 )
 from .business_communication_attachments import BusinessCommunicationAttachment
 from .audit_log import AuditLog
-
+from .categories import Category, Product

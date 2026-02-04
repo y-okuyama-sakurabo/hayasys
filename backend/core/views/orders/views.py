@@ -65,23 +65,31 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        shop = user.shop
+        staff = getattr(user, "staff", None)
+        user_shop = getattr(staff, "shop", None)
 
-        # --- 受注番号生成 ---
+        # 🔹 POSTされた shop を優先
+        shop_id = self.request.data.get("shop")
+        if shop_id:
+            try:
+                shop = Shop.objects.get(id=shop_id)
+            except Shop.DoesNotExist:
+                shop = user_shop
+        else:
+            shop = user_shop
+
+        # 🔹 受注番号生成
         order_no = serializer.validated_data.get("order_no")
         if not order_no or Order.objects.filter(order_no=order_no).exists():
             order_no = generate_next_order_no(shop)
 
-        # --- 先に保存（items も serializer の create() で作成される） ---
         order = serializer.save(
             created_by=user,
             shop=shop,
             order_no=order_no,
         )
 
-        # ============================
-        # ★ 金額計算ここでやる
-        # ============================
+        # 🔹 金額再計算
         subtotal = 0
         discount_total = 0
 
@@ -121,10 +129,22 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
             return OrderDetailSerializer
         return OrderSerializer
     
-    def perform_update(self, serializer): 
-        staff = getattr(self.request.user, "staff", None) 
-        shop = getattr(staff, "shop", None) 
+    def perform_update(self, serializer):
+        user = self.request.user
+        staff = getattr(user, "staff", None)
+        user_shop = getattr(staff, "shop", None)
+
+        shop_id = self.request.data.get("shop")
+        if shop_id:
+            try:
+                shop = Shop.objects.get(id=shop_id)
+            except Shop.DoesNotExist:
+                shop = user_shop
+        else:
+            shop = user_shop
+
         serializer.save(shop=shop)
+
 
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
@@ -279,12 +299,15 @@ class OrderFromEstimateAPIView(APIView):
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
+                category=item.category,
                 name=item.name,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 tax_type=item.tax_type,
                 discount=item.discount,
                 subtotal=item.subtotal,
+                staff=item.staff,
+                sale_type=item.sale_type,
             )
 
         # ===============================
@@ -456,6 +479,13 @@ class PrepareOrderFromEstimateAPIView(APIView):
             "items": [
                 {
                     "product": item.product.id if item.product else None,
+
+                    # ★カテゴリはIDと名前だけ
+                    "category": {
+                        "id": item.category.id if item.category else None,
+                        "name": item.category.name if item.category else None,
+                    } if item.category else None,
+
                     "name": item.name,
                     "quantity": item.quantity,
                     "unit_price": item.unit_price,
@@ -463,19 +493,11 @@ class PrepareOrderFromEstimateAPIView(APIView):
                     "discount": item.discount,
                     "subtotal": item.subtotal,
 
-                    # ←★ カテゴリ追加
-                    "category": (
-                        {
-                            "large": item.product.small.middle.large.name if item.product and item.product.small else None,
-                            "middle": item.product.small.middle.name if item.product and item.product.small else None,
-                            "small": item.product.small.name if item.product and item.product.small else None,
-                        }
-                        if item.product else None
-                    ),
+                    "staff": item.staff.id if item.staff else None,
+                    "sale_type": item.sale_type,
                 }
                 for item in estimate.items.all()
             ],
-
 
             "target_vehicle": target,
             "trade_in_vehicle": trade_in,

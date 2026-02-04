@@ -1,15 +1,15 @@
 from rest_framework import generics, permissions
 from django.db.models import Sum
+from django.shortcuts import get_object_or_404
 from decimal import Decimal
 
-# 🔹 モデル
-from core.models.estimates import Estimate
-from core.models.estimates import EstimateItem   # ← これが必要！
-
-# 🔹 シリアライザ
-from core.serializers.estimate_items import EstimateItemSerializer  # ← これも必要！
+from core.models.estimates import Estimate, EstimateItem
+from core.serializers.estimate_items import EstimateItemSerializer
 
 
+# ==================================================
+# 見積明細一覧・作成
+# ==================================================
 class EstimateItemListCreateAPIView(generics.ListCreateAPIView):
     """
     指定した見積の明細一覧取得・追加
@@ -19,55 +19,70 @@ class EstimateItemListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         estimate_id = self.kwargs["estimate_id"]
-        # 🔥 product関連カテゴリを一気に取得して N+1 を防止
         return (
             EstimateItem.objects
             .filter(estimate_id=estimate_id)
             .select_related(
-                "product",
-                "product__small",
-                "product__small__middle",
-                "product__small__middle__large",
+                "category",
+                "category__parent",
+                "category__parent__parent",
+                "category__parent__parent__parent",
             )
+            .order_by("id")
         )
 
     def perform_create(self, serializer):
-        estimate_id = self.kwargs["estimate_id"]
-        estimate = Estimate.objects.get(id=estimate_id)
+        estimate = get_object_or_404(
+            Estimate,
+            id=self.kwargs["estimate_id"],
+        )
+
+        # 🔹 明細保存（Product 登録などは serializer 側に委譲）
         serializer.save(estimate=estimate)
-        self.update_estimate_totals(estimate_id)
+
+        # 🔹 見積金額再計算
+        self.update_estimate_totals(estimate.id)
 
     def update_estimate_totals(self, estimate_id):
-        """
-        明細から見積合計を再計算
-        """
+        """明細から見積合計を再計算"""
         items = EstimateItem.objects.filter(estimate_id=estimate_id)
-        subtotal = items.aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-        tax_total = items.filter(tax_type="taxable").aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-        grand_total = subtotal
+
+        subtotal = (
+            items.aggregate(total=Sum("subtotal"))["total"]
+            or Decimal("0")
+        )
+
+        taxable = (
+            items.filter(tax_type="taxable")
+            .aggregate(total=Sum("subtotal"))["total"]
+            or Decimal("0")
+        )
 
         tax_rate = Decimal("0.1")
+        tax_total = taxable * tax_rate
+        grand_total = subtotal + tax_total
+
         Estimate.objects.filter(id=estimate_id).update(
             subtotal=subtotal,
-            tax_total=tax_total * tax_rate,
-            grand_total=grand_total + (tax_total * tax_rate),
+            tax_total=tax_total,
+            grand_total=grand_total,
         )
 
 
-class EstimateItemRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    明細の取得・更新・削除
-    """
+# ==================================================
+# 見積明細 取得・更新・削除
+# ==================================================
+class EstimateItemRetrieveUpdateDestroyAPIView(
+    generics.RetrieveUpdateDestroyAPIView
+):
     serializer_class = EstimateItemSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # 🔥 ここでも product関連をまとめて取得
-        return EstimateItem.objects.select_related(
-            "product",
-            "product__small",
-            "product__small__middle",
-            "product__small__middle__large",
+        return (
+            EstimateItem.objects
+            .select_related("category")
+            .order_by("id")
         )
 
     def perform_update(self, serializer):
@@ -81,13 +96,24 @@ class EstimateItemRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPI
 
     def update_estimate_totals(self, estimate_id):
         items = EstimateItem.objects.filter(estimate_id=estimate_id)
-        subtotal = items.aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-        tax_total = items.filter(tax_type="taxable").aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-        grand_total = subtotal
+
+        subtotal = (
+            items.aggregate(total=Sum("subtotal"))["total"]
+            or Decimal("0")
+        )
+
+        taxable = (
+            items.filter(tax_type="taxable")
+            .aggregate(total=Sum("subtotal"))["total"]
+            or Decimal("0")
+        )
 
         tax_rate = Decimal("0.1")
+        tax_total = taxable * tax_rate
+        grand_total = subtotal + tax_total
+
         Estimate.objects.filter(id=estimate_id).update(
             subtotal=subtotal,
-            tax_total=tax_total * tax_rate,
-            grand_total=grand_total + (tax_total * tax_rate),
+            tax_total=tax_total,
+            grand_total=grand_total,
         )

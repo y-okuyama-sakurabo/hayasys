@@ -2,24 +2,33 @@ from datetime import date
 from django.db import transaction, IntegrityError
 from django.db.models import Max, IntegerField
 from django.db.models.functions import Cast, Substr
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from core.models import Estimate, EstimateParty
+from core.models import Estimate, EstimateItem, Product
 from core.models.base import Shop
-from core.serializers.estimates import EstimateSerializer, EstimateDetailSerializer
+from core.serializers.estimates import (
+    EstimateSerializer,
+    EstimateDetailSerializer,
+    EstimateItemSerializer,
+)
 
 
+# ==================================================
+# 見積一覧・作成
+# ==================================================
 class EstimateListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = EstimateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """
-        店舗ID(shop_id)指定があれば、その店舗の見積のみを返す。
-        """
-        qs = Estimate.objects.all().select_related("party", "shop", "created_by")
+        qs = Estimate.objects.select_related(
+            "party",
+            "shop",
+            "created_by",
+        )
 
         shop_id = self.request.query_params.get("shop_id")
         if shop_id and shop_id != "all":
@@ -32,7 +41,7 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
         staff = getattr(user, "staff", None)
         user_shop = getattr(staff, "shop", None)
 
-        # 🔹 店舗設定（POSTデータ or ユーザー所属）
+        # 店舗決定（POST優先）
         shop_id = self.request.data.get("shop")
         if shop_id:
             try:
@@ -42,22 +51,20 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
         else:
             shop = user_shop
 
-        # 🔹 見積番号を自動採番（重複防止含む）
+        # 見積番号自動採番
         estimate_no = serializer.validated_data.get("estimate_no")
         if not estimate_no or Estimate.objects.filter(estimate_no=estimate_no).exists():
             estimate_no = self._generate_next_estimate_no()
 
-        # ✅ ログイン中のユーザーを created_by にセットして保存
         try:
             with transaction.atomic():
                 serializer.save(
-                    created_by=user,   # ← ここが重要
+                    created_by=user,
                     shop=shop,
                     estimate_no=estimate_no,
                 )
         except IntegrityError as e:
             raise serializers.ValidationError({"detail": str(e)})
-
 
     def _generate_next_estimate_no(self):
         today_str = date.today().strftime("%Y%m%d")
@@ -67,7 +74,7 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
             .annotate(
                 number_part=Cast(
                     Substr("estimate_no", len(today_str) + 2, 10),
-                    IntegerField()
+                    IntegerField(),
                 )
             )
             .aggregate(max_number=Max("number_part"))
@@ -77,6 +84,9 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
         return f"{today_str}-{next_number}"
 
 
+# ==================================================
+# 見積取得・更新・削除
+# ==================================================
 class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -92,10 +102,7 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         )
         .prefetch_related(
             "items",
-            "items__product",
-            "items__product__small",
-            "items__product__small__middle",
-            "items__product__small__middle__large",
+            "items__category",
         )
     )
 
@@ -103,11 +110,6 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         if self.request.method == "GET":
             return EstimateDetailSerializer
         return EstimateSerializer
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
 
     def perform_update(self, serializer):
         staff = getattr(self.request.user, "staff", None)
@@ -124,14 +126,18 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
 
         serializer.save(shop=shop)
 
+
+# ==================================================
+# 次の見積番号取得
+# ==================================================
 class EstimateNextNoAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """次の見積番号を返す"""
         today_str = date.today().strftime("%Y%m%d")
         last_estimate = (
-            Estimate.objects.filter(estimate_no__startswith=today_str)
+            Estimate.objects
+            .filter(estimate_no__startswith=today_str)
             .aggregate(Max("estimate_no"))
             .get("estimate_no__max")
         )
@@ -145,5 +151,44 @@ class EstimateNextNoAPIView(APIView):
         else:
             next_number = 1
 
-        next_no = f"{today_str}-{next_number}"
-        return Response({"next_estimate_no": next_no})
+        return Response({"next_estimate_no": f"{today_str}-{next_number}"})
+
+
+# ==================================================
+# 見積明細一覧・作成（★ここが重要）
+# ==================================================
+class EstimateItemListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = EstimateItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        estimate_id = self.kwargs.get("estimate_id")
+        return EstimateItem.objects.filter(estimate_id=estimate_id)
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        estimate_id = self.kwargs.get("estimate_id")
+        estimate = get_object_or_404(Estimate, id=estimate_id)
+
+        item = serializer.save(estimate=estimate)
+
+        # UI意思フラグ（Boolean保証）
+        save_flag = serializer.validated_data.get("saveAsProduct", False)
+        self._create_product_if_needed(item, save_flag)
+
+    def _create_product_if_needed(self, item: EstimateItem, save_flag: bool):
+        if not save_flag:
+            return
+
+        if not item.name or not item.category_id:
+            return
+
+        Product.objects.get_or_create(
+            name=item.name,
+            category_id=item.category_id,
+            defaults={
+                "unit_price": item.unit_price,
+                "tax_type": item.tax_type,
+                "is_active": True,
+            },
+        )
