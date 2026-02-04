@@ -198,12 +198,18 @@ function EstimateNewInner() {
       // 4️⃣ 支払い情報登録
       const paymentPayload = {
         payment_method: formData.payment_method,
-        credit_company: formData.credit_company,
-        credit_first_payment: formData.credit_first_payment,
-        credit_second_payment: formData.credit_second_payment,
-        credit_bonus_payment: formData.credit_bonus_payment,
-        credit_installments: formData.credit_installments,
-        credit_start_month: formData.credit_start_month,
+        credit_company: formData.credit_company || null,
+        credit_first_payment: formData.credit_first_payment || null,
+        credit_second_payment: formData.credit_second_payment || null,
+        credit_bonus_payment: formData.credit_bonus_payment || null,
+
+        credit_installments:
+          formData.credit_installments === "" ||
+          formData.credit_installments === undefined
+            ? null
+            : Number(formData.credit_installments),
+
+        credit_start_month: formData.credit_start_month || null,
       };
 
       console.log("支払い情報送信:", paymentPayload);
