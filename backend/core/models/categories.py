@@ -1,4 +1,5 @@
 from django.db import models
+from core.utils.text import normalize_japanese
 
 
 class Category(models.Model):
@@ -38,6 +39,14 @@ class Product(models.Model):
         related_name="products"
     )
     name = models.CharField("商品名", max_length=200)
+
+    name_search = models.CharField(
+        "検索用商品名",
+        max_length=300,
+        editable=False,
+        db_index=True
+    )
+
     unit_price = models.DecimalField("単価", max_digits=10, decimal_places=2, default=0)
     tax_type = models.CharField(
         "課税区分",
@@ -56,3 +65,8 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.category.full_path if self.category else 'カテゴリ未設定'})"
+
+    def save(self, *args, **kwargs):
+        # 🔽 商品名を正規化して検索用フィールドに保存
+        self.name_search = normalize_japanese(self.name)
+        super().save(*args, **kwargs)

@@ -2,6 +2,7 @@ from rest_framework import generics, permissions
 from core.models.categories import Category, Product
 from core.serializers.categories import CategorySerializer, CategoryTreeSerializer
 from core.serializers.products import ProductSerializer
+from core.utils.text import normalize_japanese
 
 
 class CategoryListAPIView(generics.ListAPIView):
@@ -45,7 +46,8 @@ class ProductSearchAPIView(generics.ListAPIView):
         qs = Product.objects.filter(is_active=True)
 
         if q:
-            qs = qs.filter(name__icontains=q)
+            normalized_q = normalize_japanese(q)
+            qs = qs.filter(name_search__contains=normalized_q)
 
         return qs.order_by("name")[:20]
 

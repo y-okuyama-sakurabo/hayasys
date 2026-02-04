@@ -148,6 +148,7 @@ export default function ProductSelectModal({
         {tab === 0 && (
           <Autocomplete
             options={options}
+            filterOptions={(x) => x} // ← ★これを追加
             getOptionLabel={(o) => o.name || ""}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             loading={loading}
@@ -183,6 +184,7 @@ export default function ProductSelectModal({
             )}
           />
         )}
+
 
         {/* =========================
             カテゴリから選択
