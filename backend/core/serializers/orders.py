@@ -179,6 +179,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 明細
         for item in items_data:
+            item.pop("saveAsProduct", None)
             OrderItem.objects.create(order=order, **item)
 
         # 支払い
@@ -278,7 +279,9 @@ class OrderSerializer(serializers.ModelSerializer):
         # --- 明細 ---
         if items_data is not None:
             instance.items.all().delete()
+
             for item in items_data:
+                item.pop("saveAsProduct", None)  # ★必須
                 OrderItem.objects.create(order=instance, **item)
 
         # --- 支払い ---
@@ -292,22 +295,14 @@ class OrderSerializer(serializers.ModelSerializer):
                     **p
                 )
 
-        # --- ★ 車両更新 ---
+        # --- 車両 ---
         instance.order_vehicles.all().delete()
 
         if target_vehicle:
-            OrderVehicle.objects.create(
-                order=instance,
-                is_trade_in=False,
-                **target_vehicle
-            )
-
+            OrderVehicle.objects.create(order=instance, is_trade_in=False, **target_vehicle)
         if trade_in_vehicle:
-            OrderVehicle.objects.create(
-                order=instance,
-                is_trade_in=True,
-                **trade_in_vehicle
-            )
+            OrderVehicle.objects.create(order=instance, is_trade_in=True, **trade_in_vehicle)
 
         return instance
+
     

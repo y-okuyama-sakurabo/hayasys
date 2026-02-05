@@ -109,6 +109,16 @@ from core.views.management.management_list_view import ManagementOrderListAPIVie
 # === Audit Logs ===
 from core.views.audit_logs.views import AuditLogViewSet
 
+# === Analytics ===
+from core.views.analytics.views import (
+    SalesSummaryAPIView,
+    SalesDailyAPIView,
+    SalesByStaffAPIView,
+    SalesByCategoryAPIView,
+    EstimateConversionAPIView,
+    OrdersByCreatorAPIView,
+)
+
 urlpatterns = [
     # ------------------------------------------------------------------
     # 認証
@@ -266,5 +276,18 @@ urlpatterns = [
         "audit-logs/",
         AuditLogViewSet.as_view({"get": "list"}),
         name="audit-log-list",
+    ),
+
+        # ------------------------------------------------------------------
+    # 分析（Analytics）
+    # ------------------------------------------------------------------
+    path("analytics/sales-summary/", SalesSummaryAPIView.as_view()),
+    path("analytics/sales-daily/", SalesDailyAPIView.as_view()),
+    path("analytics/sales-by-staff/", SalesByStaffAPIView.as_view()),
+    path("analytics/sales-by-category/", SalesByCategoryAPIView.as_view()),
+    path("analytics/estimate-conversion/", EstimateConversionAPIView.as_view()),
+    path(
+        "analytics/orders-by-creator/",
+        OrdersByCreatorAPIView.as_view(),
     ),
 ]

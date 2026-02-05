@@ -30,7 +30,7 @@ import {
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import MailIcon from "@mui/icons-material/Mail"; // 追加
-
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 const drawerWidth = 240;
 
 export default function LayoutSidebar({ children }: { children: React.ReactNode }) {
@@ -100,6 +100,11 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
       text: "業務連絡",
       icon: <MailIcon />,
       path: "/dashboard/business-communications",
+    },
+      {
+      text: "分析",
+      icon: <TrendingUpIcon />,
+      path: "/dashboard/analytics",
     },
   ];
 
