@@ -10,6 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from core.models.payments import Payment
+from core.services.order_finalize import create_customer_vehicle_from_order
+from django.db.models import Q
+import jaconv
 
 from core.models import (
     Order, OrderItem,
@@ -51,25 +54,76 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         qs = (
             Order.objects.all()
             .select_related("customer", "shop", "created_by")
-            .prefetch_related("items")
+            .prefetch_related("items", "items__product")
         )
 
+        # -------------------------
+        # 店舗
+        # -------------------------
+
         shop_id = self.request.query_params.get("shop_id")
+
         if shop_id and shop_id != "all":
             qs = qs.filter(shop_id=shop_id)
+
+        # -------------------------
+        # キーワード検索
+        # -------------------------
+
+        q = self.request.query_params.get("search")
+
+        if q:
+            q_norm = jaconv.normalize(q, "NFKC")
+
+            qs = qs.filter(
+                Q(order_no__icontains=q_norm)
+                | Q(customer__name__icontains=q_norm)
+                | Q(created_by__display_name__icontains=q_norm)
+                | Q(items__name__icontains=q_norm)
+                | Q(items__product__name__icontains=q_norm)
+            ).distinct()
+
+        # -------------------------
+        # 日付範囲
+        # -------------------------
+
+        date_from = self.request.query_params.get("date_from")
+        date_to = self.request.query_params.get("date_to")
+
+        if date_from:
+            qs = qs.filter(order_date__gte=date_from)
+
+        if date_to:
+            qs = qs.filter(order_date__lte=date_to)
+
+        # -------------------------
+        # 金額範囲
+        # -------------------------
+
+        amount_min = self.request.query_params.get("amount_min")
+        amount_max = self.request.query_params.get("amount_max")
+
+        if amount_min:
+            qs = qs.filter(grand_total__gte=amount_min)
+
+        if amount_max:
+            qs = qs.filter(grand_total__lte=amount_max)
 
         return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
+        print("📦 perform_create 呼ばれました")
+
         user = self.request.user
         staff = getattr(user, "staff", None)
         user_shop = getattr(staff, "shop", None)
 
-        # 🔹 POSTされた shop を優先
         shop_id = self.request.data.get("shop")
+
         if shop_id:
             try:
                 shop = Shop.objects.get(id=shop_id)
@@ -78,8 +132,8 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
         else:
             shop = user_shop
 
-        # 🔹 受注番号生成
         order_no = serializer.validated_data.get("order_no")
+
         if not order_no or Order.objects.filter(order_no=order_no).exists():
             order_no = generate_next_order_no(shop)
 
@@ -89,7 +143,6 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
             order_no=order_no,
         )
 
-        # 🔹 金額再計算
         subtotal = 0
         discount_total = 0
 
@@ -97,6 +150,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
             qty = float(item.quantity or 0)
             price = float(item.unit_price or 0)
             discount = float(item.discount or 0)
+
             subtotal += (qty * price) - discount
             discount_total += discount
 
@@ -145,12 +199,12 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         serializer.save(shop=shop)
 
-
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
+
         order = self.get_object()
 
-        # ① DeliveryItem（最優先）
+        # ① DeliveryItem（最初）
         for item in order.items.all():
             item.deliveryitem_set.all().delete()
 
@@ -163,7 +217,7 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         # ④ OrderVehicle
         order.order_vehicles.all().delete()
 
-        # ⑤ PaymentManagement（records は CASCADE）
+        # ⑤ PaymentManagement
         if hasattr(order, "payment_management"):
             order.payment_management.delete()
 
@@ -273,6 +327,8 @@ class OrderFromEstimateAPIView(APIView):
             estimate=estimate,
             customer=customer,
 
+            vehicle_mode=estimate.vehicle_mode,
+
             party_name=customer.name,
             party_kana=customer.kana,
             phone=customer.phone,
@@ -298,6 +354,7 @@ class OrderFromEstimateAPIView(APIView):
         for item in estimate.items.all():
             OrderItem.objects.create(
                 order=order,
+                item_type=item.item_type,
                 product=item.product,
                 category=item.category,
                 name=item.name,
@@ -308,30 +365,6 @@ class OrderFromEstimateAPIView(APIView):
                 subtotal=item.subtotal,
                 staff=item.staff,
                 sale_type=item.sale_type,
-            )
-
-        # ===============================
-        # 5. 車両コピー（EstimateVehicle → OrderVehicle）
-        # ===============================
-        from core.models.estimate_vehicle import EstimateVehicle
-        from core.models.order_vehicle import OrderVehicle
-
-        estimate_vehicles = EstimateVehicle.objects.filter(estimate=estimate)
-
-        for v in estimate_vehicles:
-            OrderVehicle.objects.create(
-                order=order,
-                is_trade_in=v.is_trade_in,
-                vehicle_name=v.vehicle_name,
-                displacement=v.displacement,
-                model_year=v.model_year,
-                new_car_type=v.new_car_type,
-                manufacturer=v.manufacturer,
-                color_name=v.color_name,
-                color_code=v.color_code,
-                model_code=v.model_code,
-                chassis_no=v.chassis_no,
-                engine_type=v.engine_type,
             )
 
         # ===============================
@@ -366,6 +399,8 @@ class OrderFromEstimateAPIView(APIView):
         estimate.status = "ordered"
         estimate.save(update_fields=["status"])
 
+        create_customer_vehicle_from_order(order)
+
         serializer = OrderDetailSerializer(order, context={"request": request})
         return Response(serializer.data, status=201)
 
@@ -395,11 +430,37 @@ class PrepareOrderFromEstimateAPIView(APIView):
         if not party:
             return Response({"detail": "見積に顧客情報がありません"}, status=400)
 
-        # ===== 商談車両・下取り車両 =====
-        vehicles = estimate.estimate_vehicles.all()
+        # ===== 顧客（source_customer があれば customer_id に入れる）=====
+        customer_id = party.source_customer.id if party.source_customer else None
 
-        target = None
-        trade_in = None
+        # PartySelector が期待する new_customer の形（idは入れてOK）
+        new_customer = {
+            "source_customer": customer_id,
+            "name": party.name,
+            "kana": party.kana,
+            "phone": party.phone,
+            "mobile_phone": party.mobile_phone,
+            "company": party.company,
+            "company_phone": party.company_phone,
+            "birthdate": party.birthdate,
+            "email": party.email,
+            "postal_code": party.postal_code,
+            "address": party.address,
+            # ★ PartySelectorは number を期待してる（オブジェクトじゃなくID）
+            "customer_class": party.customer_class.id if party.customer_class else None,
+            "region": party.region.id if party.region else None,
+            "gender": party.gender.id if party.gender else None,
+        }
+
+        # ===== 車両（EstimateVehicle）=====
+        vehicles = estimate.estimate_vehicles.all()
+        target_vehicle = None
+        trade_in_vehicle = None
+
+        # 「車両item」から category_id / unit_price を拾う（ここが抜けてた）
+        vehicle_item = estimate.items.filter(item_type="vehicle").select_related("category").first()
+        vehicle_category_id = vehicle_item.category.id if vehicle_item and vehicle_item.category else None
+        vehicle_unit_price = vehicle_item.unit_price if vehicle_item else 0
 
         for v in vehicles:
             data = {
@@ -416,27 +477,26 @@ class PrepareOrderFromEstimateAPIView(APIView):
             }
 
             if v.is_trade_in:
-                trade_in = data
+                trade_in_vehicle = data
             else:
-                target = data
+                # ★ target側にカテゴリと価格も入れる（VehicleStepが使える）
+                data["category_id"] = vehicle_category_id
+                data["unit_price"] = vehicle_unit_price
+                target_vehicle = data
 
-        # ===== 支払い情報（見積の Payment） =====
+        # ===== 支払い（見積の Payment → orderの payments 形式へ）=====
         estimate_ct = ContentType.objects.get_for_model(Estimate)
         payments = Payment.objects.filter(
-            content_type=ContentType.objects.get_for_model(Estimate),
+            content_type=estimate_ct,
             object_id=estimate.id
-        )
+        ).order_by("id")
 
-        payment_data = []
+        payments_payload = []
         for p in payments:
-            payment_item = {
-                "id": p.id,
-                "payment_method": p.payment_method,
-            }
+            row = {"payment_method": p.payment_method}
 
-            # クレジット詳細（クレジット選択時のみ）
             if p.payment_method == "クレジット":
-                payment_item.update({
+                row.update({
                     "credit_company": p.credit_company,
                     "credit_first_payment": p.credit_first_payment,
                     "credit_second_payment": p.credit_second_payment,
@@ -444,65 +504,43 @@ class PrepareOrderFromEstimateAPIView(APIView):
                     "credit_installments": p.credit_installments,
                     "credit_start_month": p.credit_start_month,
                 })
+            payments_payload.append(row)
 
-            payment_data.append(payment_item)
+        # ===== items（OrderFormの buildItemPayload が期待する形に寄せる）=====
+        items_payload = []
+        for item in estimate.items.all():
+            items_payload.append({
+                "item_type": item.item_type,
+                "product_id": item.product.id if item.product else None,  # ← OrderItemSerializerが product_id を持ってるなら
+                "category_id": item.category.id if item.category else None,
+                "name": item.name,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "discount": item.discount,
+                "tax_type": item.tax_type,
+                "sale_type": item.sale_type,
+                "staff": item.staff.id if item.staff else None,
+            })
 
-        # ===== 返却データ =====
+        # ===== 返却（OrderForm state.basic にそのまま入れられる形）=====
         data = {
             "estimate_id": estimate.id,
 
-            "customer_candidate": {
-                "name": party.name,
-                "kana": party.kana,
-                "phone": party.phone,
-                "mobile_phone": party.mobile_phone,
-                "company": party.company,
-                "company_phone": party.company_phone,
-                "birthdate": party.birthdate,
-                "email": party.email,
-                "postal_code": party.postal_code,
-                "address": party.address,
-                "customer_class": {
-                    "id": party.customer_class.id if party.customer_class else None,
-                    "name": party.customer_class.name if party.customer_class else None,
-                },
-                "gender": {
-                    "id": party.gender.id if party.gender else None,
-                    "name": party.gender.name if party.gender else None,
-                },
-                "region": {
-                    "id": party.region.id if party.region else None,
-                    "name": party.region.name if party.region else None,
-                },
-            },
+            # ★ 店舗も返す（これが抜けてた）
+            "shop": estimate.shop.id if estimate.shop else None,
 
-            "items": [
-                {
-                    "product": item.product.id if item.product else None,
+            "vehicle_mode": estimate.vehicle_mode,
 
-                    # ★カテゴリはIDと名前だけ
-                    "category": {
-                        "id": item.category.id if item.category else None,
-                        "name": item.category.name if item.category else None,
-                    } if item.category else None,
+            # ★ OrderForm basic にそのまま入れる
+            "customer_id": customer_id,
+            "new_customer": new_customer,
 
-                    "name": item.name,
-                    "quantity": item.quantity,
-                    "unit_price": item.unit_price,
-                    "tax_type": item.tax_type,
-                    "discount": item.discount,
-                    "subtotal": item.subtotal,
+            "items": items_payload,
+            "target_vehicle": target_vehicle,
+            "trade_in_vehicle": trade_in_vehicle,
 
-                    "staff": item.staff.id if item.staff else None,
-                    "sale_type": item.sale_type,
-                }
-                for item in estimate.items.all()
-            ],
-
-            "target_vehicle": target,
-            "trade_in_vehicle": trade_in,
-
-            "payment": payment_data,
+            # ★ OrderFormは payments を送るので合わせる
+            "payments": payments_payload,
 
             "totals": {
                 "subtotal": estimate.subtotal,
@@ -513,4 +551,3 @@ class PrepareOrderFromEstimateAPIView(APIView):
         }
 
         return Response(data, status=200)
-

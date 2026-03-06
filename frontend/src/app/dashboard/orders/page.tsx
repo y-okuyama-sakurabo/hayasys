@@ -26,28 +26,25 @@ import {
   FormControl,
   Select,
   InputLabel,
+  TextField,
 } from "@mui/material";
+
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
 type Order = {
   id: number;
   order_no: string;
-  customer?: { name: string } | null;
-  items?: { name: string; product?: { name: string } | null }[];
-  grand_total?: string | number;
   order_date: string;
-  created_at: string;
-  created_by?: {
-    id: number;
-    display_name?: string;
-    name?: string;
-  } | null;
   party_name?: string | null;
+  items?: { name: string; product?: { name: string } | null }[];
+  grand_total?: number | string;
+  created_by?: { display_name?: string } | null;
 };
 
 type Shop = {
@@ -56,61 +53,85 @@ type Shop = {
 };
 
 function OrderListPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const refreshKey = searchParams.get("_r");
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<number | "all">("all");
+
+  const [searchInput, setSearchInput] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [amountMin, setAmountMin] = useState("");
+  const [amountMax, setAmountMax] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<{ [key: number]: HTMLElement | null }>({});
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const refreshKey = searchParams.get("_r"); // ✅ 依存用に変数化
-
   // =========================
-  // 初期ロード
+  // 受注取得
   // =========================
-  useEffect(() => {
-    const fetchInitial = async () => {
-      try {
-        const meRes = await apiClient.get("/auth/user/");
-        const staffShopId = meRes.data?.shop_id ?? "all";
 
-        const shopRes = await apiClient.get("/masters/shops/");
-        const shopList = shopRes.data.results || shopRes.data;
-        setShops(shopList);
-
-        setSelectedShop(staffShopId);
-
-        await fetchOrders(staffShopId);
-      } catch (err) {
-        console.error("初期ロード失敗:", err);
-        await fetchOrders("all");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInitial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  // =========================
-  // 受注一覧取得
-  // =========================
   const fetchOrders = async (shopId: number | "all") => {
     try {
-      const query = shopId !== "all" ? `?shop_id=${shopId}` : "";
+      const params = new URLSearchParams();
+
+      if (shopId !== "all") params.append("shop_id", String(shopId));
+      if (searchInput) params.append("search", searchInput);
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+      if (amountMin) params.append("amount_min", amountMin);
+      if (amountMax) params.append("amount_max", amountMax);
+
+      const query = params.toString() ? `?${params.toString()}` : "";
+
       const res = await apiClient.get(`/orders/${query}`);
+
       setOrders(res.data.results || res.data || []);
     } catch (err) {
       console.error("受注一覧取得失敗:", err);
     }
   };
 
+  const applySearch = async () => {
+    await fetchOrders(selectedShop);
+  };
+
+  // =========================
+  // 初期ロード
+  // =========================
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const meRes = await apiClient.get("/auth/user/");
+        const staffShopId = meRes.data?.shop_id ?? "all";
+
+        const shopRes = await apiClient.get("/masters/shops/");
+        const shopList = shopRes.data.results || shopRes.data;
+
+        setShops(shopList);
+        setSelectedShop(staffShopId);
+
+        await fetchOrders(staffShopId);
+      } catch (err) {
+        console.error(err);
+        await fetchOrders("all");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [refreshKey]);
+
   // =========================
   // 店舗変更
   // =========================
+
   const handleShopChange = async (event: any) => {
     const newShop = event.target.value;
     setSelectedShop(newShop);
@@ -120,6 +141,7 @@ function OrderListPageInner() {
   // =========================
   // メニュー
   // =========================
+
   const handleMenuOpen = (event: any, id: number) => {
     setMenuAnchor((prev) => ({ ...prev, [id]: event.currentTarget }));
   };
@@ -128,10 +150,7 @@ function OrderListPageInner() {
     setMenuAnchor((prev) => ({ ...prev, [id]: null }));
   };
 
-  // =========================
-  // 行アクション
-  // =========================
-  const handleAction = async (action: string, id: number) => {
+  const handleAction = (action: string, id: number) => {
     handleMenuClose(id);
 
     switch (action) {
@@ -143,34 +162,36 @@ function OrderListPageInner() {
         router.push(`/dashboard/orders/${id}?_r=${Date.now()}`);
         break;
 
-      case "delete": {
+      case "delete":
         const target = orders.find((o) => o.id === id);
         if (target) setDeleteTarget(target);
         break;
-      }
     }
   };
 
   // =========================
   // 削除
   // =========================
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
+
     try {
       await apiClient.delete(`/orders/${deleteTarget.id}/`);
-      setOrders((prev) => prev.filter((o) => o.id !== deleteTarget.id));
+
+      setOrders((prev) =>
+        prev.filter((o) => o.id !== deleteTarget.id)
+      );
+
       setDeleteTarget(null);
     } catch (err) {
       console.error(err);
-      alert("削除に失敗しました。");
+      alert("削除に失敗しました");
     }
   };
 
-  // =========================
-  // 金額表示
-  // =========================
   const formatPrice = (value: any) => {
-    if (value == null || isNaN(Number(value))) return "-";
+    if (!value) return "-";
     return `¥${Number(value).toLocaleString()}`;
   };
 
@@ -183,17 +204,16 @@ function OrderListPageInner() {
 
   return (
     <>
-      {/* ヘッダー */}
+      {/* ヘッダ */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight="bold">
           受注一覧
         </Typography>
 
-        <Box display="flex" alignItems="center" gap={2}>
-          {/* 店舗選択 */}
+        <Box display="flex" gap={2}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="shop-select-label">店舗</InputLabel>
-            <Select labelId="shop-select-label" value={selectedShop} label="店舗" onChange={handleShopChange}>
+            <InputLabel>店舗</InputLabel>
+            <Select value={selectedShop} label="店舗" onChange={handleShopChange}>
               <MenuItem value="all">全店舗</MenuItem>
               {shops.map((shop) => (
                 <MenuItem key={shop.id} value={shop.id}>
@@ -203,12 +223,99 @@ function OrderListPageInner() {
             </Select>
           </FormControl>
 
-          {/* 新規作成 */}
-          <Button variant="contained" color="primary" onClick={() => router.push(`/dashboard/orders/new?_r=${Date.now()}`)}>
+          <Button
+            variant="contained"
+            onClick={() =>
+              router.push(`/dashboard/orders/new?_r=${Date.now()}`)
+            }
+          >
             新規受注
           </Button>
         </Box>
       </Box>
+
+      {/* 検索 */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box mb={2}>
+          <TextField
+            size="small"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") applySearch();
+            }}
+            sx={{ width: 360 }}
+          />
+        </Box>
+
+        <Box display="flex" gap={3} flexWrap="wrap" mb={2}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography fontSize={13}>受注日</Typography>
+
+            <TextField
+              type="date"
+              size="small"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              sx={{ width: 160 }}
+            />
+
+            <Typography>〜</Typography>
+
+            <TextField
+              type="date"
+              size="small"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              sx={{ width: 160 }}
+            />
+          </Box>
+
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography fontSize={13}>金額</Typography>
+
+            <TextField
+              type="number"
+              size="small"
+              value={amountMin}
+              onChange={(e) => setAmountMin(e.target.value)}
+              sx={{ width: 120 }}
+            />
+
+            <Typography>〜</Typography>
+
+            <TextField
+              type="number"
+              size="small"
+              value={amountMax}
+              onChange={(e) => setAmountMax(e.target.value)}
+              sx={{ width: 120 }}
+            />
+          </Box>
+        </Box>
+
+        <Box display="flex" justifyContent="flex-end" gap={1}>
+          <Button variant="contained" size="small" onClick={applySearch}>
+            検索
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={async () => {
+              setSearchInput("");
+              setDateFrom("");
+              setDateTo("");
+              setAmountMin("");
+              setAmountMax("");
+
+              await fetchOrders(selectedShop);
+            }}
+          >
+            クリア
+          </Button>
+        </Box>
+      </Paper>
 
       {/* テーブル */}
       <TableContainer component={Paper}>
@@ -226,22 +333,36 @@ function OrderListPageInner() {
 
           <TableBody>
             {orders.map((o) => {
-              const productName = o.items && o.items.length > 0 ? o.items[0].product?.name || o.items[0].name : "-";
+              const productName =
+                o.items && o.items.length > 0
+                  ? o.items[0].product?.name || o.items[0].name
+                  : "-";
 
               return (
-                <TableRow key={o.id} hover onClick={() => router.push(`/dashboard/orders/${o.id}?_r=${Date.now()}`)}>
+                <TableRow
+                  key={o.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    router.push(`/dashboard/orders/${o.id}?_r=${Date.now()}`)
+                  }
+                >
                   <TableCell>{new Date(o.order_date).toLocaleDateString("ja-JP")}</TableCell>
-                  <TableCell>{o.party_name || "（顧客なし）"}</TableCell>
+                  <TableCell>{o.party_name || "-"}</TableCell>
                   <TableCell>{productName}</TableCell>
                   <TableCell>{o.created_by?.display_name || "-"}</TableCell>
                   <TableCell align="right">{formatPrice(o.grand_total)}</TableCell>
 
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    <IconButton onClick={(event) => handleMenuOpen(event, o.id)}>
+                    <IconButton onClick={(e) => handleMenuOpen(e, o.id)}>
                       <MoreVertIcon />
                     </IconButton>
 
-                    <Menu anchorEl={menuAnchor[o.id]} open={Boolean(menuAnchor[o.id])} onClose={() => handleMenuClose(o.id)}>
+                    <Menu
+                      anchorEl={menuAnchor[o.id]}
+                      open={Boolean(menuAnchor[o.id])}
+                      onClose={() => handleMenuClose(o.id)}
+                    >
                       <MenuItem onClick={() => handleAction("edit", o.id)}>
                         <ListItemIcon>
                           <EditIcon fontSize="small" />
@@ -256,7 +377,10 @@ function OrderListPageInner() {
                         <ListItemText primary="詳細" />
                       </MenuItem>
 
-                      <MenuItem onClick={() => handleAction("delete", o.id)}>
+                      <MenuItem
+                        onClick={() => handleAction("delete", o.id)}
+                        sx={{ color: "error.main" }}
+                      >
                         <ListItemIcon>
                           <DeleteIcon fontSize="small" color="error" />
                         </ListItemIcon>
@@ -267,31 +391,34 @@ function OrderListPageInner() {
                 </TableRow>
               );
             })}
-
-            {orders.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  データがありません
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/* 削除ダイアログ */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>受注削除の確認</DialogTitle>
+      {/* 削除確認Dialog */}
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+      >
+        <DialogTitle>受注削除</DialogTitle>
+
         <DialogContent>
           <DialogContentText>
-            受注「{deleteTarget?.order_no}」を削除しますか？ この操作は取り消せません。
+            この受注を削除しますか？
           </DialogContentText>
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>キャンセル</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            削除する
+          <Button onClick={() => setDeleteTarget(null)}>
+            キャンセル
+          </Button>
+
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDelete}
+          >
+            削除
           </Button>
         </DialogActions>
       </Dialog>
@@ -301,13 +428,7 @@ function OrderListPageInner() {
 
 export default function OrderListPage() {
   return (
-    <Suspense
-      fallback={
-        <Box display="flex" justifyContent="center" mt={10}>
-          <CircularProgress />
-        </Box>
-      }
-    >
+    <Suspense fallback={<CircularProgress />}>
       <OrderListPageInner />
     </Suspense>
   );

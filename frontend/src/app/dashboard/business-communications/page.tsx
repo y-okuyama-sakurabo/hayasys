@@ -15,8 +15,15 @@ export default function BusinessCommunicationsPage() {
   const fetchItems = useCallback(async (status: "pending" | "done") => {
     setLoading(true);
     try {
-      const res = await apiClient.get(`/business_communications/inbox/?status=${status}`);
-      const data = Array.isArray(res.data) ? res.data : res.data.results ?? [];
+      // ✅ inbox API を使う（shop_id不要）
+      const res = await apiClient.get(
+        `/business_communications/inbox/?status=${status}`
+      );
+
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data.results ?? [];
+
       setItems(data);
     } catch (e) {
       console.error("業務連絡取得失敗", e);
@@ -45,10 +52,14 @@ export default function BusinessCommunicationsPage() {
         <BusinessCommunicationList
           items={items}
           loading={loading}
-          emptyText={tab === "pending" ? "未対応はありません" : "対応済みはありません"}
+          emptyText={
+            tab === "pending"
+              ? "未対応はありません"
+              : "対応済みはありません"
+          }
           showActions
           pendingOnlyView={tab === "pending"}
-          onChanged={() => fetchItems(tab)}   // ✅ これが超重要
+          onChanged={() => fetchItems(tab)}
         />
       </Stack>
     </Box>

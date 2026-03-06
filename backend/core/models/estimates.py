@@ -78,6 +78,17 @@ class EstimateParty(models.Model):
 
 
 class Estimate(models.Model):
+    VEHICLE_MODE_CHOICES = [
+        ("sale", "車両販売"),
+        ("maintenance", "既存車両メンテナンス"),
+        ("none", "車両なし"),
+    ]
+
+    vehicle_mode = models.CharField(
+        max_length=20,
+        choices=VEHICLE_MODE_CHOICES,
+        default="none",
+    )
     STATUS_CHOICES = [("draft","下書き"),("issued","提出済み"),("ordered","受注済み")]
     estimate_no = models.CharField(max_length=20, unique=True)
     shop = models.ForeignKey("core.Shop", on_delete=models.SET_NULL, null=True, blank=True)
@@ -96,6 +107,19 @@ class Estimate(models.Model):
 # core/models/estimates.py
 
 class EstimateItem(models.Model):
+    ITEM_TYPE_CHOICES = [
+    ("vehicle", "車両"),
+    ("accessory", "用品"),
+    ("insurance", "保険"),
+    ("fee", "諸費用"),
+    ]
+
+    item_type = models.CharField(
+        max_length=20,
+        choices=ITEM_TYPE_CHOICES,
+        default="accessory",
+        db_index=True,
+    )
     estimate = models.ForeignKey(
         "core.Estimate",
         on_delete=models.CASCADE,

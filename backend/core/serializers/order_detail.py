@@ -32,6 +32,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "status",
             "order_date",
 
+            "vehicle_mode",
+
             "party_name",
             "party_kana",
             "phone",

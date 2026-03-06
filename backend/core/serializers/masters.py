@@ -18,7 +18,16 @@ class CustomerClassSerializer(serializers.ModelSerializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ["id", "code", "name"]
+        fields = [
+            "id",
+            "code",
+            "name",
+            "location",
+            "phone",
+            "fax",
+            "email",
+            "opening_hours",
+        ]
 
 
 class RegionSerializer(serializers.ModelSerializer):

@@ -1,14 +1,12 @@
 # core/views/vehicles/views.py
 from django.db.models import Prefetch
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+
 from rest_framework.response import Response
 
 from core.models import Vehicle, CustomerVehicle, Customer
-from core.serializers.vehicles import (
-    VehicleWriteSerializer,
-    VehicleDetailSerializer,
-    VehicleListSerializer,
-)
 from core.models import (
     CustomerVehicle,
     VehicleRegistration,
@@ -16,32 +14,70 @@ from core.models import (
     VehicleWarranty,
     VehicleMemo,
 )
+from core.serializers.customer_vehicles import (
+    CustomerVehicleCreateSerializer,
+    CustomerVehicleReadSerializer,
+)
 from core.serializers.ownerships import CustomerVehicleSerializer
-from core.serializers.vehicles import VehicleDetailSerializer
+from core.serializers.vehicles import (
+    VehicleWriteSerializer,
+    VehicleDetailSerializer,
+)
 
 
 # 顧客ごとの車両一覧・登録
 class CustomerVehicleListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = VehicleWriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_customer(self):
+        return get_object_or_404(Customer, pk=self.kwargs["customer_id"])
 
     def get_queryset(self):
-        customer_id = self.kwargs["customer_id"]
-        # Vehicle ↔ CustomerVehicle の関連名に注意
-        return Vehicle.objects.filter(customer_vehicles__customer_id=customer_id)
+        customer = self.get_customer()
 
-    def create(self, request, *args, **kwargs):
-        customer_id = self.kwargs["customer_id"]
-        customer = Customer.objects.get(pk=customer_id)
+        qs = (
+            CustomerVehicle.objects
+            .filter(customer=customer)
+            .select_related(
+                "vehicle",
+                "vehicle__manufacturer",
+                "vehicle__category",
+                "vehicle__color",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "vehicle__registrations",
+                    queryset=VehicleRegistration.objects.order_by("-created_at")[:1],
+                )
+            )
+            .order_by("-owned_to", "-owned_from", "-id")
+        )
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        vehicle = serializer.save()
+        status_ = self.request.query_params.get("status", "all")
 
-        # 中間テーブルへ登録
-        CustomerVehicle.objects.create(customer=customer, vehicle=vehicle)
+        if status_ == "current":
+            qs = qs.filter(owned_to__isnull=True)
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        elif status_ == "past":
+            qs = qs.filter(owned_to__isnull=False)
 
+        q = self.request.query_params.get("q", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(vehicle__chassis_no__icontains=q) |
+                Q(vehicle__vehicle_name__icontains=q)
+            )
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return CustomerVehicleCreateSerializer
+        return CustomerVehicleReadSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(customer=self.get_customer())
 
 # 顧客車両の削除
 class CustomerVehicleDestroyAPIView(generics.DestroyAPIView):
@@ -67,13 +103,12 @@ class CustomerVehicleAllListAPIView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         customer_id = self.kwargs["customer_id"]
 
-        # 共通プリフェッチ設定（関連テーブルを事前ロード）
         related_prefetch = [
             Prefetch("vehicle__registrations", queryset=VehicleRegistration.objects.all()),
             Prefetch("vehicle__insurances", queryset=VehicleInsurance.objects.all()),
             Prefetch("vehicle__warranties", queryset=VehicleWarranty.objects.all()),
             Prefetch("vehicle__memos", queryset=VehicleMemo.objects.all()),
-            "vehicle__customer_vehicles",  # owners
+            "vehicle__customer_vehicles", 
         ]
 
         # 現在所有（owned_to が NULL）
@@ -123,7 +158,6 @@ class CustomerVehicleReleaseAPIView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        # すでに手放し済みならエラー
         if instance.owned_to is not None:
             return Response({"detail": "すでに手放されています。"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -151,7 +185,7 @@ class CustomerVehicleSearchAPIView(generics.GenericAPIView):
         # 顧客の所有車両を取得（現所有＋過去所有）
         customer_vehicles = CustomerVehicle.objects.filter(
             customer_id=customer_id,
-            vehicle__chassis_no__icontains=q,  # 車台番号部分一致
+            vehicle__chassis_no__icontains=q, 
         ).select_related(
             "vehicle",
             "vehicle__manufacturer",
@@ -162,7 +196,7 @@ class CustomerVehicleSearchAPIView(generics.GenericAPIView):
             "vehicle__insurances",
             "vehicle__warranties",
             "vehicle__memos",
-            "vehicle__customer_vehicles",  # 所有履歴（owners）
+            "vehicle__customer_vehicles", 
         )
 
         vehicles = [cv.vehicle for cv in customer_vehicles]

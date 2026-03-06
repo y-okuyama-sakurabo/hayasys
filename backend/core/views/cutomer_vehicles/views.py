@@ -36,12 +36,15 @@ class CustomerVehicleListCreateAPIView(generics.ListCreateAPIView):
         return qs
 
     def get_serializer_class(self):
-        return CustomerVehicleWriteSerializer if self.request.method == "POST" else CustomerVehicleReadSerializer
+        if self.request.method == "POST":
+            return CustomerVehicleCreateSerializer
+        return CustomerVehicleReadSerializer
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx["customer"] = self.get_customer()
         return ctx
+
 
 
 class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -60,7 +63,9 @@ class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroy
         )
 
     def get_serializer_class(self):
-        return CustomerVehicleWriteSerializer if self.request.method in ["PUT", "PATCH"] else CustomerVehicleReadSerializer
+        if self.request.method in ["PUT", "PATCH"]:
+            return CustomerVehicleUpdateSerializer
+        return CustomerVehicleReadSerializer
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()

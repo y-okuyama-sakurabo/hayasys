@@ -1,10 +1,31 @@
 "use client";
 
-import { Box, Typography, Grid, TextField, RadioGroup, FormControlLabel, Radio } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Grid,
+  TextField,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+} from "@mui/material";
 
-export default function EstimatePaymentForm({ formData, setFormData }: any) {
+type Props = {
+  basic: any;
+  dispatch: React.Dispatch<any>;
+};
+
+export default function EstimatePaymentForm({
+  basic,
+  dispatch,
+}: Props) {
   const handleChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
+    dispatch({
+      type: "SET_BASIC",
+      payload: {
+        [field]: value,
+      },
+    });
   };
 
   return (
@@ -16,81 +37,112 @@ export default function EstimatePaymentForm({ formData, setFormData }: any) {
       {/* 支払い方法 */}
       <RadioGroup
         row
-        value={formData.payment_method || "現金"}
-        onChange={(e) => handleChange("payment_method", e.target.value)}
+        value={basic.payment_method || "現金"}
+        onChange={(e) =>
+          handleChange("payment_method", e.target.value)
+        }
       >
         <FormControlLabel value="現金" control={<Radio />} label="現金" />
-        <FormControlLabel value="クレジット" control={<Radio />} label="クレジット" />
+        <FormControlLabel
+          value="クレジット"
+          control={<Radio />}
+          label="クレジット"
+        />
         <FormControlLabel value="請求書" control={<Radio />} label="請求書" />
       </RadioGroup>
 
-      {/* クレジット選択時のみ詳細表示 */}
-      {formData.payment_method === "クレジット" && (
+      {/* クレジット詳細 */}
+      {basic.payment_method === "クレジット" && (
         <Box mt={3} p={2} border="1px solid #ccc" borderRadius={2}>
           <Typography variant="subtitle2" gutterBottom>
             クレジット詳細
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid size={{ xs: 6 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="クレジット会社"
-                value={formData.credit_company || ""}
-                onChange={(e) => handleChange("credit_company", e.target.value)}
+                value={basic.credit_company || ""}
+                onChange={(e) =>
+                  handleChange("credit_company", e.target.value)
+                }
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="回数"
                 type="number"
-                value={formData.credit_installments || ""}
+                value={basic.credit_installments || ""}
                 onChange={(e) =>
-                  handleChange("credit_installments", Number(e.target.value))
+                  handleChange(
+                    "credit_installments",
+                    Number(e.target.value)
+                  )
                 }
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="初回支払額"
                 type="number"
-                value={formData.credit_first_payment || ""}
+                value={basic.credit_first_payment || ""}
                 onChange={(e) =>
-                  handleChange("credit_first_payment", Number(e.target.value))
+                  handleChange(
+                    "credit_first_payment",
+                    Number(e.target.value)
+                  )
                 }
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="2回目以降支払額"
                 type="number"
-                value={formData.credit_second_payment || ""}
+                value={basic.credit_second_payment || ""}
                 onChange={(e) =>
-                  handleChange("credit_second_payment", Number(e.target.value))
+                  handleChange(
+                    "credit_second_payment",
+                    Number(e.target.value)
+                  )
                 }
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="ボーナス支払い額"
                 type="number"
-                value={formData.credit_bonus_payment || ""}
+                value={basic.credit_bonus_payment || ""}
                 onChange={(e) =>
-                  handleChange("credit_bonus_payment", Number(e.target.value))
+                  handleChange(
+                    "credit_bonus_payment",
+                    Number(e.target.value)
+                  )
                 }
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 type="month"
                 label="支払い開始月"
-                value={formData.credit_start_month || ""}
-                onChange={(e) => handleChange("credit_start_month", e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                value={basic.credit_start_month || ""}
+                onChange={(e) =>
+                  handleChange(
+                    "credit_start_month",
+                    e.target.value
+                  )
+                }
               />
             </Grid>
           </Grid>

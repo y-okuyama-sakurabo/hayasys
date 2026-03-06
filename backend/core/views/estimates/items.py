@@ -79,11 +79,10 @@ class EstimateItemRetrieveUpdateDestroyAPIView(
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return (
-            EstimateItem.objects
-            .select_related("category")
-            .order_by("id")
-        )
+        estimate_id = self.kwargs.get("estimate_id")
+        return EstimateItem.objects.filter(
+            estimate_id=estimate_id
+        ).select_related("category")
 
     def perform_update(self, serializer):
         item = serializer.save()

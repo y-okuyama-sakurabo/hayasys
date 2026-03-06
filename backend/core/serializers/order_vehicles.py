@@ -1,7 +1,7 @@
 # core/serializers/order_vehicles.py
 from rest_framework import serializers
 from core.models.order_vehicle import OrderVehicle
-from core.models.masters import Manufacturer
+from core.models.categories import Manufacturer
 from core.serializers.masters import ManufacturerSerializer
 
 

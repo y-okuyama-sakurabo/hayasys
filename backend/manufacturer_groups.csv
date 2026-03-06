@@ -1,0 +1,6 @@
+code,name,sort_order
+bicycle_vehicle,自転車メーカー,1
+bicycle_parts,自転車部品メーカー,2
+motorcycle_vehicle,バイクメーカー,3
+motorcycle_parts,バイク部品メーカー,4
+other,その他メーカー,5

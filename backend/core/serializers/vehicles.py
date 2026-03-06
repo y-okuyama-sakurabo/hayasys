@@ -8,6 +8,7 @@ from core.models import (
     VehicleImage,
     CustomerVehicle,
 )
+from core.models import Manufacturer, VehicleCategory, Color
 
 
 # ---- Write 用 ----
@@ -36,6 +37,26 @@ class VehicleMemoWriteSerializer(serializers.ModelSerializer):
 
 
 class VehicleWriteSerializer(serializers.ModelSerializer):
+    manufacturer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Manufacturer.objects.all(),
+        source="manufacturer",
+        required=False,
+        allow_null=True
+    )
+
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=VehicleCategory.objects.all(),
+        source="category",
+        required=False,
+        allow_null=True
+    )
+
+    color_id = serializers.PrimaryKeyRelatedField(
+        queryset=Color.objects.all(),
+        source="color",
+        required=False,
+        allow_null=True
+    )
     registrations = VehicleRegistrationWriteSerializer(many=True, required=False)
     insurances    = VehicleInsuranceWriteSerializer(many=True, required=False)
     warranties    = VehicleWarrantyWriteSerializer(many=True, required=False)
@@ -64,7 +85,6 @@ class VehicleWriteSerializer(serializers.ModelSerializer):
         extra_kwargs = {f: {"required": False, "allow_null": True} for f in fields}
 
     def validate_chassis_no(self, value):
-        """空文字ならNoneとして扱う"""
         return value or None
 
     def create(self, validated_data):
@@ -199,11 +219,16 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
 
 # ---- 一覧表示 ----
 class VehicleListSerializer(serializers.ModelSerializer):
+    manufacturer_name = serializers.CharField(
+        source="manufacturer.name",
+        read_only=True
+    )
     class Meta:
         model = Vehicle
         fields = (
             "id",
             "vehicle_name",
+            "manufacturer_name",
             "model_year",
             "chassis_no",
             "color_name",
@@ -250,3 +275,27 @@ class VehicleMemosSerializer(serializers.ModelSerializer):
         model = VehicleMemo
         fields = ["id", "vehicle", "body", "created_by", "created_at", "updated_at"]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+class VehicleInsuranceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = VehicleInsurance
+        fields = "__all__"
+        read_only_fields = [
+            "id",
+            "vehicle",
+            "created_at",
+            "updated_at",
+        ]
+
+class VehicleWarrantySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = VehicleWarranty
+        fields = "__all__"
+        read_only_fields = [
+            "id",
+            "vehicle",
+            "created_at",
+            "updated_at",
+        ]

@@ -12,139 +12,183 @@ import {
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import apiClient from "@/lib/apiClient";
 
-/**
- * 階層カテゴリ選択（/categories/tree）
- * - 上：パンくず表示（Chip）
- * - 下：いま選べる階層だけ Select を1つ表示
- * - 最下層（leaf）を選んだ時だけ onChange を呼ぶ
- */
+type Category = {
+  id: number;
+  name: string;
+  children?: Category[];
+};
+
 export default function EstimateCategorySelector({
   value,
   onChange,
+  categoryTypes,
 }: {
-  value?: any;
-  onChange: (selectedCategory: any) => void;
+  value?: number | null;
+  onChange: (selectedCategoryId: number | null) => void;
+  categoryTypes?: string[];
 }) {
-  const [rootCategories, setRootCategories] = useState<any[]>([]);
-  const [levels, setLevels] = useState<any[][]>([[]]);
-
-  // 選択中のidを配列で持つ（最大5）
+  const [rootCategories, setRootCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // ===== treeに parent を付与して正規化 =====
-  const attachParents = (nodes: any[], parent: any = null): any[] => {
-    return (nodes || []).map((n) => {
-      const node = { ...n, parent };
-      node.children = attachParents(node.children || [], node);
-      return node;
-    });
-  };
-
-  const isLeaf = (cat: any) => !cat?.children || cat.children.length === 0;
-
-  // === 初期ロード ===
+  /* =============================
+     初期ロード（type対応 安定版）
+  ============================= */
   useEffect(() => {
-    apiClient.get("/categories/tree/").then((res) => {
-      const data = res.data.results || res.data;
-      const normalized = attachParents(data);
-      setRootCategories(normalized);
-      setLevels([normalized]);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const fetch = async () => {
+      try {
+        const params = new URLSearchParams();
 
-  // === value（編集時）から chain を復元 ===
-  useEffect(() => {
-    if (!value) return;
-    if (rootCategories.length === 0) return;
+        if (categoryTypes?.length) {
+          categoryTypes.forEach((t) => {
+            params.append("type", t);
+          });
+        }
 
-    const buildChain = (cat: any): any[] => {
-      const chain: any[] = [];
-      let current = cat;
-      while (current) {
-        chain.unshift(current);
-        current = current.parent || null;
+        const url =
+          params.toString().length > 0
+            ? `/categories/tree/?${params.toString()}`
+            : "/categories/tree/";
+
+        const res = await apiClient.get(url);
+        const data = res.data.results || res.data;
+        setRootCategories(data || []);
+      } catch {
+        setRootCategories([]);
       }
-      return chain;
     };
 
-    const chain = buildChain(value);
-    if (chain.length === 0) return;
+    fetch();
+  }, [categoryTypes]);
 
-    let currentLevel = rootCategories;
-    const newLevels: any[][] = [];
-    const newSelectedIds: number[] = [];
-
-    for (const cat of chain) {
-      newLevels.push(currentLevel);
-      const selectedCat = currentLevel.find((c) => c.id === cat.id);
-      if (!selectedCat) break;
-
-      newSelectedIds.push(selectedCat.id);
-      currentLevel = selectedCat.children || [];
+  /* =============================
+     id からチェーン復元
+  ============================= */
+  useEffect(() => {
+    if (!value || rootCategories.length === 0) {
+      setSelectedIds([]);
+      return;
     }
 
-    // 次に選べる階層があるなら levels に追加
-    if (currentLevel.length > 0) newLevels.push(currentLevel);
+    const findChain = (
+      nodes: Category[],
+      targetId: number,
+      path: number[] = []
+    ): number[] | null => {
+      for (const node of nodes) {
+        const nextPath = [...path, node.id];
 
-    setLevels(newLevels);
-    setSelectedIds(newSelectedIds);
+        if (node.id === targetId) {
+          return nextPath;
+        }
+
+        if (node.children?.length) {
+          const result = findChain(node.children, targetId, nextPath);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+
+    const chain = findChain(rootCategories, value);
+    if (chain) {
+      setSelectedIds(chain);
+    }
   }, [value, rootCategories]);
 
-  // === 現在の “選択済みノード” を解決（パンくず表示用） ===
-  const selectedNodes = useMemo(() => {
-    const nodes: any[] = [];
+  /* =============================
+     現在選択ノード
+  ============================= */
+  const { selectedNodes, lastSelectedNode } = useMemo(() => {
+    const nodes: Category[] = [];
     let currentOptions = rootCategories;
+    let last: Category | null = null;
 
     for (const id of selectedIds) {
-      const node = currentOptions?.find((c: any) => c.id === id);
+      const node = currentOptions.find((c) => c.id === id);
       if (!node) break;
       nodes.push(node);
+      last = node;
       currentOptions = node.children || [];
     }
-    return nodes;
+
+    return { selectedNodes: nodes, lastSelectedNode: last };
   }, [selectedIds, rootCategories]);
 
-  const currentLevelIndex = Math.max(0, levels.length - 1);
-  const currentOptions = levels[currentLevelIndex] || [];
+  const isLeaf = (cat?: Category | null) =>
+    !cat?.children || cat.children.length === 0;
 
-  const currentSelectedId = selectedIds[currentLevelIndex] ?? "";
+  /* =============================
+     深さごとの選択肢
+  ============================= */
+  const depthOptions = useMemo(() => {
+    const result: Category[][] = [];
+    let currentOptions = rootCategories;
 
-  // === 変更（いまの階層だけ） ===
+    result.push(currentOptions);
+
+    for (const id of selectedIds) {
+      const node = currentOptions.find((c) => c.id === id);
+      if (!node) break;
+      currentOptions = node.children || [];
+      result.push(currentOptions);
+    }
+
+    return result;
+  }, [selectedIds, rootCategories]);
+
+  const leafSelected = isLeaf(lastSelectedNode);
+
+  const shownDepth =
+    selectedIds.length === 0
+      ? 0
+      : leafSelected
+      ? selectedIds.length - 1
+      : selectedIds.length;
+
+  const optionsForShownDepth = depthOptions[shownDepth] || [];
+  const valueForShownDepth = selectedIds[shownDepth] ?? "";
+
+  /* =============================
+     選択処理
+  ============================= */
   const handlePick = (categoryId: number) => {
-    const options = currentOptions;
-    const picked = options.find((c: any) => c.id === categoryId);
-    const nextChildren = picked?.children || [];
-
-    // ここまでの選択 + 今回選んだもの、以降は切り捨て
-    const nextSelectedIds = selectedIds.slice(0, currentLevelIndex);
-    nextSelectedIds.push(categoryId);
+    const nextSelectedIds = [
+      ...selectedIds.slice(0, shownDepth),
+      categoryId,
+    ];
 
     setSelectedIds(nextSelectedIds);
 
-    // levels も同様にここまで + 次候補（子があるなら）
-    const nextLevels = levels.slice(0, currentLevelIndex + 1);
-    if (nextChildren.length > 0) nextLevels.push(nextChildren);
-    setLevels(nextLevels);
+    let currentOptions = rootCategories;
+    let selectedNode: Category | undefined;
 
-    // ★ leaf を選んだ時だけ親へ通知（途中通知でフォームが揺れない）
-    if (picked && isLeaf(picked)) {
-      onChange(picked);
+    for (const id of nextSelectedIds) {
+      selectedNode = currentOptions.find((c) => c.id === id);
+      if (!selectedNode) break;
+      currentOptions = selectedNode.children || [];
+    }
+
+    if (selectedNode && isLeaf(selectedNode)) {
+      onChange(selectedNode.id);
     }
   };
 
-  // === リセット ===
   const handleReset = () => {
     setSelectedIds([]);
-    setLevels([rootCategories]);
+    onChange(null);
   };
 
   return (
     <Box>
-      {/* パンくず */}
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" mb={1}>
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap"
+        mb={1}
+      >
         {selectedNodes.length > 0 ? (
-          selectedNodes.map((n, i) => (
+          selectedNodes.map((n) => (
             <Chip key={n.id} size="small" label={n.name} />
           ))
         ) : (
@@ -165,17 +209,16 @@ export default function EstimateCategorySelector({
         </Button>
       </Stack>
 
-      {/* いま選べる階層だけ Select を1個 */}
       <TextField
         select
-        label={`カテゴリ${currentLevelIndex + 1}`}
-        value={currentSelectedId}
+        label={`カテゴリ${shownDepth + 1}`}
+        value={valueForShownDepth}
         onChange={(e) => handlePick(Number(e.target.value))}
         fullWidth
         size="small"
       >
-        {Array.isArray(currentOptions) && currentOptions.length > 0 ? (
-          currentOptions.map((cat: any) => (
+        {optionsForShownDepth.length > 0 ? (
+          optionsForShownDepth.map((cat) => (
             <MenuItem key={cat.id} value={cat.id}>
               {cat.name}
             </MenuItem>
@@ -187,7 +230,6 @@ export default function EstimateCategorySelector({
         )}
       </TextField>
 
-      {/* ヒント */}
       <Box mt={1}>
         <Typography variant="caption" color="text.secondary">
           最下層まで選択するとカテゴリが確定します

@@ -29,6 +29,18 @@ class Order(models.Model):
         related_name="orders"
     )
 
+    VEHICLE_MODE_CHOICES = [
+        ("sale", "車両販売"),
+        ("maintenance", "既存車両メンテナンス"),
+        ("none", "車両なし"),
+    ]
+
+    vehicle_mode = models.CharField(
+        max_length=20,
+        choices=VEHICLE_MODE_CHOICES,
+        default="none",
+    )
+
     # 受注時点の顧客情報スナップショット（変更されない）
     party_name = models.CharField(max_length=100)
     party_kana = models.CharField(max_length=100, blank=True, null=True)
@@ -80,6 +92,19 @@ class Order(models.Model):
         return self.order_no
 
 class OrderItem(models.Model):
+    ITEM_TYPE_CHOICES = [
+    ("vehicle", "車両"),
+    ("accessory", "用品"),
+    ("insurance", "保険"),
+    ("fee", "諸費用"),
+    ]
+
+    item_type = models.CharField(
+        max_length=20,
+        choices=ITEM_TYPE_CHOICES,
+        default="accessory",
+        db_index=True,
+    )
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,

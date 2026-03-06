@@ -18,6 +18,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  TextField,
+  Stack,
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -52,8 +54,16 @@ export default function CustomerListPage() {
     [key: number]: HTMLElement | null;
   }>({});
 
-  const search = searchParams.get("search") || "";
+  // ✅ ここで search という名前を使わない（衝突回避）
+  const searchQuery = searchParams.get("search") || "";
   const refreshKey = searchParams.get("_r") || "";
+
+  // ✅ 入力欄（URLと同期させる）
+  const [searchInput, setSearchInput] = useState("");
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
 
   // ============================
   // データ取得
@@ -65,7 +75,7 @@ export default function CustomerListPage() {
         const res = await apiClient.get("/customers/", {
           params: {
             page,
-            search,
+            search: searchQuery,
           },
         });
 
@@ -79,7 +89,7 @@ export default function CustomerListPage() {
     };
 
     fetchCustomers();
-  }, [page, search, refreshKey]);
+  }, [page, searchQuery, refreshKey]);
 
   const maxPage = Math.ceil(count / pageSize);
 
@@ -93,6 +103,19 @@ export default function CustomerListPage() {
 
   const closeMenu = (id: number) => {
     setMenuAnchor((prev) => ({ ...prev, [id]: null }));
+  };
+
+  // ============================
+  // 検索（Enter or ボタン）
+  // ============================
+  const applySearch = () => {
+    // ページは1に戻す
+    const params = new URLSearchParams(searchParams.toString());
+    if (searchInput.trim()) params.set("search", searchInput.trim());
+    else params.delete("search");
+    params.set("_r", String(Date.now()));
+    router.push(`/dashboard/customers?${params.toString()}`);
+    setPage(1);
   };
 
   if (loading)
@@ -125,12 +148,63 @@ export default function CustomerListPage() {
         </Button>
       </Box>
 
+      {/* ✅ 検索バー */}
+      
+        <Box
+          display="flex"
+          gap={1}
+          alignItems="center"
+          flexWrap="wrap"
+          sx={{ mb: 2 }}
+        >
+          <TextField
+            size="small"
+            placeholder="名前 / フリガナ / 電話 / 住所 / メール / ナンバー"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applySearch();
+              }
+            }}
+            sx={{
+              width: 360,     // ← ここで幅固定
+              maxWidth: "100%"
+            }}
+          />
+
+          <Button
+            variant="contained"
+            size="small"
+            onClick={applySearch}
+          >
+            検索
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              setSearchInput("");
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("search");
+              params.set("_r", String(Date.now()));
+              router.push(`/dashboard/customers?${params.toString()}`);
+              setPage(1);
+            }}
+          >
+            クリア
+          </Button>
+        </Box>
+    
+
       {/* === テーブル === */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead sx={{ backgroundColor: "#f9f9f9" }}>
             <TableRow>
-              <TableCell>ID</TableCell>
+              
               <TableCell>氏名(フリガナ) / E-mail</TableCell>
               <TableCell>電話</TableCell>
               <TableCell>住所</TableCell>
@@ -146,7 +220,7 @@ export default function CustomerListPage() {
                 sx={{ cursor: "pointer" }}
                 onClick={() => router.push(`/dashboard/customers/${c.id}`)}
               >
-                <TableCell>{c.id}</TableCell>
+                
 
                 <TableCell>
                   <strong>
@@ -177,10 +251,7 @@ export default function CustomerListPage() {
 
                 {/* === 操作（︙メニュー） === */}
                 <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                  <IconButton
-                    aria-label="操作メニュー"
-                    onClick={(e) => openMenu(e, c.id)}
-                  >
+                  <IconButton aria-label="操作メニュー" onClick={(e) => openMenu(e, c.id)}>
                     <MoreVertIcon />
                   </IconButton>
 
@@ -208,9 +279,7 @@ export default function CustomerListPage() {
 
                         try {
                           await apiClient.delete(`/customers/${c.id}/`);
-                          setCustomers((prev) =>
-                            prev.filter((x) => x.id !== c.id)
-                          );
+                          setCustomers((prev) => prev.filter((x) => x.id !== c.id));
                         } catch {
                           alert("削除に失敗しました");
                         }
@@ -238,18 +307,8 @@ export default function CustomerListPage() {
       </TableContainer>
 
       {/* === ページング === */}
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        gap={2}
-        mt={2}
-      >
-        <Button
-          size="small"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-        >
+      <Box display="flex" justifyContent="center" alignItems="center" gap={2} mt={2}>
+        <Button size="small" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
           Prev
         </Button>
 
@@ -257,11 +316,7 @@ export default function CustomerListPage() {
           {page} / {maxPage}（全 {count} 件）
         </Typography>
 
-        <Button
-          size="small"
-          disabled={page >= maxPage}
-          onClick={() => setPage((p) => p + 1)}
-        >
+        <Button size="small" disabled={page >= maxPage} onClick={() => setPage((p) => p + 1)}>
           Next
         </Button>
       </Box>

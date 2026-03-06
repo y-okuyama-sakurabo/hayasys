@@ -47,28 +47,28 @@ class ManagementDeliverySerializer(serializers.ModelSerializer):
 
 
 class ManagementDetailSerializer(serializers.ModelSerializer):
-    # 画面表示用（View側でannotate/付与してる想定でもOK）
+
     delivery_status = serializers.CharField()
     final_delivery_date = serializers.DateField(allow_null=True)
 
-    # ✅ 追加：入金ステータス
+
     payment_status = serializers.SerializerMethodField()
 
-    # 合計系
+ 
     paid_total = serializers.SerializerMethodField()
     unpaid_total = serializers.SerializerMethodField()
 
-    # ✅ 既存：売上日
+  
     sales_date = serializers.SerializerMethodField()
 
-    # ✅ 入金完了日（入金済のときだけ返す）
+
     final_payment_date = serializers.SerializerMethodField()
 
-    # ネスト
+   
     items = OrderItemSerializer(many=True)
     deliveries = ManagementDeliverySerializer(many=True)
 
-    # PaymentManagement が無いときでも落ちないように
+  
     payments = PaymentRecordSerializer(
         source="payment_management.records",
         many=True,
@@ -91,10 +91,10 @@ class ManagementDetailSerializer(serializers.ModelSerializer):
             "grand_total",
             "paid_total",
             "unpaid_total",
-            "payment_status",        # ✅ 追加
+            "payment_status",       
             "delivery_status",
             "final_delivery_date",
-            "final_payment_date",    # ✅ method化
+            "final_payment_date",  
         ]
 
     # ----------------------------
@@ -111,7 +111,6 @@ class ManagementDetailSerializer(serializers.ModelSerializer):
         if pm is None:
             return Decimal("0")
 
-        # amount が Decimal を想定。None対策も入れる
         total = Decimal("0")
         for p in pm.records.all():
             total += (p.amount or Decimal("0"))
@@ -128,13 +127,11 @@ class ManagementDetailSerializer(serializers.ModelSerializer):
 
     # ----------------------------
     # 入金ステータス
-    # unpaid / partial / paid を返す（フロントの判定に合わせる）
     # ----------------------------
     def get_payment_status(self, obj):
         grand = obj.grand_total or Decimal("0")
         paid = self.get_paid_total(obj)
 
-        # grand_total が 0 の受注は "paid" 扱いにしておく（運用ルールに合わせて変更OK）
         if grand <= 0:
             return "paid"
 

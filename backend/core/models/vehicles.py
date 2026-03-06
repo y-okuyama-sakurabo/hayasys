@@ -11,24 +11,81 @@ from django.dispatch import receiver
 # 車両基本情報
 # ==========================
 class Vehicle(models.Model):
-    vehicle_name = models.CharField(max_length=100, blank=True)
-    displacement = models.IntegerField(null=True, blank=True)
-    model_year = models.CharField(max_length=10, blank=True)
-    new_car_type = models.CharField(max_length=20, blank=True)  # new / used
+
+    vehicle_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+
+    displacement = models.IntegerField(
+        null=True,
+        blank=True
+    )
+
+    model_year = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True
+    )
+
+    new_car_type = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True
+    )
+
     manufacturer = models.ForeignKey(
-        "core.Manufacturer", on_delete=models.PROTECT, null=True, blank=True
+        "core.Manufacturer",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
     )
+
     category = models.ForeignKey(
-        "core.VehicleCategory", on_delete=models.PROTECT, null=True, blank=True
+        "core.VehicleCategory",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
     )
+
     color = models.ForeignKey(
-        "core.Color", on_delete=models.SET_NULL, null=True, blank=True
+        "core.Color",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
-    model_code = models.CharField(max_length=50, blank=True)
-    chassis_no = models.CharField(max_length=50, blank=True, null=True, unique=True)
-    color_name = models.CharField(max_length=50, blank=True)
-    color_code = models.CharField(max_length=20, blank=True)
-    engine_type = models.CharField(max_length=50, blank=True)
+
+    model_code = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True
+    )
+
+    chassis_no = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True
+    )
+
+    color_name = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True
+    )
+
+    color_code = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True
+    )
+
+    engine_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
