@@ -12,11 +12,14 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/lib/auth";
+import apiClient from "@/lib/apiClient";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,13 +29,15 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // /auth/token/ を叩く（Cookie に JWT が入る）
-      await loginUser(username, password);
+      // ① ログイン
+      await loginUser(loginId, password);
 
-      // Cookie に保存されるため localStorage は不要
+      // ② ログイン確認（Cookie JWT）
+      await apiClient.get("/auth/user/");
 
-      // → ダッシュボードへ遷移
-      router.push("/");
+      // ③ ダッシュボードへ
+      router.replace("/dashboard");
+
     } catch (err: any) {
       if (err.response?.status === 401) {
         setError("ユーザー名またはパスワードが正しくありません。");
@@ -79,11 +84,12 @@ export default function LoginPage() {
         >
           <TextField
             fullWidth
-            label="ユーザー名"
+            label="ログインID"
             variant="outlined"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
           />
+
           <TextField
             fullWidth
             label="パスワード"

@@ -48,9 +48,9 @@ class LoginView(TokenObtainPairView):
             "access_token",
             access,
             httponly=True,
-            secure=False,      # 本番は True
-            samesite="Lax",
-            max_age=60 * 60,   # 1時間
+            secure=True,        # ←変更
+            samesite="None",
+            max_age=60 * 60,
             path="/",
         )
 
@@ -58,9 +58,9 @@ class LoginView(TokenObtainPairView):
             "refresh_token",
             refresh,
             httponly=True,
-            secure=False,         # 本番は True
-            samesite="Lax",
-            max_age=60 * 60 * 24 * 7,  # 7日
+            secure=True,        # ←変更
+            samesite="None",
+            max_age=60 * 60 * 24 * 7,
             path="/",
         )
 

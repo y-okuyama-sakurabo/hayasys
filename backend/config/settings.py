@@ -99,23 +99,28 @@ SIMPLE_JWT = {
 }
 
 # CORS（開発用）
-CORS_ALLOW_ALL_ORIGINS = False   # ★ Cookie を使うときは False
+CORS_ALLOW_ALL_ORIGINS = True   # ★ Cookie を使うときは False
 CORS_ALLOW_CREDENTIALS = True    # ★ 必須
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://52.193.197.122",
+    "https://hayasys.vercel.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://52.193.197.122",
+    "https://hayasys.vercel.app",
 ]
 
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "None"
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 
 MEDIA_URL = '/media/'
