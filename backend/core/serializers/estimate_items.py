@@ -58,6 +58,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
             "name",
             "quantity",
             "unit_price",
+            "labor_cost",
             "discount",
             "tax_type",
             "sale_type",
@@ -84,11 +85,12 @@ class EstimateItemSerializer(serializers.ModelSerializer):
         try:
             qty = Decimal(str(data.get("quantity") or "1"))
             price = Decimal(str(data.get("unit_price") or "0"))
+            labor = Decimal(str(data.get("labor_cost") or "0"))
             discount = Decimal(str(data.get("discount") or "0"))
         except InvalidOperation:
-            raise serializers.ValidationError("数量・単価・値引の値が不正です")
+            raise serializers.ValidationError("数量・単価・工賃・値引の値が不正です")
 
-        data["subtotal"] = (qty * price) - discount
+        data["subtotal"] = (qty * price) + labor - discount
         return data
 
     # =========================
@@ -102,7 +104,6 @@ class EstimateItemSerializer(serializers.ModelSerializer):
         # 🔥 Estimate再計算
         self._recalculate_estimate(item.estimate)
 
-        # Productマスタ登録（任意）
         if save_flag and item.name and item.category_id:
             Product.objects.get_or_create(
                 name=item.name,

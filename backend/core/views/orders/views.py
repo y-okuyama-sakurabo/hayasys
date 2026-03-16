@@ -469,6 +469,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "model_year": v.model_year,
                 "new_car_type": v.new_car_type,
                 "manufacturer": v.manufacturer.id if v.manufacturer else None,
+                "color": v.color.id if getattr(v, "color", None) else None,
                 "color_name": v.color_name,
                 "color_code": v.color_code,
                 "model_code": v.model_code,

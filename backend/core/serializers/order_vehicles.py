@@ -20,6 +20,7 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
             "model_year",
             "new_car_type",
             "manufacturer",
+            "color",
             "color_name",
             "color_code",
             "model_code",

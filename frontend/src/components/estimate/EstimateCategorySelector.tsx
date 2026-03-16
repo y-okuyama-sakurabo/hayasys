@@ -18,6 +18,8 @@ type Category = {
   children?: Category[];
 };
 
+let categoryCache: Record<string, Category[]> = {};
+
 export default function EstimateCategorySelector({
   value,
   onChange,
@@ -29,6 +31,7 @@ export default function EstimateCategorySelector({
 }) {
   const [rootCategories, setRootCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
 
   /* =============================
      初期ロード（type対応 安定版）
@@ -36,12 +39,17 @@ export default function EstimateCategorySelector({
   useEffect(() => {
     const fetch = async () => {
       try {
+        const key = categoryTypes?.join(",") || "all";
+
+        if (categoryCache[key]) {
+          setRootCategories(categoryCache[key]);
+          return;
+        }
+
         const params = new URLSearchParams();
 
         if (categoryTypes?.length) {
-          categoryTypes.forEach((t) => {
-            params.append("type", t);
-          });
+          categoryTypes.forEach((t) => params.append("type", t));
         }
 
         const url =
@@ -50,8 +58,11 @@ export default function EstimateCategorySelector({
             : "/categories/tree/";
 
         const res = await apiClient.get(url);
-        const data = res.data.results || res.data;
-        setRootCategories(data || []);
+        const data = res.data.results || res.data || [];
+
+        categoryCache[key] = data;
+        setRootCategories(data);
+
       } catch {
         setRootCategories([]);
       }

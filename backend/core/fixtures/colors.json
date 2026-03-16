@@ -18,5 +18,145 @@
       "created_at": "2025-10-02T00:00:00Z",
       "updated_at": "2025-10-02T00:00:00Z"
     }
+  },
+  {
+    "model": "core.color",
+    "pk": 3,
+    "fields": {
+      "code": "WHT",
+      "name": "ホワイト",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 4,
+    "fields": {
+      "code": "BLK",
+      "name": "ブラック",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 5,
+    "fields": {
+      "code": "SLV",
+      "name": "シルバー",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 6,
+    "fields": {
+      "code": "GRY",
+      "name": "グレー",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 7,
+    "fields": {
+      "code": "GRN",
+      "name": "グリーン",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 8,
+    "fields": {
+      "code": "YLW",
+      "name": "イエロー",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 9,
+    "fields": {
+      "code": "ORG",
+      "name": "オレンジ",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 10,
+    "fields": {
+      "code": "BRN",
+      "name": "ブラウン",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 11,
+    "fields": {
+      "code": "BEG",
+      "name": "ベージュ",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 12,
+    "fields": {
+      "code": "GLD",
+      "name": "ゴールド",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 13,
+    "fields": {
+      "code": "PNK",
+      "name": "ピンク",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 14,
+    "fields": {
+      "code": "PPL",
+      "name": "パープル",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 15,
+    "fields": {
+      "code": "TWO",
+      "name": "ツートン",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.color",
+    "pk": 16,
+    "fields": {
+      "code": "OTH",
+      "name": "その他",
+      "created_at": "2025-10-02T00:00:00Z",
+      "updated_at": "2025-10-02T00:00:00Z"
+    }
   }
 ]

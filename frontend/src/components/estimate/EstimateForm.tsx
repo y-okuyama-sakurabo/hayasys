@@ -45,6 +45,7 @@ type EstimateState = {
   basic: any;
   vehicle: any | null;
   items: any[];
+  deletedItemIds: number[];
 };
 
 const initialState: EstimateState = {
@@ -55,10 +56,11 @@ const initialState: EstimateState = {
     party_id: null,
     new_party: null,
     payment_method: "現金",
-    vehicle_mode: "sale", // 🔥 追加
+    vehicle_mode: "sale",
   },
   vehicle: null,
   items: [],
+  deletedItemIds: [],
 };
 
 function reducer(state: EstimateState, action: any): EstimateState {
@@ -86,11 +88,17 @@ function reducer(state: EstimateState, action: any): EstimateState {
         ),
       };
 
-    case "REMOVE_ITEM":
+    case "REMOVE_ITEM": {
+      const item = state.items[action.index];
+
       return {
         ...state,
         items: state.items.filter((_, i) => i !== action.index),
+        deletedItemIds: item?.id
+          ? [...state.deletedItemIds, item.id]
+          : state.deletedItemIds,
       };
+    }
 
     default:
       return state;
@@ -106,9 +114,6 @@ export default function EstimateForm({ mode, estimateId }: Props) {
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
-  /* ===============================
-     🔥 vehicle_modeでステップ動的化
-  =============================== */
   const visibleSteps = useMemo(() => {
     if (state.basic.vehicle_mode === "none") {
       return BASE_STEPS.filter((s) => s.key !== "vehicle");
@@ -118,27 +123,18 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
   const currentStep: StepKey = visibleSteps[stepIndex]?.key as StepKey;
 
-  /* ===============================
-     vehicle_mode変更時 index調整
-  =============================== */
   useEffect(() => {
     if (stepIndex >= visibleSteps.length) {
       setStepIndex(visibleSteps.length - 1);
     }
   }, [visibleSteps, stepIndex]);
 
-  /* ===============================
-     🔥 vehicle_modeがnoneならvehicle削除
-  =============================== */
   useEffect(() => {
     if (state.basic.vehicle_mode === "none" && state.vehicle) {
       dispatch({ type: "SET_VEHICLE", payload: null });
     }
   }, [state.basic.vehicle_mode]);
 
-  /* ===============================
-     create 初期化
-  =============================== */
   useEffect(() => {
     if (mode !== "create") return;
 
@@ -152,6 +148,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         payload: {
           estimate_no: nextNo,
           shop: user.shop_id,
+          created_by_id: user.id,
         },
       });
     };
@@ -159,9 +156,6 @@ export default function EstimateForm({ mode, estimateId }: Props) {
     init();
   }, [mode]);
 
-  /* ===============================
-     edit 初期化
-  =============================== */
   useEffect(() => {
     if (mode !== "edit" || !estimateId) return;
 
@@ -186,10 +180,11 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           basic: {
             estimate_no: estimate.estimate_no,
             shop: estimate.shop?.id ?? null,
-            party_id: estimate.party?.source_customer ?? null,
+            party_id: estimate.party?.id ?? null,
             new_party: estimate.party ?? null,
             payment_method: "現金",
             vehicle_mode: estimate.vehicle_mode ?? "none",
+            created_by_id: estimate.created_by?.id ?? null,
           },
           items: estimate.items ?? [],
           vehicle: vehicle
@@ -208,9 +203,6 @@ export default function EstimateForm({ mode, estimateId }: Props) {
     fetchData();
   }, [mode, estimateId]);
 
-  /* ===============================
-     🔥 保存処理
-  =============================== */
   const handleFinish = async () => {
     try {
       setLoading(true);
@@ -220,39 +212,16 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       const paymentsPayload = [
         {
           payment_method: state.basic.payment_method,
-          credit_company:
-            state.basic.payment_method === "クレジット"
-              ? state.basic.credit_company || null
-              : null,
-          credit_first_payment:
-            state.basic.payment_method === "クレジット"
-              ? Number(state.basic.credit_first_payment) || null
-              : null,
-          credit_second_payment:
-            state.basic.payment_method === "クレジット"
-              ? Number(state.basic.credit_second_payment) || null
-              : null,
-          credit_bonus_payment:
-            state.basic.payment_method === "クレジット"
-              ? Number(state.basic.credit_bonus_payment) || null
-              : null,
-          credit_installments:
-            state.basic.payment_method === "クレジット"
-              ? Number(state.basic.credit_installments) || null
-              : null,
-          credit_start_month:
-            state.basic.payment_method === "クレジット"
-              ? state.basic.credit_start_month || null
-              : null,
         },
       ];
 
       const headerPayload = {
         estimate_no: state.basic.estimate_no,
         shop: state.basic.shop ? Number(state.basic.shop) : null,
+        created_by_id: state.basic.created_by_id ?? null,
         vehicle_mode: state.basic.vehicle_mode,
         new_party: state.basic.new_party ?? null,
-        payments: paymentsPayload, 
+        payments: paymentsPayload,
       };
 
       if (mode === "create") {
@@ -262,8 +231,12 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         await apiClient.put(`/estimates/${estimateId}/`, headerPayload);
       }
 
-      /* ========= 車両 ========= */
+      /* =========================================
+         🔥 車両保存（追加）
+      ========================================= */
+
       if (state.vehicle && state.basic.vehicle_mode !== "none") {
+
         const v = state.vehicle;
 
         const vehiclePayload = {
@@ -279,30 +252,30 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         await apiClient.patch(`/estimates/${id}/`, {
           vehicles: [vehiclePayload],
         });
+
       }
 
+      /* ========= 明細保存 ========= */
 
-
-      /* ========= 明細 ========= */
       const itemPayload = (item: any) => ({
         item_type: item.item_type,
         category_id: item.category_id ?? item.category?.id ?? null,
         name: item.name ?? "",
         quantity: Number(item.quantity ?? 1),
-        unit_price: Number(item.unit_price ?? 0),
-        discount: Number(item.discount ?? 0),
+
+        unit_price: Math.round(Number(item.unit_price ?? 0)),
+        labor_cost: Math.round(Number(item.labor_cost ?? 0)),
+        discount: Math.round(Number(item.discount ?? 0)),
+
         tax_type: item.tax_type ?? "taxable",
         sale_type: item.sale_type ?? null,
         staff: item.staff ?? item.staff_id ?? null,
       });
 
       for (const item of state.items) {
-        // 🔥 vehicle はバックエンドが管理するので除外
         if (item.item_type === "vehicle") continue;
 
         const payload = itemPayload(item);
-
-        if (!payload.item_type) continue;
 
         if (mode === "edit" && item.id) {
           await apiClient.patch(`/estimates/${id}/items/${item.id}/`, payload);
@@ -310,8 +283,13 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           await apiClient.post(`/estimates/${id}/items/`, payload);
         }
       }
+
+      for (const itemId of state.deletedItemIds) {
+        await apiClient.delete(`/estimates/${id}/items/${itemId}/`);
+      }
+
       alert("保存しました");
-      window.location.href = `/dashboard/estimates/${id}`;
+
     } catch (e) {
       console.error(e);
       alert("保存に失敗しました");
@@ -357,7 +335,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             vehicle={state.vehicle}
             dispatch={dispatch}
             partyId={state.basic.party_id}
-            vehicleMode={state.basic.vehicle_mode} 
+            vehicleMode={state.basic.vehicle_mode}
           />
         )}
 
@@ -381,6 +359,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       <Divider sx={{ my: 3 }} />
 
       <Box display="flex" justifyContent="space-between">
+
         <Button
           disabled={stepIndex === 0}
           onClick={() => setStepIndex((s) => s - 1)}
@@ -388,18 +367,26 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           前へ
         </Button>
 
-        {stepIndex < visibleSteps.length - 1 ? (
+        <Box display="flex" gap={2}>
+
+          {stepIndex < visibleSteps.length - 1 && (
+            <Button
+              variant="outlined"
+              onClick={() => setStepIndex((s) => s + 1)}
+            >
+              次へ
+            </Button>
+          )}
+
           <Button
             variant="contained"
-            onClick={() => setStepIndex((s) => s + 1)}
+            color="primary"
+            onClick={handleFinish}
           >
-            次へ
-          </Button>
-        ) : (
-          <Button variant="contained" onClick={handleFinish}>
             完了
           </Button>
-        )}
+
+        </Box>
       </Box>
     </Box>
   );

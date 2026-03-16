@@ -143,6 +143,12 @@ class EstimateItem(models.Model):
     name = models.CharField("項目名", max_length=200)
     quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, default=1)
     unit_price = models.DecimalField("単価", max_digits=10, decimal_places=2, default=0)
+    labor_cost = models.DecimalField(
+        "工賃",
+        max_digits=10,
+        decimal_places=2,
+        default=0
+    )
     tax_type = models.CharField(
         "課税区分",
         max_length=20,
@@ -182,6 +188,5 @@ class EstimateItem(models.Model):
         return f"{self.name} × {self.quantity}"
 
     def calculate_subtotal(self):
-        """単価×数量−値引"""
-        return (self.unit_price * self.quantity) - self.discount
+        return (self.unit_price * self.quantity) + self.labor_cost - self.discount
 

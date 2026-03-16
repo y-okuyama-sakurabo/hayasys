@@ -23,7 +23,6 @@ class EstimateVehicle(models.Model):
         help_text="既存所有車両から生成された場合"
     )
 
-    # 🔥 追加：カテゴリ（超重要）
     category = models.ForeignKey(
         "core.Category",
         on_delete=models.SET_NULL,
@@ -40,7 +39,7 @@ class EstimateVehicle(models.Model):
     new_car_type = models.CharField(
         max_length=20,
         blank=True
-    )  # "new" / "used"
+    )
 
     manufacturer = models.ForeignKey(
         "core.Manufacturer",
@@ -49,8 +48,16 @@ class EstimateVehicle(models.Model):
         blank=True
     )
 
+    color = models.ForeignKey(
+        "core.Color",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
     color_name = models.CharField(max_length=50, blank=True, null=True)
     color_code = models.CharField(max_length=20, blank=True, null=True)
+
     model_code = models.CharField(max_length=50, blank=True, null=True)
     chassis_no = models.CharField(max_length=50, blank=True, null=True)
     engine_type = models.CharField(max_length=50, blank=True, null=True)

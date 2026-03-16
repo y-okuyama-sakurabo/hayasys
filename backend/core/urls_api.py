@@ -74,10 +74,10 @@ from core.views.schedules.views import (
 
 # === Business Communication ===
 from core.views.business_communication.views import (
-    CustomerBusinessCommunicationListCreateAPIView,
-    ShopBusinessCommunicationListAPIView,
-    BusinessCommunicationStatusUpdateAPIView,
     BusinessCommunicationRetrieveUpdateDestroyAPIView,
+    CustomerBusinessCommunicationThreadListCreateAPIView,
+    BusinessCommunicationMessageListCreateAPIView,
+    BusinessCommunicationThreadRetrieveDestroyAPIView,
 )
 
 # === Estimates ===
@@ -317,20 +317,23 @@ urlpatterns = [
     # Business Communication
     # =========================
     path(
-        "customers/<int:customer_id>/business_communications/",
-        CustomerBusinessCommunicationListCreateAPIView.as_view(),
+    "customers/<int:customer_id>/communication-threads/",
+    CustomerBusinessCommunicationThreadListCreateAPIView.as_view(),
     ),
+
     path(
-        "business_communications/inbox/",
-        ShopBusinessCommunicationListAPIView.as_view(),
-    ),
+    "communication-threads/<int:thread_id>/messages/",
+        BusinessCommunicationMessageListCreateAPIView.as_view(),
+    ), 
+
     path(
-        "business_communications/<int:pk>/",
+        "business-communications/<int:pk>/",
         BusinessCommunicationRetrieveUpdateDestroyAPIView.as_view(),
     ),
+
     path(
-        "business_communications/<int:pk>/status/",
-        BusinessCommunicationStatusUpdateAPIView.as_view(),
+        "communication-threads/<int:pk>/",
+        BusinessCommunicationThreadRetrieveDestroyAPIView.as_view(),
     ),
-            
+                
 ]

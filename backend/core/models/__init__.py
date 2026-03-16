@@ -16,5 +16,7 @@ from .order_delivery_payment import (
     PaymentRecord,
 )
 from .business_communication_attachments import BusinessCommunicationAttachment
+from .business_communication_thread import BusinessCommunicationThread
 from .audit_log import AuditLog
 from .categories import Category, Product, Manufacturer, ManufacturerGroup
+

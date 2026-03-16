@@ -1,45 +1,64 @@
 "use client";
 
-import { Stack, CircularProgress, Typography, Paper } from "@mui/material";
-import BusinessCommunicationItem, { type BusinessCommunication } from "./BusinessCommunicationItem";
-export type { BusinessCommunication };
+import { CircularProgress, Typography } from "@mui/material";
+import BusinessCommunicationCard from "./BusinessCommunicationCard";
 
-export default function BusinessCommunicationList({
-  items,
-  loading,
-  emptyText = "お知らせはありません",
-  showActions = true,
-  pendingOnlyView = false,
-  onChanged,
-}: {
+export type BusinessCommunicationMessage = {
+  id: number;
+  content?: string;
+  created_at?: string;
+  sender_staff?: {
+    id: number;
+    display_name?: string;
+    login_id?: string;
+  };
+  sender_shop?: {
+    id: number;
+    name: string;
+  };
+};
+
+export type BusinessCommunication = {
+  id: number;
+  title?: string;
+  sender_name?: string;
+  receiver_name?: string;
+  messages?: BusinessCommunicationMessage[];
+};
+
+type Props = {
   items: BusinessCommunication[];
   loading?: boolean;
   emptyText?: string;
   showActions?: boolean;
   pendingOnlyView?: boolean;
-  onChanged?: () => void | Promise<void>;
-}) {
-  if (loading) return <CircularProgress />;
+  onChanged?: () => void;
+};
 
-  if (!items?.length) {
-    return (
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography color="text.secondary">{emptyText}</Typography>
-      </Paper>
-    );
+export default function BusinessCommunicationList({
+  items,
+  loading,
+  emptyText,
+  onChanged,
+}: Props) {
+
+  if (loading) {
+    return <CircularProgress />;
+  }
+
+  if (!items || items.length === 0) {
+    return <Typography>{emptyText ?? "データがありません"}</Typography>;
   }
 
   return (
-    <Stack spacing={2}>
+    <>
       {items.map((item) => (
-        <BusinessCommunicationItem
+        <BusinessCommunicationCard
           key={item.id}
           item={item}
-          showActions={showActions}
-          pendingOnlyView={pendingOnlyView}
-          onChanged={onChanged}
+          refresh={onChanged}
         />
       ))}
-    </Stack>
+    </>
   );
 }

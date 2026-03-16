@@ -10,6 +10,26 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   const format = (v: any) =>
     v == null || isNaN(Number(v)) ? "" : `¥${Number(v).toLocaleString()}`;
 
+  const calcLine = (item: any) => {
+    const qty = Number(item.quantity ?? 0);
+    const unit = Number(item.unit_price ?? 0);
+    const labor = Number(item.labor_cost ?? 0);
+    const discount = Number(item.discount ?? 0);
+
+    const subtotal = qty * unit + labor - discount;
+
+    const tax =
+      item.tax_type === "taxable"
+        ? Math.floor(subtotal * 0.1)
+        : 0;
+
+    return {
+      subtotal,
+      tax,
+      total: subtotal + tax,
+    };
+  };
+
   function chunkItems(items: any[], size: number) {
     const chunks = [];
     for (let i = 0; i < items.length; i += size) {
@@ -23,22 +43,22 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
 
   const taxableTotal = estimate.items
     ?.filter((i: any) => i.tax_type === "taxable")
-    .reduce((s: number, i: any) => s + Number(i.subtotal || 0), 0);
+    .reduce((s: number, i: any) => s + calcLine(i).subtotal, 0);
 
   const nonTaxableTotal = estimate.items
     ?.filter((i: any) => i.tax_type === "non_taxable")
-    .reduce((s: number, i: any) => s + Number(i.subtotal || 0), 0);
+    .reduce((s: number, i: any) => s + calcLine(i).subtotal, 0);
 
   const tax = Math.floor(taxableTotal * 0.1);
   const total = taxableTotal + nonTaxableTotal + tax;
 
   const vehicleAmount = estimate.items
     ?.filter((i: any) => i.item_type === "vehicle")
-    .reduce((s: number, i: any) => s + Number(i.subtotal || 0), 0);
+    .reduce((s: number, i: any) => s + calcLine(i).subtotal, 0);
 
   const otherAmount = estimate.items
     ?.filter((i: any) => i.item_type !== "vehicle")
-    .reduce((s: number, i: any) => s + Number(i.subtotal || 0), 0);
+    .reduce((s: number, i: any) => s + calcLine(i).subtotal, 0);
 
   return (
     <>
@@ -59,7 +79,6 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
               "&:last-of-type": { pageBreakAfter: "auto" },
             }}
           >
-            {/* ===== 1ページ目ヘッダー ===== */}
             {pageIndex === 0 && (
               <Grid container sx={{ mt: 2 }}>
                 <Grid size={{ xs: 6 }} sx={{ pr: 1 }}>
@@ -80,25 +99,28 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                   </Box>
 
                   <Box sx={{ border: "1px solid #000" }}>
-                    <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "5px", fontWeight: "bold", }}>
+                    <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "5px", fontWeight: "bold" }}>
                       お買い上げ内容
                     </Box>
+
                     {estimate.vehicle_mode === "sale" && (
                       <SummaryRow label="商談車両" value={format(vehicleAmount)} />
                     )}
+
                     <SummaryRow label="その他の項目" value={format(otherAmount)} />
                     <SummaryRow label="課税費用" value={format(taxableTotal)} />
                     <SummaryRow label="非課税費用" value={format(nonTaxableTotal)} />
                     <SummaryRow label="消費税" value={format(tax)} />
+
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                         px: 1,
-                        py: 1,                // ←高さ広く
+                        py: 1,
                         fontWeight: "bold",
-                        fontSize: "14px",     // ←全体少し大きく
+                        fontSize: "14px",
                       }}
                     >
                       <span>お支払合計額</span>
@@ -128,7 +150,6 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                     </Typography>
                   </Box>
 
-                  {/* ===== none 以外なら車両枠表示 ===== */}
                   {estimate.vehicle_mode !== "none" && (
                     <>
                       {estimate.vehicle_mode === "sale" && (
@@ -164,21 +185,29 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                     <Th>商品名</Th>
                     <Th>数　量</Th>
                     <Th>単　価</Th>
+                    <Th>工　賃</Th>
                     <Th>金　額</Th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {items.map((item: any, i: number) => (
-                    <tr key={i}>
-                      <Td>{item.name}</Td>
-                      <Td align="right">{item.quantity}</Td>
-                      <Td align="right">{format(item.unit_price)}</Td>
-                      <Td align="right">{format(item.subtotal)}</Td>
-                    </tr>
-                  ))}
+                  {items.map((item: any, i: number) => {
+                    const line = calcLine(item);
+
+                    return (
+                      <tr key={i}>
+                        <Td>{item.name}</Td>
+                        <Td align="right">{item.quantity}</Td>
+                        <Td align="right">{format(item.unit_price)}</Td>
+                        <Td align="right">{format(item.labor_cost)}</Td>
+                        <Td align="right">{format(line.subtotal)}</Td>
+                      </tr>
+                    );
+                  })}
 
                   {Array.from({ length: emptyRows }).map((_, i) => (
                     <tr key={`empty-${i}`}>
+                      <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
@@ -189,31 +218,38 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
               </table>
             </Box>
 
-{/* ===== フッター（枠付き・最大活用） ===== */}
+            <Footer estimate={estimate} />
+          </Box>
+        );
+      })}
+    </>
+  );
+}
+
+/* ===== 既存補助関数 ===== */
+
+function Footer({ estimate }: any) {
+  return (
 <Box
   sx={{
     border: "1px solid #000",
     mt: 5,
     display: "flex",
     fontSize: "12px",
-    minHeight: "110px",   // ←高さ固定
+    minHeight: "110px",
   }}
 >
-  {/* 左：メモ */}
   <Box
     sx={{
       width: "50%",
       borderRight: "1px solid #000",
       p: 1.5,
-      display: "flex",
-      alignItems: "flex-start",
       fontSize: "13px",
     }}
   >
     メモ
   </Box>
 
-  {/* 右：店舗情報 */}
   <Box
     sx={{
       width: "50%",
@@ -223,18 +259,16 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
       justifyContent: "space-between",
     }}
   >
-    {/* 上段 */}
     <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
       <div>{estimate.shop?.location || ""}</div>
       <div>営業：{estimate.shop?.opening_hours || ""}</div>
       <div>登録番号：T7370001009807</div>
     </Box>
 
-    {/* 中央：店舗名（最大強調） */}
     <Box
       sx={{
         textAlign: "left",
-        fontSize: "18px",   // ←ここが最大化ポイント
+        fontSize: "18px",
         fontWeight: "bold",
         letterSpacing: "1px",
       }}
@@ -242,7 +276,6 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
       (株) 早坂サイクル商会 {estimate.shop?.name}
     </Box>
 
-    {/* 下段 */}
     <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
       <div>
         TEL {estimate.shop?.phone || ""}　
@@ -255,14 +288,49 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
     </Box>
   </Box>
 </Box>
-          </Box>
-        );
-      })}
-    </>
   );
 }
 
-/* ================= 既存補助関数（変更なし） ================= */
+function SummaryRow({ label, value }: any) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        borderBottom: "1px solid #000",
+        px: 1,
+        py: "5px",
+        fontSize: "11px",
+      }}
+    >
+      <span>{label}</span>
+      <span>{value}</span>
+    </Box>
+  );
+}
+
+function Th({ children }: any) {
+  return (
+    <th
+      style={{
+        border: "1px solid #000",
+        padding: "6px",
+        background: "#f5f5f5",
+        textAlign: "center",
+      }}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, align }: any) {
+  return (
+    <td style={{ border: "1px solid #000", padding: "6px", textAlign: align }}>
+      {children}
+    </td>
+  );
+}
 
 function VehicleSection({ title, vehicle }: any) {
   return (
@@ -290,10 +358,16 @@ function VehicleSection({ title, vehicle }: any) {
           {vehicleRows(vehicle).map((row: any, i: number) => (
             <tr key={i}>
               <td style={leftCellStyle}>
-                <VehicleCell label={row.left.label} value={row.left.value} />
+                <VehicleCell
+                  label={row.left.label}
+                  value={row.left.value}
+                />
               </td>
               <td style={rightCellStyle}>
-                <VehicleCell label={row.right.label} value={row.right.value} />
+                <VehicleCell
+                  label={row.right.label}
+                  value={row.right.value}
+                />
               </td>
             </tr>
           ))}
@@ -328,6 +402,15 @@ function vehicleRows(vehicle: any) {
   return rows;
 }
 
+function VehicleCell({ label, value }: any) {
+  return (
+    <>
+      <span style={{ fontWeight: 500 }}>{label}：</span>
+      <span style={{ marginLeft: 6 }}>{value || ""}</span>
+    </>
+  );
+}
+
 const leftCellStyle: React.CSSProperties = {
   borderBottom: "1px solid #000",
   borderRight: "1px solid #000",
@@ -340,58 +423,3 @@ const rightCellStyle: React.CSSProperties = {
   padding: "3px 8px",
   width: "50%",
 };
-
-function VehicleCell({ label, value }: any) {
-  return (
-    <>
-      <span style={{ fontWeight: 500 }}>{label}：</span>
-      <span style={{ marginLeft: 6 }}>{value || ""}</span>
-    </>
-  );
-}
-
-function SummaryRow({ label, value, bold }: any) {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        justifyContent: "space-between",
-        borderBottom: "1px solid #000",
-        px: 1,
-        py: "5px",
-        fontSize: "11px",
-        fontWeight: bold ? 700 : 400,
-      }}
-    >
-      <span>{label}</span>
-      <span>{value}</span>
-    </Box>
-  );
-}
-
-function Th({ children, align }: any) {
-  return (
-    <th
-      style={{
-        border: "1px solid #000",
-        padding: "6px",
-        background: "#f5f5f5",
-        textAlign: align || "center",
-      }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, align }: any) {
-  return (
-    <td style={{ border: "1px solid #000", padding: "6px", textAlign: align }}>
-      {children}
-    </td>
-  );
-}
-
-function tradeInVehicle(estimate: any) {
-  return estimate.vehicles?.find((v: any) => v.is_trade_in) || null;
-}

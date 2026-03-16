@@ -5,6 +5,7 @@ from core.models.estimate_vehicle import EstimateVehicle
 from core.models.categories import Manufacturer
 from core.serializers.manufacturers import ManufacturerSerializer
 from core.models.customers import CustomerVehicle
+from core.models.masters import Color
 
 
 class EstimateVehicleSerializer(serializers.ModelSerializer):
@@ -13,6 +14,12 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
 
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Manufacturer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    color = serializers.PrimaryKeyRelatedField(
+        queryset=Color.objects.all(),
         required=False,
         allow_null=True,
     )
@@ -74,6 +81,7 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
             "new_car_type",
             "manufacturer",
             "manufacturer_detail",
+            "color",
             "color_name",
             "color_code",
             "model_code",

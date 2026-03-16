@@ -21,6 +21,12 @@ class OrderVehicle(models.Model):
         null=True,
         blank=True,
     )
+    color = models.ForeignKey(
+        "core.Color",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     color_name = models.CharField(max_length=50, blank=True)
     color_code = models.CharField(max_length=20, blank=True)
     model_code = models.CharField(max_length=50, blank=True)

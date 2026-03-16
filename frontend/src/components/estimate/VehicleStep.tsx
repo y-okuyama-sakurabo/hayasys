@@ -303,7 +303,11 @@ export default function VehicleStep({
             select
             label="カラー"
             fullWidth
-            value={currentVehicle.color ?? ""}
+            value={
+              currentVehicle.color ??
+              colors.find((c) => c.name === currentVehicle.color_name)?.id ??
+              ""
+            }
             onChange={(e) =>
               updateVehicle(
                 "color",

@@ -101,6 +101,13 @@ class EstimateSerializer(serializers.ModelSerializer):
 
     created_by = CreatedBySerializer(read_only=True)
 
+    created_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="created_by",
+        write_only=True,
+        required=False,
+    )
+
     shop = serializers.PrimaryKeyRelatedField(
         queryset=Shop.objects.all(),
         required=False,
@@ -110,7 +117,7 @@ class EstimateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Estimate
         fields = "__all__"
-        read_only_fields = ["created_by", "created_at"]
+        read_only_fields = ["created_at"]
 
     # ==========================================================
     # Utility
@@ -171,6 +178,7 @@ class EstimateSerializer(serializers.ModelSerializer):
                         manufacturer=v.manufacturer,
                         model_code=v.model_code,
                         chassis_no=v.chassis_no,
+                        color=vehicle_data.get("color"), 
                         color_name=getattr(v, "color_name", ""),
                         color_code=getattr(v, "color_code", ""),
                         model_year=getattr(v, "model_year", ""),
@@ -204,6 +212,7 @@ class EstimateSerializer(serializers.ModelSerializer):
                 model_year=vehicle_data.get("model_year", ""),
                 model_code=vehicle_data.get("model_code", ""),
                 chassis_no=vehicle_data.get("chassis_no", ""),
+                color=vehicle_data.get("color"),    
                 color_name=vehicle_data.get("color_name", ""),
                 color_code=vehicle_data.get("color_code", ""),
                 displacement=vehicle_data.get("displacement"),

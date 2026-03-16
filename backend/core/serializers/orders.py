@@ -11,6 +11,7 @@ from core.models import (
 )
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer
+from core.models.masters import Color
 from core.serializers.order_items import OrderItemSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.customers import CustomerWriteSerializer
@@ -69,13 +70,25 @@ class OrderSerializer(serializers.ModelSerializer):
     # 車両
     # -------------------------
     target_vehicle = serializers.JSONField(
-        write_only=True, required=False, allow_null=True
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
     trade_in_vehicle = serializers.JSONField(
-        write_only=True, required=False, allow_null=True
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
 
     created_by = CreatedBySerializer(read_only=True)
+
+    created_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="created_by",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
 
     shop = serializers.PrimaryKeyRelatedField(
         queryset=Shop.objects.all(),
@@ -102,10 +115,7 @@ class OrderSerializer(serializers.ModelSerializer):
     # ==========================================================
     # Utility
     # ==========================================================
-
     def _create_customer_from_new(self, data):
-
-        # 🔥 必ず最初に削除
         data = data.copy()
         data.pop("source_customer", None)
 
@@ -132,8 +142,25 @@ class OrderSerializer(serializers.ModelSerializer):
                 **p,
             )
 
-    def _create_vehicle_and_item(self, order, raw_vehicle):
+    def _normalize_vehicle_data(self, raw_vehicle: dict | None) -> dict | None:
+        if not raw_vehicle:
+            return None
 
+        vehicle_data = raw_vehicle.copy()
+
+        if "manufacturer" in vehicle_data and isinstance(vehicle_data["manufacturer"], int):
+            vehicle_data["manufacturer"] = Manufacturer.objects.filter(
+                id=vehicle_data["manufacturer"]
+            ).first()
+
+        if "color" in vehicle_data and isinstance(vehicle_data["color"], int):
+            vehicle_data["color"] = Color.objects.filter(
+                id=vehicle_data["color"]
+            ).first()
+
+        return vehicle_data
+
+    def _create_vehicle_and_item(self, order, raw_vehicle):
         if not raw_vehicle:
             OrderItem.objects.filter(
                 order=order,
@@ -141,15 +168,16 @@ class OrderSerializer(serializers.ModelSerializer):
             ).delete()
             return
 
-        vehicle_data = raw_vehicle.copy()
+        vehicle_data = self._normalize_vehicle_data(raw_vehicle)
+        if vehicle_data is None:
+            OrderItem.objects.filter(
+                order=order,
+                item_type="vehicle",
+            ).delete()
+            return
 
         unit_price = vehicle_data.pop("unit_price", 0)
         category_id = vehicle_data.pop("category_id", None)
-
-        if "manufacturer" in vehicle_data and isinstance(vehicle_data["manufacturer"], int):
-            vehicle_data["manufacturer"] = Manufacturer.objects.filter(
-                id=vehicle_data["manufacturer"]
-            ).first()
 
         vehicle = OrderVehicle.objects.create(
             order=order,
@@ -157,17 +185,14 @@ class OrderSerializer(serializers.ModelSerializer):
             **vehicle_data,
         )
 
-        # 🔥 ここが重要
         OrderItem.objects.filter(
             order=order,
             item_type="vehicle",
         ).delete()
 
         if order.vehicle_mode == "sale":
-
             quantity = 1
             discount = 0
-
             subtotal = (unit_price * quantity) - discount
 
             OrderItem.objects.create(
@@ -178,7 +203,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 quantity=quantity,
                 unit_price=unit_price,
                 discount=discount,
-                subtotal=subtotal,  # 🔥 追加
+                subtotal=subtotal,
                 tax_type="taxable",
                 sale_type=vehicle.new_car_type,
             )
@@ -187,9 +212,6 @@ class OrderSerializer(serializers.ModelSerializer):
     # CREATE
     # ==========================================================
     def create(self, validated_data):
-
-        print("🔥 OrderSerializer.create() 呼ばれました")
-
         new_customer_data = validated_data.pop("new_customer", None)
         items_data = validated_data.pop("items", [])
         payments_data = validated_data.pop("payments", [])
@@ -200,13 +222,10 @@ class OrderSerializer(serializers.ModelSerializer):
         # ======================================================
         # 顧客決定ロジック
         # ======================================================
-
         if new_customer_data:
-
             source_customer_id = new_customer_data.get("source_customer")
 
             if source_customer_id:
-                # 🔥 既存顧客を使う
                 try:
                     validated_data["customer"] = Customer.objects.get(
                         id=source_customer_id
@@ -215,9 +234,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "customer": "指定された顧客が存在しません"
                     })
-
             else:
-                # 🔥 source_customer が無い → 新規作成
                 validated_data["customer"] = self._create_customer_from_new(
                     new_customer_data
                 )
@@ -232,7 +249,6 @@ class OrderSerializer(serializers.ModelSerializer):
         # ======================================================
         # 顧客スナップショット
         # ======================================================
-
         validated_data.update(
             {
                 "party_name": customer.name,
@@ -247,13 +263,11 @@ class OrderSerializer(serializers.ModelSerializer):
         # ======================================================
         # Order 作成
         # ======================================================
-
         order = Order.objects.create(**validated_data)
 
         # ======================================================
         # 明細（vehicle は除外）
         # ======================================================
-
         for item in items_data:
             item.pop("saveAsProduct", None)
 
@@ -265,38 +279,30 @@ class OrderSerializer(serializers.ModelSerializer):
         # ======================================================
         # 支払い
         # ======================================================
-
         self._create_payments(order, payments_data)
 
         # ======================================================
         # 車両作成
         # ======================================================
-
         self._create_vehicle_and_item(order, raw_target_vehicle)
 
         if raw_trade_in_vehicle:
-            trade_vehicle_data = raw_trade_in_vehicle.copy()
+            trade_vehicle_data = self._normalize_vehicle_data(raw_trade_in_vehicle)
 
-            if (
-                "manufacturer" in trade_vehicle_data
-                and isinstance(trade_vehicle_data["manufacturer"], int)
-            ):
-                trade_vehicle_data["manufacturer"] = Manufacturer.objects.filter(
-                    id=trade_vehicle_data["manufacturer"]
-                ).first()
+            if trade_vehicle_data:
+                trade_vehicle_data.pop("unit_price", None)
+                trade_vehicle_data.pop("category_id", None)
 
-            OrderVehicle.objects.create(
-                order=order,
-                is_trade_in=True,
-                **trade_vehicle_data,
-            )
-        
+                OrderVehicle.objects.create(
+                    order=order,
+                    is_trade_in=True,
+                    **trade_vehicle_data,
+                )
+
         # ======================================================
         # 所有車両登録（sale のときのみ）
         # ======================================================
-
         from core.services.order_finalize import create_customer_vehicle_from_order
-
         create_customer_vehicle_from_order(order)
 
         return order
@@ -305,7 +311,6 @@ class OrderSerializer(serializers.ModelSerializer):
     # UPDATE
     # ==========================================================
     def update(self, instance, validated_data):
-
         new_customer_data = validated_data.pop("new_customer", None)
         items_data = validated_data.pop("items", None)
         payments_data = validated_data.pop("payments", None)
@@ -329,6 +334,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 )
 
         customer = instance.customer
+
+        if not customer:
+            raise serializers.ValidationError(
+                {"customer": ["顧客が必要です"]}
+            )
 
         instance.party_name = customer.name
         instance.party_kana = getattr(customer, "kana", None)
@@ -356,30 +366,29 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 支払い再構築
         if payments_data is not None:
-            instance.payments.all().delete()
+            order_ct = ContentType.objects.get_for_model(Order)
+            Payment.objects.filter(
+                content_type=order_ct,
+                object_id=instance.id,
+            ).delete()
             self._create_payments(instance, payments_data)
 
         # 車両再構築
         instance.order_vehicles.all().delete()
 
-        self._create_vehicle_and_item(
-            instance, raw_target_vehicle
-        )
+        self._create_vehicle_and_item(instance, raw_target_vehicle)
 
         if raw_trade_in_vehicle:
-            trade_vehicle_data = raw_trade_in_vehicle.copy()
+            trade_vehicle_data = self._normalize_vehicle_data(raw_trade_in_vehicle)
 
-            if "manufacturer" in trade_vehicle_data and isinstance(
-                trade_vehicle_data["manufacturer"], int
-            ):
-                trade_vehicle_data["manufacturer"] = Manufacturer.objects.filter(
-                    id=trade_vehicle_data["manufacturer"]
-                ).first()
+            if trade_vehicle_data:
+                trade_vehicle_data.pop("unit_price", None)
+                trade_vehicle_data.pop("category_id", None)
 
-            OrderVehicle.objects.create(
-                order=instance,
-                is_trade_in=True,
-                **trade_vehicle_data,
-            )
+                OrderVehicle.objects.create(
+                    order=instance,
+                    is_trade_in=True,
+                    **trade_vehicle_data,
+                )
 
         return instance
