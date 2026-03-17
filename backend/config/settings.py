@@ -99,7 +99,7 @@ SIMPLE_JWT = {
 }
 
 # CORS（開発用）
-CORS_ALLOW_ALL_ORIGINS = True   # ★ Cookie を使うときは False
+CORS_ALLOW_ALL_ORIGINS = False   # ★ Cookie を使うときは False
 CORS_ALLOW_CREDENTIALS = True    # ★ 必須
 
 CORS_ALLOWED_ORIGINS = [
