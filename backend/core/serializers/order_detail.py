@@ -1,4 +1,3 @@
-# core/serializers/orders/order_detail.py
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 
@@ -20,8 +19,6 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     shop = ShopSerializer(read_only=True)
     created_by = CreatedBySerializer(read_only=True)
     customer = CustomerDetailSerializer(read_only=True)
-
-    order_ct = ContentType.objects.get_for_model(Order)
 
     class Meta:
         model = Order
@@ -57,8 +54,11 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_payments(self, obj):
+        order_ct = ContentType.objects.get_for_model(Order)
+
         qs = Payment.objects.filter(
-            content_type=self.order_ct,
+            content_type=order_ct,
             object_id=obj.id,
         ).order_by("id")
+
         return PaymentSerializer(qs, many=True).data
