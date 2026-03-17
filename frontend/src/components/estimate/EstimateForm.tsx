@@ -20,6 +20,7 @@ import OtherStep from "./OtherStep";
 import ExpenseStep from "./ExpenseStep";
 import InsuranceStep from "./InsuranceStep";
 import EstimatePaymentForm from "./EstimatePaymentForm";
+import { useRouter } from "next/navigation";
 
 const BASE_STEPS = [
   { key: "basic", label: "基本情報" },
@@ -113,6 +114,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const router = useRouter();
 
   const visibleSteps = useMemo(() => {
     if (state.basic.vehicle_mode === "none") {
@@ -289,6 +291,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       }
 
       alert("保存しました");
+      router.push(`/dashboard/estimates/${id}`);
 
     } catch (e) {
       console.error(e);

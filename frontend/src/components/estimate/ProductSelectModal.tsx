@@ -189,44 +189,15 @@ export default function ProductSelectModal({
 
       <DialogContent>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-          <Tab label="カテゴリから選択" />
           <Tab label="カテゴリ＋手入力" />
+          <Tab label="カテゴリから選択" />
           <Tab label="商品検索" />
         </Tabs>
 
-        {/* ① カテゴリ → 商品選択 */}
-        {tab === 0 && (
-          <Box>
-            <EstimateCategorySelector
-              value={categoryId1}
-              onChange={(id) => setCategoryId1(id)}
-              categoryTypes={categoryTypes}
-            />
-
-            {loadingProducts ? (
-              <CircularProgress size={24} />
-            ) : (
-              <List>
-                {products.map((p) => (
-                  <ListItemButton
-                    key={p.id}
-                    onClick={() => handleSelectProduct(p)}
-                  >
-                    <ListItemText
-                      primary={p.name}
-                      secondary={`¥${Number(
-                        p.unit_price
-                      ).toLocaleString()}`}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            )}
-          </Box>
-        )}
+        
 
         {/* ② 手入力 */}
-        {tab === 1 && (
+        {tab === 0 && (
           <Box>
             <EstimateCategorySelector
               value={categoryId2}
@@ -268,6 +239,37 @@ export default function ProductSelectModal({
                 明細に追加
               </Button>
             </Stack>
+          </Box>
+        )}
+
+        {/* ① カテゴリ → 商品選択 */}
+        {tab === 1 && (
+          <Box>
+            <EstimateCategorySelector
+              value={categoryId1}
+              onChange={(id) => setCategoryId1(id)}
+              categoryTypes={categoryTypes}
+            />
+
+            {loadingProducts ? (
+              <CircularProgress size={24} />
+            ) : (
+              <List>
+                {products.map((p) => (
+                  <ListItemButton
+                    key={p.id}
+                    onClick={() => handleSelectProduct(p)}
+                  >
+                    <ListItemText
+                      primary={p.name}
+                      secondary={`¥${Number(
+                        p.unit_price
+                      ).toLocaleString()}`}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
           </Box>
         )}
 
