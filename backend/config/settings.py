@@ -106,6 +106,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://52.193.197.122",
+    "http://162.43.7.137",
     "https://hayasys.vercel.app",
 ]
 
@@ -113,6 +114,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://52.193.197.122",
+    "http://162.43.7.137",
     "https://hayasys.vercel.app",
 ]
 
