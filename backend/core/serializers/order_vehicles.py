@@ -3,11 +3,18 @@ from rest_framework import serializers
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer
 from core.serializers.masters import ManufacturerSerializer
+from core.models.categories import Category
+
 
 
 
 class OrderVehicleSerializer(serializers.ModelSerializer):
     manufacturer = ManufacturerSerializer(read_only=True)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = OrderVehicle
@@ -20,6 +27,7 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
             "model_year",
             "new_car_type",
             "manufacturer",
+            "category",
             "color",
             "color_name",
             "color_code",

@@ -3,6 +3,10 @@ from django.db.models import Prefetch
 from rest_framework import generics, status, permissions
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from core.models import Vehicle
+from core.models import EstimateVehicle
 
 from rest_framework.response import Response
 
@@ -203,3 +207,23 @@ class CustomerVehicleSearchAPIView(generics.GenericAPIView):
 
         serializer = self.get_serializer(vehicles, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class VehicleDuplicateCheckAPIView(APIView):
+
+    def get(self, request):
+        chassis_no = request.query_params.get("chassis_no", "").strip()
+        exclude_id = request.query_params.get("exclude_id")
+
+        if not chassis_no:
+            return Response({"exists": False})
+
+        qs = EstimateVehicle.objects.filter(
+            chassis_no__iexact=chassis_no
+        )
+
+        if exclude_id and str(exclude_id).isdigit():
+            qs = qs.exclude(id=int(exclude_id))
+
+        return Response({
+            "exists": qs.exists()
+        })

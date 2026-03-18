@@ -43,10 +43,10 @@ class Vehicle(models.Model):
     )
 
     category = models.ForeignKey(
-        "core.VehicleCategory",
-        on_delete=models.PROTECT,
+        "core.Category",
         null=True,
-        blank=True
+        blank=True,
+        on_delete=models.SET_NULL
     )
 
     color = models.ForeignKey(

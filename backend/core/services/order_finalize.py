@@ -52,11 +52,14 @@ def create_customer_vehicle_from_order(order):
         vehicle = Vehicle.objects.filter(chassis_no=chassis_no).first()
 
     if vehicle:
-        # 既存Vehicleがある場合：必要なら情報を補完（上書きポリシーはここで調整可能）
-        # 例：空欄なら埋める / もしくは常に上書きなど
         updates = {}
 
-        # 常に上書きしたいなら `updates["vehicle_name"] = ov.vehicle_name` に変える
+        if vehicle.category_id is None and ov.category_id:
+            updates["category_id"] = ov.category_id
+
+        if vehicle.color_id is None and ov.color_id:
+            updates["color_id"] = ov.color_id
+
         if not vehicle.vehicle_name and ov.vehicle_name:
             updates["vehicle_name"] = ov.vehicle_name
 
@@ -102,7 +105,9 @@ def create_customer_vehicle_from_order(order):
             color_name=ov.color_name or "",
             color_code=ov.color_code or "",
             engine_type=ov.engine_type or "",
-            # category / color は OrderVehicle に無いのでここでは触らない
+
+            category=ov.category,
+            color=ov.color,
         )
 
     # 3) この Vehicle に「現所有者」が居たら終了させる（顧客が変わる可能性があるため）

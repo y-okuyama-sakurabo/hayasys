@@ -33,6 +33,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
@@ -165,6 +166,10 @@ function OrderListPageInner() {
       case "delete":
         const target = orders.find((o) => o.id === id);
         if (target) setDeleteTarget(target);
+        break;
+      
+      case "duplicate":
+        router.push(`/dashboard/orders/new?copy_from=${id}`);
         break;
     }
   };
@@ -375,6 +380,13 @@ function OrderListPageInner() {
                           <DescriptionIcon fontSize="small" />
                         </ListItemIcon>
                         <ListItemText primary="詳細" />
+                      </MenuItem>
+
+                      <MenuItem onClick={() => handleAction("duplicate", o.id)}>
+                        <ListItemIcon>
+                          <ContentCopyIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText primary="複製" />
                       </MenuItem>
 
                       <MenuItem

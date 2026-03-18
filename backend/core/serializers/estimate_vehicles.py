@@ -1,15 +1,13 @@
-# core/serializers/estimate_vehicles.py
-
 from rest_framework import serializers
 from core.models.estimate_vehicle import EstimateVehicle
-from core.models.categories import Manufacturer
+from core.models.categories import Manufacturer, Category
 from core.serializers.manufacturers import ManufacturerSerializer
+from core.serializers.categories import CategorySerializer
 from core.models.customers import CustomerVehicle
 from core.models.masters import Color
 
 
 class EstimateVehicleSerializer(serializers.ModelSerializer):
-
     estimate = serializers.PrimaryKeyRelatedField(read_only=True)
 
     manufacturer = serializers.PrimaryKeyRelatedField(
@@ -18,24 +16,25 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
+    manufacturer_detail = ManufacturerSerializer(
+        source="manufacturer",
+        read_only=True,
+    )
+
     color = serializers.PrimaryKeyRelatedField(
         queryset=Color.objects.all(),
         required=False,
         allow_null=True,
     )
 
-    manufacturer_detail = ManufacturerSerializer(
-        source="manufacturer",
-        read_only=True
-    )
+    category = CategorySerializer(read_only=True)
 
-    # =========================
-    # 🔥 追加（Item作成用 write_only）
-    # =========================
-    category_id = serializers.IntegerField(
-        write_only=True,
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        source="category",
         required=False,
         allow_null=True,
+        write_only=True,
     )
 
     unit_price = serializers.DecimalField(
@@ -46,9 +45,6 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
-    # =========================
-    # 所有車両関連
-    # =========================
     source_customer_vehicle = serializers.PrimaryKeyRelatedField(
         queryset=CustomerVehicle.objects.all(),
         required=False,
@@ -57,7 +53,7 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
 
     source_customer_vehicle_id = serializers.IntegerField(
         source="source_customer_vehicle.id",
-        read_only=True
+        read_only=True,
     )
 
     class Meta:
@@ -66,15 +62,11 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
             "id",
             "estimate",
             "is_trade_in",
-
-            # 🔥 Item作成用
+            "category",
             "category_id",
             "unit_price",
-
-            # 所有車両
             "source_customer_vehicle",
             "source_customer_vehicle_id",
-
             "vehicle_name",
             "displacement",
             "model_year",
@@ -90,10 +82,80 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
         read_only_fields = [
             "id",
             "estimate",
             "created_at",
             "updated_at",
         ]
+
+    def validate(self, data):
+        """
+        🔥 重要ポイント：
+        - nested serializerでは instance が来ない
+        - initial_data から id / estimate を拾う
+        - 自分自身 & 同一見積は除外する
+        """
+
+        chassis_no = data.get("chassis_no")
+
+        if not chassis_no:
+            return data
+
+        chassis_no = chassis_no.strip()
+
+        qs = EstimateVehicle.objects.filter(
+            chassis_no__iexact=chassis_no
+        )
+
+        # =========================
+        # 🔥 自分自身のID取得
+        # =========================
+        current_id = None
+
+        # 通常のupdate
+        if self.instance:
+            current_id = self.instance.id
+
+        # nested時（ここが超重要）
+        if current_id is None:
+            raw_id = getattr(self, "initial_data", {}).get("id")
+            if raw_id not in (None, "", "null"):
+                try:
+                    current_id = int(raw_id)
+                except (TypeError, ValueError):
+                    pass
+
+        if current_id:
+            qs = qs.exclude(id=current_id)
+
+        # =========================
+        # 🔥 同一見積を除外
+        # =========================
+        estimate_id = None
+
+        # 通常のupdate
+        if self.instance and getattr(self.instance, "estimate", None):
+            estimate_id = self.instance.estimate.id
+
+        # nested時
+        if estimate_id is None:
+            raw_estimate = getattr(self, "initial_data", {}).get("estimate")
+            if raw_estimate not in (None, "", "null"):
+                try:
+                    estimate_id = int(raw_estimate)
+                except (TypeError, ValueError):
+                    pass
+
+        if estimate_id:
+            qs = qs.exclude(estimate_id=estimate_id)
+
+        # =========================
+        # 🔥 重複チェック
+        # =========================
+        if qs.exists():
+            raise serializers.ValidationError({
+                "chassis_no": "この車台番号は既に登録されています"
+            })
+
+        return data

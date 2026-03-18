@@ -22,6 +22,7 @@ import {
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DescriptionIcon from "@mui/icons-material/Description";
+import DeleteIcon from "@mui/icons-material/Delete"; // ← 追加
 
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
@@ -67,7 +68,7 @@ export default function CustomerVehicles({ customerId }: Props) {
   }, [customerId]);
 
   // ===============================
-  // メニュー
+  // メニュー操作
   // ===============================
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, id: number) => {
     setMenuAnchor((prev) => ({ ...prev, [id]: event.currentTarget }));
@@ -77,7 +78,10 @@ export default function CustomerVehicles({ customerId }: Props) {
     setMenuAnchor((prev) => ({ ...prev, [id]: null }));
   };
 
-  const handleAction = (action: string, id: number) => {
+  // ===============================
+  // アクション
+  // ===============================
+  const handleAction = async (action: string, id: number) => {
     handleMenuClose(id);
 
     switch (action) {
@@ -88,9 +92,26 @@ export default function CustomerVehicles({ customerId }: Props) {
       case "edit":
         router.push(`/dashboard/customers/${customerId}/vehicles/${id}/edit`);
         break;
+
+      case "delete":
+        if (!confirm("この車両を削除しますか？")) return;
+
+        try {
+          await apiClient.delete(`/customers/${customerId}/vehicles/${id}/`);
+
+          // UIから削除
+          setVehicles((prev) => prev.filter((v) => v.id !== id));
+        } catch (err) {
+          console.error("削除失敗:", err);
+          alert("削除に失敗しました");
+        }
+        break;
     }
   };
 
+  // ===============================
+  // ローディング
+  // ===============================
   if (loading)
     return (
       <Box display="flex" justifyContent="center" mt={6}>
@@ -170,6 +191,14 @@ export default function CustomerVehicles({ customerId }: Props) {
                           <EditIcon fontSize="small" />
                         </ListItemIcon>
                         <ListItemText primary="編集" />
+                      </MenuItem>
+
+                      {/* ✅ 削除追加 */}
+                      <MenuItem onClick={() => handleAction("delete", v.id)}>
+                        <ListItemIcon>
+                          <DeleteIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText primary="削除" />
                       </MenuItem>
                     </Menu>
                   </TableCell>

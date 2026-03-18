@@ -128,7 +128,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      // ✅ これは CustomerVehicle の詳細（customer_vehicle_id）
+    
       const res = await apiClient.get(`/customers/${customerId}/vehicles/${vehicleId}/`);
       const cv = res.data;
 

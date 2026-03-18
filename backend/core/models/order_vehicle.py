@@ -10,6 +10,13 @@ class OrderVehicle(models.Model):
         default=False,
         help_text="Trueなら下取り車両、Falseなら商談車両"
     )
+    category = models.ForeignKey(
+        "core.Category",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_vehicles"
+    )
 
     vehicle_name = models.CharField(max_length=100, blank=True)
     displacement = models.IntegerField(null=True, blank=True)

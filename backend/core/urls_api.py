@@ -35,6 +35,7 @@ from core.views.customers.similar import SimilarCustomerAPIView
 from core.views.vehicles.views import (
     VehicleDetailAPIView,
     VehicleUpdateAPIView,
+    VehicleDuplicateCheckAPIView
 )
 from core.views.vehicles.images import (
     VehicleImageListCreateView,
@@ -227,6 +228,8 @@ urlpatterns = [
 
     path("vehicles/<int:vehicle_id>/warranties/", VehicleWarrantyListCreateView.as_view()),
     path("vehicles/<int:vehicle_id>/warranties/<int:pk>/", VehicleWarrantyRetrieveUpdateDestroyView.as_view()),
+
+    path("vehicles/check-duplicate/", VehicleDuplicateCheckAPIView.as_view()),
 
     # =========================
     # Categories & Products

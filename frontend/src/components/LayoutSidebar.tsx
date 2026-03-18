@@ -29,8 +29,9 @@ import {
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
-import MailIcon from "@mui/icons-material/Mail"; // 追加
+import MailIcon from "@mui/icons-material/Mail";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+
 const drawerWidth = 240;
 
 export default function LayoutSidebar({ children }: { children: React.ReactNode }) {
@@ -49,9 +50,7 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
 
         setDisplayName(res.data.display_name || res.data.login_id || "未設定");
         setShopName(res.data.shop_name || "");
-
-        // ★ ここが重要
-        setRole(res.data.role); // ← admin / staff など
+        setRole(res.data.role);
       } catch (err) {
         console.error("ユーザー情報取得失敗:", err);
       }
@@ -66,20 +65,17 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
   // === ログアウト処理 ===
   const handleLogout = async () => {
     try {
-      await apiClient.post("/auth/logout/"); // ← これで Cookie 削除！
-
+      await apiClient.post("/auth/logout/");
     } catch (e) {
       console.error("ログアウトAPI失敗:", e);
     }
 
-    // localStorage も一応クリア
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("user_role");
 
     router.push("/login");
   };
-
 
   // === Avatarメニュー開閉 ===
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -89,8 +85,8 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     setAnchorEl(null);
   };
 
-  // === メニュー定義 ===
-  const baseMenus = [
+  // === メニュー定義（🔥スタッフ管理を常時表示に変更）===
+  const menus = [
     { text: "顧客管理", icon: <People />, path: "/dashboard/customers" },
     { text: "見積管理", icon: <Description />, path: "/dashboard/estimates" },
     { text: "受注管理", icon: <Description />, path: "/dashboard/orders" },
@@ -101,25 +97,19 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
       icon: <MailIcon />,
       path: "/dashboard/business-communications",
     },
-      {
+    {
       text: "分析",
       icon: <TrendingUpIcon />,
       path: "/dashboard/analytics",
     },
+
+    // 👇 ★ここが今回の変更
+    {
+      text: "スタッフ管理",
+      icon: <AdminPanelSettings />,
+      path: "/dashboard/staffs/new",
+    },
   ];
-
-  const adminMenus =
-    role === "admin"
-      ? [
-          {
-            text: "スタッフ管理",
-            icon: <AdminPanelSettings />,
-            path: "/dashboard/staffs/new",
-          },
-        ]
-      : [];
-
-  const menus = [...baseMenus, ...adminMenus];
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -132,7 +122,6 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         }}
       >
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          {/* 左側：ハンバーガー＆タイトル */}
           <Box display="flex" alignItems="center" gap={1}>
             <IconButton color="inherit" onClick={toggleDrawer}>
               <MenuIcon />
@@ -142,7 +131,6 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
             </Typography>
           </Box>
 
-          {/* 右側：ユーザーアバター */}
           <Box display="flex" alignItems="center">
             <IconButton onClick={handleMenuOpen} sx={{ p: 0 }}>
               <Avatar
@@ -156,7 +144,6 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
               </Avatar>
             </IconButton>
 
-            {/* アカウントメニュー */}
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
@@ -189,16 +176,16 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         sx={{
           width: drawerWidth,
           flexShrink: 0,
-          position: "fixed", // ← ← 固定配置にする！
+          position: "fixed",
           left: 0,
-          top: 64, // AppBarの高さ分ずらす（Toolbar分）
+          top: 64,
           height: "calc(100% - 64px)",
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
             transition: "transform 0.3s ease",
             transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
-            position: "fixed", // ← paper自体も固定化！
+            position: "fixed",
           },
         }}
       >
@@ -206,7 +193,10 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         <Box sx={{ overflow: "auto" }}>
           <List>
             {menus.map((item) => (
-              <ListItemButton key={item.text} onClick={() => router.push(item.path)}>
+              <ListItemButton
+                key={item.text}
+                onClick={() => router.push(item.path)}
+              >
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>

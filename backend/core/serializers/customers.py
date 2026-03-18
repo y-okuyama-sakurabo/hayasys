@@ -6,7 +6,7 @@ from core.models import (
     CustomerClass, Gender, Region, CustomerImage,
     CustomerMemo, Order, Estimate,
 )
-from .vehicles import VehicleWriteSerializer
+from .vehicles import VehicleWriteSerializer, VehicleDetailSerializer
 
 User = get_user_model()
 
@@ -130,7 +130,7 @@ class CustomerListSerializer(CustomerShopMixin, serializers.ModelSerializer):
 
 # ---- Detail (Read) ----
 class OwnedVehicleSerializer(serializers.ModelSerializer):
-    vehicle = VehicleMiniSerializer()
+    vehicle = VehicleDetailSerializer()
     class Meta:
         model = CustomerVehicle
         fields = ("id", "owned_from", "owned_to", "vehicle")

@@ -36,7 +36,7 @@ export default function ProductSelectModal({
   const [tab, setTab] = useState(0);
 
   /* ===============================
-     category type 自動切替
+     category type
   =============================== */
   const categoryTypes = useMemo(() => {
     if (itemType === "insurance") return ["insurance"];
@@ -45,10 +45,45 @@ export default function ProductSelectModal({
   }, [itemType]);
 
   /* ===============================
-     カテゴリ辞書（末端名取得用）
+     🔥 state
   =============================== */
+  const [categoryId1, setCategoryId1] = useState<number | null>(null);
+  const [categoryId2, setCategoryId2] = useState<number | null>(null);
+  const [manualName, setManualName] = useState("");
+  const [manualPrice, setManualPrice] = useState<number>(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
 
+  /* ===============================
+     🔥 リセット関数
+  =============================== */
+  const resetState = () => {
+    setTab(0);
+    setCategoryId1(null);
+    setCategoryId2(null);
+    setManualName("");
+    setManualPrice(0);
+    setKeyword("");
+    setSearchResults([]);
+    setProducts([]);
+  };
+
+  /* ===============================
+     🔥 open時リセット（超重要）
+  =============================== */
+  useEffect(() => {
+    if (open) {
+      resetState();
+    }
+  }, [open]);
+
+  /* ===============================
+     カテゴリ辞書
+  =============================== */
   useEffect(() => {
     apiClient
       .get(
@@ -81,9 +116,6 @@ export default function ProductSelectModal({
     return categoryMap[categoryId].name;
   };
 
-  /* ===============================
-     共通
-  =============================== */
   const buildPayload = (data: any) => ({
     item_type: itemType,
     quantity: 1,
@@ -92,12 +124,8 @@ export default function ProductSelectModal({
   });
 
   /* ===============================
-     ① カテゴリ → 商品選択
+     カテゴリ → 商品
   =============================== */
-  const [categoryId1, setCategoryId1] = useState<number | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-
   useEffect(() => {
     if (!categoryId1) {
       setProducts([]);
@@ -120,36 +148,8 @@ export default function ProductSelectModal({
   }, [categoryId1]);
 
   /* ===============================
-     ② 手入力
+     商品検索
   =============================== */
-  const [categoryId2, setCategoryId2] = useState<number | null>(null);
-  const [manualName, setManualName] = useState("");
-  const [manualPrice, setManualPrice] = useState<number>(0);
-
-  const handleManualAdd = () => {
-    if (!categoryId2 || !manualName.trim() || manualPrice <= 0) {
-      alert("入力内容を確認してください");
-      return;
-    }
-
-    onSelect(
-      buildPayload({
-        category_id: categoryId2,
-        name: manualName,
-        unit_price: manualPrice,
-      })
-    );
-
-    onClose();
-  };
-
-  /* ===============================
-     ③ 商品検索
-  =============================== */
-  const [keyword, setKeyword] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (!keyword.trim()) {
@@ -171,6 +171,38 @@ export default function ProductSelectModal({
     return () => clearTimeout(timer);
   }, [keyword]);
 
+  /* ===============================
+     🔥 closeラップ
+  =============================== */
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
+
+  /* ===============================
+     手入力追加
+  =============================== */
+  const handleManualAdd = () => {
+    if (!categoryId2 || !manualName.trim() || manualPrice <= 0) {
+      alert("入力内容を確認してください");
+      return;
+    }
+
+    onSelect(
+      buildPayload({
+        category_id: categoryId2,
+        name: manualName,
+        unit_price: manualPrice,
+      })
+    );
+
+    resetState(); // ←重要
+    onClose();
+  };
+
+  /* ===============================
+     商品選択
+  =============================== */
   const handleSelectProduct = (product: any) => {
     onSelect(
       buildPayload({
@@ -180,11 +212,13 @@ export default function ProductSelectModal({
         tax_type: product.tax_type ?? "taxable",
       })
     );
+
+    resetState(); // ←重要
     onClose();
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle>商品を追加</DialogTitle>
 
       <DialogContent>
@@ -194,9 +228,7 @@ export default function ProductSelectModal({
           <Tab label="商品検索" />
         </Tabs>
 
-        
-
-        {/* ② 手入力 */}
+        {/* 手入力 */}
         {tab === 0 && (
           <Box>
             <EstimateCategorySelector
@@ -242,7 +274,7 @@ export default function ProductSelectModal({
           </Box>
         )}
 
-        {/* ① カテゴリ → 商品選択 */}
+        {/* カテゴリから選択 */}
         {tab === 1 && (
           <Box>
             <EstimateCategorySelector
@@ -273,7 +305,7 @@ export default function ProductSelectModal({
           </Box>
         )}
 
-        {/* ③ 商品検索 */}
+        {/* 商品検索 */}
         {tab === 2 && (
           <Box>
             <TextField

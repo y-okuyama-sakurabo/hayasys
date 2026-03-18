@@ -9,7 +9,7 @@ from core.models import (
     EstimateItem,
     EstimateVehicle,
     Payment,
-    CustomerVehicle
+    CustomerVehicle,
 )
 from core.models.masters import Gender, CustomerClass, Region
 
@@ -21,18 +21,12 @@ from core.serializers.masters import ShopSerializer
 User = get_user_model()
 
 
-# ==========================================================
-# 作成者
-# ==========================================================
 class CreatedBySerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "display_name", "login_id", "role"]
 
 
-# ==========================================================
-# Party
-# ==========================================================
 class EstimatePartySerializer(serializers.ModelSerializer):
     customer_class = serializers.PrimaryKeyRelatedField(
         queryset=CustomerClass.objects.all(),
@@ -55,14 +49,7 @@ class EstimatePartySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# ==========================================================
-# EstimateSerializer
-# ==========================================================
 class EstimateSerializer(serializers.ModelSerializer):
-
-    # -------------------------
-    # Party
-    # -------------------------
     party = EstimatePartySerializer(read_only=True)
 
     party_id = serializers.PrimaryKeyRelatedField(
@@ -79,24 +66,22 @@ class EstimateSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
-    # -------------------------
-    # Items
-    # -------------------------
     items = EstimateItemSerializer(many=True, required=False)
 
-    # -------------------------
-    # Vehicles
-    # -------------------------
+    # 表示専用
     vehicles = EstimateVehicleSerializer(
-        many=True,
-        write_only=True,
-        required=False,
         source="estimate_vehicles",
+        many=True,
+        read_only=True,
     )
 
-    # -------------------------
-    # Payments
-    # -------------------------
+    # 書き込み専用
+    vehicles_payload = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+    )
+
     payments = PaymentSerializer(many=True, required=False)
 
     created_by = CreatedBySerializer(read_only=True)
@@ -119,9 +104,9 @@ class EstimateSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["created_at"]
 
-    # ==========================================================
-    # Utility
-    # ==========================================================
+    # =========================================
+    # payments
+    # =========================================
     def _create_payments(self, estimate, payments_data):
         estimate_ct = ContentType.objects.get_for_model(Estimate)
 
@@ -132,122 +117,75 @@ class EstimateSerializer(serializers.ModelSerializer):
                 **p,
             )
 
-    def _create_vehicle_and_item(self, estimate, vehicles_data):
+    # =========================================
+    # vehicle UPSERT
+    # =========================================
+    def _upsert_vehicle(self, estimate, vehicles_data):
 
         if not vehicles_data:
+            estimate.estimate_vehicles.all().delete()
             return
 
-        vehicle_data = next(
-            (v for v in vehicles_data if not v.get("is_trade_in")),
-            None,
-        )
+        data = vehicles_data[0]
 
-        if not vehicle_data:
-            return
+        source_cv = data.get("source_customer_vehicle")
+        if isinstance(source_cv, CustomerVehicle):
+            source_cv_id = source_cv.id
+        else:
+            source_cv_id = source_cv
 
-        unit_price = vehicle_data.get("unit_price", 0)
-        category_id = vehicle_data.get("category_id")
-        source_cv_id = vehicle_data.get("source_customer_vehicle")
+        vehicle = estimate.estimate_vehicles.filter(is_trade_in=False).first()
 
-        # ==========================================
-        # maintenance
-        # ==========================================
-        if estimate.vehicle_mode == "maintenance":
+        if vehicle:
+            # UPDATE
+            for key, value in {
+                "category_id": data.get("category_id"),
+                "vehicle_name": data.get("vehicle_name", ""),
+                "manufacturer_id": data.get("manufacturer"),
+                "model_year": data.get("model_year", ""),
+                "model_code": data.get("model_code", ""),
+                "chassis_no": data.get("chassis_no", ""),
+                "color_id": data.get("color"),
+                "color_name": data.get("color_name", ""),
+                "color_code": data.get("color_code", ""),
+                "displacement": data.get("displacement"),
+                "engine_type": data.get("engine_type", ""),
+                "new_car_type": data.get("new_car_type", ""),
+            }.items():
+                setattr(vehicle, key, value)
 
-            source_cv = vehicle_data.get("source_customer_vehicle")
+            vehicle.source_customer_vehicle_id = source_cv_id
+            vehicle.save()
 
-            if isinstance(source_cv, CustomerVehicle):
-                source_cv_id = source_cv.id
-            else:
-                source_cv_id = source_cv
-
-            if source_cv_id:
-                cv = CustomerVehicle.objects.select_related(
-                    "vehicle", "vehicle__manufacturer"
-                ).filter(id=source_cv_id).first()
-
-                if cv and cv.vehicle:
-                    v = cv.vehicle
-
-                    EstimateVehicle.objects.create(
-                        estimate=estimate,
-                        is_trade_in=False,
-                        source_customer_vehicle_id=cv.id,
-                        category_id=category_id,
-                        vehicle_name=v.vehicle_name,
-                        manufacturer=v.manufacturer,
-                        model_code=v.model_code,
-                        chassis_no=v.chassis_no,
-                        color=vehicle_data.get("color"), 
-                        color_name=getattr(v, "color_name", ""),
-                        color_code=getattr(v, "color_code", ""),
-                        model_year=getattr(v, "model_year", ""),
-                        displacement=getattr(v, "displacement", None),
-                        engine_type=getattr(v, "engine_type", ""),
-                    )
-
-            EstimateItem.objects.filter(
+        else:
+            # CREATE
+            EstimateVehicle.objects.create(
                 estimate=estimate,
-                item_type="vehicle",
-            ).delete()
-
-            return
-
-        # ==========================================
-        # sale
-        # ==========================================
-        if estimate.vehicle_mode == "sale":
-
-            EstimateItem.objects.filter(
-                estimate=estimate,
-                item_type="vehicle",
-            ).delete()
-
-            vehicle_obj = EstimateVehicle.objects.create(
-                estimate=estimate,
-                is_trade_in=vehicle_data.get("is_trade_in", False),
-                category_id=category_id,
-                vehicle_name=vehicle_data.get("vehicle_name", ""),
-                manufacturer=vehicle_data.get("manufacturer"),
-                model_year=vehicle_data.get("model_year", ""),
-                model_code=vehicle_data.get("model_code", ""),
-                chassis_no=vehicle_data.get("chassis_no", ""),
-                color=vehicle_data.get("color"),    
-                color_name=vehicle_data.get("color_name", ""),
-                color_code=vehicle_data.get("color_code", ""),
-                displacement=vehicle_data.get("displacement"),
-                engine_type=vehicle_data.get("engine_type", ""),
-                new_car_type=vehicle_data.get("new_car_type", ""),
-                source_customer_vehicle_id=vehicle_data.get("source_customer_vehicle"),
+                is_trade_in=False,
+                source_customer_vehicle_id=source_cv_id,
+                category_id=data.get("category_id"),
+                vehicle_name=data.get("vehicle_name", ""),
+                manufacturer_id=data.get("manufacturer"),
+                model_year=data.get("model_year", ""),
+                model_code=data.get("model_code", ""),
+                chassis_no=data.get("chassis_no", ""),
+                color_id=data.get("color"),
+                color_name=data.get("color_name", ""),
+                color_code=data.get("color_code", ""),
+                displacement=data.get("displacement"),
+                engine_type=data.get("engine_type", ""),
+                new_car_type=data.get("new_car_type", ""),
             )
 
-            serializer = EstimateItemSerializer(data={
-                "item_type": "vehicle",
-                "category_id": category_id,
-                "name": vehicle_obj.vehicle_name or "",
-                "quantity": 1,
-                "unit_price": unit_price or 0,
-                "discount": 0,
-                "tax_type": "taxable",
-                "sale_type": vehicle_obj.new_car_type,
-            })
-
-            serializer.is_valid(raise_exception=True)
-            serializer.save(estimate=estimate)
-
-            return
-
-    # ==========================================================
+    # =========================================
     # CREATE
-    # ==========================================================
+    # =========================================
     def create(self, validated_data):
-
         new_party_data = validated_data.pop("new_party", None)
         items_data = validated_data.pop("items", [])
-        vehicles_data = validated_data.pop("estimate_vehicles", [])
+        vehicles_data = validated_data.pop("vehicles_payload", [])
         payments_data = validated_data.pop("payments", [])
 
-        # Party 作成
         if new_party_data and not validated_data.get("party"):
             validated_data["party"] = EstimateParty.objects.create(
                 **new_party_data
@@ -255,38 +193,45 @@ class EstimateSerializer(serializers.ModelSerializer):
 
         estimate = Estimate.objects.create(**validated_data)
 
-        # Items
         for item in items_data:
             item.pop("saveAsProduct", None)
             EstimateItem.objects.create(estimate=estimate, **item)
 
-        # Vehicles + Vehicle Item
-        self._create_vehicle_and_item(estimate, vehicles_data)
-
-        # Payments
+        self._upsert_vehicle(estimate, vehicles_data)
         self._create_payments(estimate, payments_data)
 
         return estimate
 
-    # ==========================================================
+    # =========================================
     # UPDATE
-    # ==========================================================
+    # =========================================
     def update(self, instance, validated_data):
 
         items_data = validated_data.pop("items", None)
-        vehicles_data = validated_data.pop("estimate_vehicles", None)
+        vehicles_data = validated_data.pop("vehicles_payload", None)
         payments_data = validated_data.pop("payments", None)
 
-        validated_data.pop("new_party", None)
-        validated_data.pop("party_id", None)
+        new_party_data = validated_data.pop("new_party", None)
+        party = validated_data.pop("party", None)
 
-        # ヘッダ更新
+        if party:
+            instance.party = party
+
+        elif new_party_data:
+            if instance.party:
+                for attr, value in new_party_data.items():
+                    setattr(instance.party, attr, value)
+                instance.party.save()
+            else:
+                instance.party = EstimateParty.objects.create(
+                    **new_party_data
+                )
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
 
-        # Items再構築
         if items_data is not None:
             instance.items.all().delete()
             for item in items_data:
@@ -296,32 +241,26 @@ class EstimateSerializer(serializers.ModelSerializer):
                     **item,
                 )
 
-        # Vehicles再構築
         if vehicles_data is not None:
-            instance.estimate_vehicles.all().delete()
-            self._create_vehicle_and_item(instance, vehicles_data)
+            self._upsert_vehicle(instance, vehicles_data)
 
-        # Payments再構築
         if payments_data is not None:
             Payment.objects.filter(
-                content_type=ContentType.objects.get_for_model(
-                    Estimate
-                ),
+                content_type=ContentType.objects.get_for_model(Estimate),
                 object_id=instance.id,
             ).delete()
-
             self._create_payments(instance, payments_data)
 
         return instance
 
-class EstimateDetailSerializer(serializers.ModelSerializer):
 
+class EstimateDetailSerializer(serializers.ModelSerializer):
     party = EstimatePartySerializer(read_only=True)
     items = EstimateItemSerializer(many=True, read_only=True)
     vehicles = EstimateVehicleSerializer(
         many=True,
         read_only=True,
-        source="estimate_vehicles"
+        source="estimate_vehicles",
     )
     payments = serializers.SerializerMethodField()
     shop = ShopSerializer(read_only=True)

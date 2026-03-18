@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
-  Box,
   Typography,
   TextField,
   Grid,
@@ -27,8 +26,8 @@ export default function VehicleStep({
   partyId,
   vehicleMode,
 }: Props) {
-
   const currentVehicle = vehicle ?? {
+    id: null, // 🔥追加（超重要）
     category_id: null,
     vehicle_name: "",
     manufacturer: null,
@@ -49,9 +48,14 @@ export default function VehicleStep({
   const [colors, setColors] = useState<any[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<any[]>([]);
 
-  /* ===============================
-     🔥 maintenance のときだけ所有車両取得
-  =============================== */
+  const [chassisError, setChassisError] = useState("");
+
+  const isFirstCategoryLoad = useRef(true);
+  const prevCategoryIdRef = useRef<number | null>(null);
+
+  /* =============================
+     顧客車両
+  ============================= */
   useEffect(() => {
     if (vehicleMode !== "maintenance" || !partyId) {
       setCustomerVehicles([]);
@@ -66,9 +70,9 @@ export default function VehicleStep({
       .catch(() => setCustomerVehicles([]));
   }, [partyId, vehicleMode]);
 
-  /* ===============================
-     🔥 sale に切り替わったら source クリア
-  =============================== */
+  /* =============================
+     source_customer_vehicle制御
+  ============================= */
   useEffect(() => {
     if (vehicleMode === "sale" && currentVehicle.source_customer_vehicle) {
       dispatch({
@@ -81,24 +85,45 @@ export default function VehicleStep({
     }
   }, [vehicleMode]);
 
-  /* ===============================
+  /* =============================
      メーカー取得
-  =============================== */
+  ============================= */
   useEffect(() => {
-    if (!currentVehicle.category_id) {
+    const categoryId = currentVehicle.category_id ?? null;
+
+    if (!categoryId) {
       setManufacturers([]);
+      prevCategoryIdRef.current = null;
       return;
     }
 
     apiClient
-      .get(`/masters/manufacturers/?category=${currentVehicle.category_id}`)
+      .get(`/masters/manufacturers/?category=${categoryId}`)
       .then((res) => setManufacturers(res.data || []))
       .catch(() => setManufacturers([]));
+
+    if (isFirstCategoryLoad.current) {
+      isFirstCategoryLoad.current = false;
+      prevCategoryIdRef.current = categoryId;
+      return;
+    }
+
+    if (prevCategoryIdRef.current !== categoryId) {
+      prevCategoryIdRef.current = categoryId;
+
+      dispatch({
+        type: "SET_VEHICLE",
+        payload: {
+          ...currentVehicle,
+          manufacturer: null,
+        },
+      });
+    }
   }, [currentVehicle.category_id]);
 
-  /* ===============================
+  /* =============================
      カラー取得
-  =============================== */
+  ============================= */
   useEffect(() => {
     apiClient
       .get(`/masters/colors/`)
@@ -106,6 +131,47 @@ export default function VehicleStep({
       .catch(() => setColors([]));
   }, []);
 
+  /* =============================
+     🔥 車台番号 重複チェック（修正版）
+  ============================= */
+  useEffect(() => {
+    const chassisNo = currentVehicle.chassis_no?.trim();
+
+    if (!chassisNo) {
+      setChassisError("");
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        let url = `/vehicles/check-duplicate/?chassis_no=${encodeURIComponent(
+          chassisNo
+        )}`;
+
+        // 🔥 自分のvehicleは除外
+        if (currentVehicle.id) {
+          url += `&exclude_id=${currentVehicle.id}`;
+        }
+
+        const res = await apiClient.get(url);
+
+        if (res.data.exists) {
+          setChassisError("この車台番号は既に登録されています");
+        } else {
+          setChassisError("");
+        }
+      } catch (e) {
+        console.error(e);
+        setChassisError("");
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [currentVehicle.chassis_no, currentVehicle.id]);
+
+  /* =============================
+     更新
+  ============================= */
   const updateVehicle = (field: string, value: any) => {
     dispatch({
       type: "SET_VEHICLE",
@@ -116,9 +182,9 @@ export default function VehicleStep({
     });
   };
 
-  /* ===============================
-     所有車両選択
-  =============================== */
+  /* =============================
+     顧客車両選択
+  ============================= */
   const handleSelectCustomerVehicle = (ownedId: number | null) => {
     if (!ownedId) {
       updateVehicle("source_customer_vehicle", null);
@@ -134,22 +200,36 @@ export default function VehicleStep({
       type: "SET_VEHICLE",
       payload: {
         ...currentVehicle,
+        id: v?.id ?? null, // 🔥ここ超重要
         source_customer_vehicle: owned.id,
         vehicle_name: v?.vehicle_name ?? "",
         manufacturer: v?.manufacturer ?? null,
         category_id: v?.category?.id ?? null,
+        model_year: v?.model_year ?? "",
+        displacement: v?.displacement ?? null,
+        engine_type: v?.engine_type ?? "",
+        model_code: v?.model_code ?? "",
+        chassis_no: v?.chassis_no ?? "",
+        color: v?.color ?? null,
+        color_name: v?.color_name ?? "",
+        color_code: v?.color_code ?? "",
         unit_price: 0,
       },
     });
+
+    prevCategoryIdRef.current = v?.category?.id ?? null;
+    isFirstCategoryLoad.current = false;
   };
 
+  /* =============================
+     UI
+  ============================= */
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" fontWeight="bold" mb={3}>
         車両情報
       </Typography>
 
-      {/* 🔥 maintenance時のみ表示 */}
       {vehicleMode === "maintenance" &&
         partyId &&
         customerVehicles.length > 0 && (
@@ -182,7 +262,6 @@ export default function VehicleStep({
         )}
 
       <Grid container spacing={3}>
-
         <Grid size={{ xs: 12, md: 6 }}>
           <EstimateCategorySelector
             value={currentVehicle.category_id}
@@ -218,9 +297,7 @@ export default function VehicleStep({
             label="車両名"
             fullWidth
             value={currentVehicle.vehicle_name}
-            onChange={(e) =>
-              updateVehicle("vehicle_name", e.target.value)
-            }
+            onChange={(e) => updateVehicle("vehicle_name", e.target.value)}
           />
         </Grid>
 
@@ -230,9 +307,7 @@ export default function VehicleStep({
             label="区分"
             fullWidth
             value={currentVehicle.new_car_type}
-            onChange={(e) =>
-              updateVehicle("new_car_type", e.target.value)
-            }
+            onChange={(e) => updateVehicle("new_car_type", e.target.value)}
           >
             <MenuItem value="new">新車</MenuItem>
             <MenuItem value="used">中古</MenuItem>
@@ -244,9 +319,7 @@ export default function VehicleStep({
             label="年式"
             fullWidth
             value={currentVehicle.model_year}
-            onChange={(e) =>
-              updateVehicle("model_year", e.target.value)
-            }
+            onChange={(e) => updateVehicle("model_year", e.target.value)}
           />
         </Grid>
 
@@ -270,9 +343,7 @@ export default function VehicleStep({
             label="型式"
             fullWidth
             value={currentVehicle.model_code}
-            onChange={(e) =>
-              updateVehicle("model_code", e.target.value)
-            }
+            onChange={(e) => updateVehicle("model_code", e.target.value)}
           />
         </Grid>
 
@@ -281,9 +352,7 @@ export default function VehicleStep({
             label="エンジン形式"
             fullWidth
             value={currentVehicle.engine_type}
-            onChange={(e) =>
-              updateVehicle("engine_type", e.target.value)
-            }
+            onChange={(e) => updateVehicle("engine_type", e.target.value)}
           />
         </Grid>
 
@@ -292,9 +361,9 @@ export default function VehicleStep({
             label="車台番号"
             fullWidth
             value={currentVehicle.chassis_no}
-            onChange={(e) =>
-              updateVehicle("chassis_no", e.target.value)
-            }
+            error={!!chassisError}
+            helperText={chassisError}
+            onChange={(e) => updateVehicle("chassis_no", e.target.value)}
           />
         </Grid>
 
@@ -329,9 +398,7 @@ export default function VehicleStep({
             label="カラー名"
             fullWidth
             value={currentVehicle.color_name}
-            onChange={(e) =>
-              updateVehicle("color_name", e.target.value)
-            }
+            onChange={(e) => updateVehicle("color_name", e.target.value)}
           />
         </Grid>
 
@@ -340,13 +407,10 @@ export default function VehicleStep({
             label="カラーコード"
             fullWidth
             value={currentVehicle.color_code}
-            onChange={(e) =>
-              updateVehicle("color_code", e.target.value)
-            }
+            onChange={(e) => updateVehicle("color_code", e.target.value)}
           />
         </Grid>
 
-        {/* 🔥 sale時のみ価格表示 */}
         {vehicleMode === "sale" && (
           <Grid size={{ xs: 12 }}>
             <TextField
@@ -363,7 +427,6 @@ export default function VehicleStep({
             />
           </Grid>
         )}
-
       </Grid>
     </Paper>
   );

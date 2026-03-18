@@ -12,9 +12,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Dialog,
-  DialogTitle,
-  DialogContent,
 } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
@@ -22,8 +19,6 @@ import dayjs from "dayjs";
 import BasicInfoForm from "../estimate/BasicInfoForm";
 import VehicleStep from "../estimate/VehicleStep";
 import OtherStep from "../estimate/OtherStep";
-import ExpenseStep from "../estimate/ExpenseStep";
-import InsuranceStep from "../estimate/InsuranceStep";
 import EstimatePaymentForm from "../estimate/EstimatePaymentForm";
 
 const BASE_STEPS = [
@@ -105,7 +100,6 @@ function reducer(state: OrderState, action: any): OrderState {
 }
 
 export default function OrderForm({ mode, orderId }: Props) {
-
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
     meta: { mode },
@@ -114,12 +108,9 @@ export default function OrderForm({ mode, orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
-  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [duplicateCandidates, setDuplicateCandidates] = useState<any[]>([]);
-  const [pendingSubmit, setPendingSubmit] = useState(false);
-
   const searchParams = useSearchParams();
   const fromEstimate = searchParams.get("from_estimate");
+  const copyFrom = searchParams.get("copy_from"); // ★追加
 
   const visibleSteps = useMemo(() => {
     if (state.basic.vehicle_mode === "none") {
@@ -137,7 +128,7 @@ export default function OrderForm({ mode, orderId }: Props) {
   }, [visibleSteps, stepIndex]);
 
   /* ===============================
-     create 初期化
+     create初期化
   =============================== */
 
   const [initialized, setInitialized] = useState(false);
@@ -149,109 +140,206 @@ export default function OrderForm({ mode, orderId }: Props) {
     setInitialized(true);
 
     const init = async () => {
-      try {
-        const user = (await apiClient.get("/auth/user/")).data;
+      const user = (await apiClient.get("/auth/user/")).data;
+
+      dispatch({
+        type: "SET_BASIC",
+        payload: {
+          shop: user.shop_id ?? null,
+          created_by_id: user.id,
+        },
+      });
+
+      // =====================
+      // 見積から
+      // =====================
+      if (fromEstimate) {
+        const res = await apiClient.post(
+          "/orders/prepare-from-estimate/",
+          { estimate_id: Number(fromEstimate) }
+        );
+
+        const data = res.data;
 
         dispatch({
-          type: "SET_BASIC",
+          type: "INIT_FROM_API",
           payload: {
-            shop: user.shop_id ?? null,
-            created_by_id: user.id,   // 🔥追加
+            basic: {
+              shop: data.shop ?? user.shop_id ?? null,
+              customer_id: data.customer_id ?? null,
+              new_customer: data.new_customer ?? null,
+              created_by_id: user.id,
+              vehicle_mode: data.vehicle_mode ?? "none",
+              order_date: dayjs().format("YYYY-MM-DD"),
+              payment_method:
+                data.payments?.[0]?.payment_method ?? "現金",
+            },
+            items: data.items ?? [],
+            vehicle: data.target_vehicle ?? null,
           },
         });
-
-        if (fromEstimate) {
-
-          const res = await apiClient.post(
-            "/orders/prepare-from-estimate/",
-            { estimate_id: Number(fromEstimate) }
-          );
-
-          const data = res.data;
-
-          dispatch({
-            type: "INIT_FROM_API",
-            payload: {
-              basic: {
-                shop: data.shop ?? user.shop_id ?? null,
-                customer_id: data.customer_id ?? null,
-                new_customer: data.new_customer ?? null,
-                created_by_id: user.id,
-                vehicle_mode: data.vehicle_mode ?? "none",
-                order_date: dayjs().format("YYYY-MM-DD"),
-                payment_method:
-                  data.payments?.[0]?.payment_method ?? "現金",
-              },
-              items: data.items ?? [],
-              vehicle: data.target_vehicle ?? null,
-            },
-          });
-        }
-
-      } catch (e) {
-        console.error("初期化失敗", e);
       }
     };
 
     init();
-
   }, [mode, fromEstimate, initialized]);
 
   /* ===============================
-     編集ロード
+     複製
+  =============================== */
+
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (!copyFrom) return;
+
+    const fetchCopy = async () => {
+      try {
+        const res = await apiClient.get(`/orders/${copyFrom}/`);
+        const order = res.data;
+
+        const rawVehicle =
+          order.vehicles?.find((v: any) => !v.is_trade_in) ?? null;
+
+        // 🔥 ここが超重要（vehicle item取得）
+        const vehicleItem =
+          order.items?.find((i: any) => i.item_type === "vehicle") ||
+          order.items?.[0] ||
+          null;
+
+        const vehicle = rawVehicle
+          ? {
+              ...rawVehicle,
+
+              // 🔥 manufacturer対応
+              manufacturer:
+                typeof rawVehicle.manufacturer === "object"
+                  ? rawVehicle.manufacturer?.id
+                  : rawVehicle.manufacturer ?? null,
+
+              // 🔥 category対応（item優先）
+              category_id:
+                vehicleItem?.category?.id ??
+                rawVehicle.category ??
+                null,
+
+              // 🔥 価格ここ！！
+              unit_price: Number(vehicleItem?.unit_price ?? 0),
+
+              // 🔥 color対応
+              color:
+                typeof rawVehicle.color === "object"
+                  ? rawVehicle.color?.id
+                  : rawVehicle.color ?? null,
+            }
+          : null;
+
+        dispatch({
+          type: "INIT_FROM_API",
+          payload: {
+            basic: {
+              shop: order.shop?.id ?? null,
+
+              customer_id: order.customer?.id ?? null,
+
+              new_customer: order.customer
+                ? {
+                    ...order.customer,
+                    customer_class:
+                      order.customer.customer_class?.id ?? null,
+                    gender: order.customer.gender?.id ?? null,
+                    region: order.customer.region?.id ?? null,
+                  }
+                : null,
+
+              created_by_id: order.created_by?.id ?? null,
+              vehicle_mode: order.vehicle_mode ?? "none",
+              order_date: order.order_date,
+              payment_method:
+                order.payments?.[0]?.payment_method ?? "現金",
+            },
+
+            items: order.items ?? [],
+            vehicle,
+          },
+        });
+      } catch (e) {
+        console.error(e);
+        alert("複製失敗");
+      }
+    };
+
+    fetchCopy();
+  }, [mode, copyFrom]);
+
+  /* ===============================
+     edit初期化
   =============================== */
 
   useEffect(() => {
     if (mode !== "edit" || !orderId) return;
 
-    const fetchData = async () => {
-
+    const fetchOrder = async () => {
       setLoading(true);
 
       try {
-
         const res = await apiClient.get(`/orders/${orderId}/`);
         const order = res.data;
 
-        const vehicle = order.order_vehicles?.find(
-          (v: any) => !v.is_trade_in
-        );
+        const vehicle =
+          order.vehicles?.find((v: any) => !v.is_trade_in) ?? null;
 
-        const vehicleItem = order.items?.find(
-          (i: any) => i.item_type === "vehicle"
-        );
+        const vehicleItem =
+          order.items?.find((i: any) => i.item_type === "vehicle") ??
+          null;
 
         dispatch({
           type: "INIT_FROM_API",
           payload: {
             meta: { id: order.id, mode: "edit" },
+
             basic: {
-              order_no: order.order_no,
               shop: order.shop?.id ?? null,
               customer_id: order.customer?.id ?? null,
+
+              new_customer: order.customer
+                ? {
+                    ...order.customer,
+                    customer_class:
+                      order.customer.customer_class?.id ?? null,
+                    gender: order.customer.gender?.id ?? null,
+                    region: order.customer.region?.id ?? null,
+                  }
+                : null,
+
               created_by_id: order.created_by?.id ?? null,
               vehicle_mode: order.vehicle_mode ?? "none",
               order_date:
                 order.order_date ?? dayjs().format("YYYY-MM-DD"),
+              payment_method:
+                order.payments?.[0]?.payment_method ?? "現金",
             },
+
             items: order.items ?? [],
+
             vehicle: vehicle
               ? {
                   ...vehicle,
+                  manufacturer: vehicle.manufacturer?.id ?? null,
                   category_id: vehicleItem?.category?.id ?? null,
-                  unit_price: vehicleItem?.unit_price ?? 0,
+                  unit_price: Number(vehicleItem?.unit_price ?? 0),
                 }
               : null,
           },
         });
-
+      } catch (e) {
+        console.error(e);
+        alert("受注データ取得失敗");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-
+    fetchOrder();
   }, [mode, orderId]);
 
   /* ===============================
@@ -259,95 +347,35 @@ export default function OrderForm({ mode, orderId }: Props) {
   =============================== */
 
   const handleFinish = async () => {
-
-    if (
-      !state.basic.customer_id &&
-      state.basic.new_customer &&
-      !pendingSubmit
-    ) {
-
-      const res = await apiClient.post(
-        "/customers/similar/",
-        state.basic.new_customer
-      );
-
-      if (res.data.has_similar) {
-        setDuplicateCandidates(res.data.candidates);
-        setDuplicateDialogOpen(true);
-        return;
-      }
-    }
-
     try {
-
       setLoading(true);
 
-      const buildItemPayload = (item: any) => ({
-        item_type: item.item_type,
-        category_id:
-          item.category_id ??
-          item.category?.id ??
-          null,
-        name: item.name ?? "",
-        quantity: Number(item.quantity ?? 1),
-        unit_price: Number(item.unit_price ?? 0),
-        discount: Number(item.discount ?? 0),
-        tax_type: item.tax_type ?? "taxable",
-        sale_type: item.sale_type ?? null,
-        staff: item.staff ?? null,
-      });
+      let items = [...state.items];
 
-      const buildVehiclePayload = (v: any) => ({
-        vehicle_name: v.vehicle_name ?? null,
-        displacement: v.displacement ?? null,
-        model_year: v.model_year ?? null,
-        new_car_type: v.new_car_type ?? null,
-        manufacturer: v.manufacturer ?? null,
+      if (state.vehicle && state.basic.vehicle_mode === "sale") {
+        items = items.filter((i) => i.item_type !== "vehicle");
 
-        color: v.color ?? null,    // 🔥追加
-
-        color_name: v.color_name ?? null,
-        color_code: v.color_code ?? null,
-        model_code: v.model_code ?? null,
-        chassis_no: v.chassis_no ?? null,
-        engine_type: v.engine_type ?? null,
-
-        unit_price: Number(v.unit_price ?? 0),
-
-        category_id:
-          v.category_id ??
-          v.category?.id ??
-          null,
-      });
-
-      const customerPayload = state.basic.customer_id
-        ? { customer_id: state.basic.customer_id }
-        : { new_customer: state.basic.new_customer };
+        items.unshift({
+          item_type: "vehicle",
+          name: state.vehicle.vehicle_name || "車両",
+          quantity: 1,
+          unit_price: state.vehicle.unit_price ?? 0,
+          category_id: state.vehicle.category_id ?? null,
+          manufacturer: state.vehicle.manufacturer ?? null,
+        });
+      }
 
       const payload = {
-
-        shop: state.basic.shop
-          ? Number(state.basic.shop)
-          : null,
-
-        created_by_id: state.basic.created_by_id ?? null,  // 🔥追加
-
+        shop: state.basic.shop,
+        created_by_id: state.basic.created_by_id,
         order_date: state.basic.order_date,
-
         vehicle_mode: state.basic.vehicle_mode,
-
-        ...customerPayload,
-
-        items: state.items
-          .filter((item) => item.item_type !== "vehicle")
-          .map(buildItemPayload),
-
-        target_vehicle:
-          state.basic.vehicle_mode !== "none" &&
-          state.vehicle
-            ? buildVehiclePayload(state.vehicle)
-            : null,
-
+        customer_id: state.basic.customer_id ?? null,
+        new_customer: state.basic.customer_id
+          ? null
+          : state.basic.new_customer ?? null,
+        items,
+        target_vehicle: state.vehicle,
         payments: [
           {
             payment_method: state.basic.payment_method,
@@ -360,36 +388,28 @@ export default function OrderForm({ mode, orderId }: Props) {
       if (mode === "create") {
         res = await apiClient.post("/orders/", payload);
       } else {
-        res = await apiClient.patch(
-          `/orders/${orderId}/`,
-          payload
-        );
+        res = await apiClient.patch(`/orders/${orderId}/`, payload);
       }
 
       window.location.href = `/dashboard/orders/${res.data.id}`;
-
     } catch (e) {
-
       console.error(e);
       alert("保存に失敗しました");
-
     } finally {
-
       setLoading(false);
-
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={10}>
         <CircularProgress />
       </Box>
     );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
-
       <Typography variant="h5" fontWeight="bold" mb={3}>
         {mode === "create" ? "受注作成" : "受注編集"}
       </Typography>
@@ -397,10 +417,7 @@ export default function OrderForm({ mode, orderId }: Props) {
       <Stepper activeStep={stepIndex} alternativeLabel sx={{ mb: 4 }}>
         {visibleSteps.map((s, idx) => (
           <Step key={s.key}>
-            <StepLabel
-              onClick={() => setStepIndex(idx)}
-              sx={{ cursor: "pointer" }}
-            >
+            <StepLabel onClick={() => setStepIndex(idx)}>
               {s.label}
             </StepLabel>
           </Step>
@@ -429,26 +446,14 @@ export default function OrderForm({ mode, orderId }: Props) {
           <OtherStep items={state.items} dispatch={dispatch} />
         )}
 
-        {currentStep === "expenses" && (
-          <ExpenseStep items={state.items} dispatch={dispatch} />
-        )}
-
-        {currentStep === "insurance" && (
-          <InsuranceStep items={state.items} dispatch={dispatch} />
-        )}
-
         {currentStep === "payment" && (
-          <EstimatePaymentForm
-            basic={state.basic}
-            dispatch={dispatch}
-          />
+          <EstimatePaymentForm basic={state.basic} dispatch={dispatch} />
         )}
       </Paper>
 
       <Divider sx={{ my: 3 }} />
 
       <Box display="flex" justifyContent="space-between">
-
         <Button
           disabled={stepIndex === 0}
           onClick={() => setStepIndex((s) => s - 1)}
@@ -456,19 +461,9 @@ export default function OrderForm({ mode, orderId }: Props) {
           前へ
         </Button>
 
-        {stepIndex < visibleSteps.length - 1 ? (
-          <Button
-            variant="contained"
-            onClick={() => setStepIndex((s) => s + 1)}
-          >
-            次へ
-          </Button>
-        ) : (
-          <Button variant="contained" onClick={handleFinish}>
-            完了
-          </Button>
-        )}
-
+        <Button variant="contained" onClick={handleFinish}>
+          完了
+        </Button>
       </Box>
     </Box>
   );
