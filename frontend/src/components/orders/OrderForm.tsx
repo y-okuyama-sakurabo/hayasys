@@ -20,6 +20,8 @@ import BasicInfoForm from "../estimate/BasicInfoForm";
 import VehicleStep from "../estimate/VehicleStep";
 import OtherStep from "../estimate/OtherStep";
 import EstimatePaymentForm from "../estimate/EstimatePaymentForm";
+import ExpenseStep from "../estimate/ExpenseStep";
+import InsuranceStep from "../estimate/InsuranceStep";
 
 const BASE_STEPS = [
   { key: "basic", label: "基本情報" },
@@ -110,7 +112,7 @@ export default function OrderForm({ mode, orderId }: Props) {
 
   const searchParams = useSearchParams();
   const fromEstimate = searchParams.get("from_estimate");
-  const copyFrom = searchParams.get("copy_from"); // ★追加
+  const copyFrom = searchParams.get("copy_from");
 
   const visibleSteps = useMemo(() => {
     if (state.basic.vehicle_mode === "none") {
@@ -127,16 +129,10 @@ export default function OrderForm({ mode, orderId }: Props) {
     }
   }, [visibleSteps, stepIndex]);
 
-  /* ===============================
-     create初期化
-  =============================== */
-
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (mode !== "create") return;
-    if (initialized) return;
-
+    if (mode !== "create" || initialized) return;
     setInitialized(true);
 
     const init = async () => {
@@ -150,9 +146,6 @@ export default function OrderForm({ mode, orderId }: Props) {
         },
       });
 
-      // =====================
-      // 見積から
-      // =====================
       if (fromEstimate) {
         const res = await apiClient.post(
           "/orders/prepare-from-estimate/",
@@ -183,168 +176,6 @@ export default function OrderForm({ mode, orderId }: Props) {
 
     init();
   }, [mode, fromEstimate, initialized]);
-
-  /* ===============================
-     複製
-  =============================== */
-
-  useEffect(() => {
-    if (mode !== "create") return;
-    if (!copyFrom) return;
-
-    const fetchCopy = async () => {
-      try {
-        const res = await apiClient.get(`/orders/${copyFrom}/`);
-        const order = res.data;
-
-        const rawVehicle =
-          order.vehicles?.find((v: any) => !v.is_trade_in) ?? null;
-
-        // 🔥 ここが超重要（vehicle item取得）
-        const vehicleItem =
-          order.items?.find((i: any) => i.item_type === "vehicle") ||
-          order.items?.[0] ||
-          null;
-
-        const vehicle = rawVehicle
-          ? {
-              ...rawVehicle,
-
-              // 🔥 manufacturer対応
-              manufacturer:
-                typeof rawVehicle.manufacturer === "object"
-                  ? rawVehicle.manufacturer?.id
-                  : rawVehicle.manufacturer ?? null,
-
-              // 🔥 category対応（item優先）
-              category_id:
-                vehicleItem?.category?.id ??
-                rawVehicle.category ??
-                null,
-
-              // 🔥 価格ここ！！
-              unit_price: Number(vehicleItem?.unit_price ?? 0),
-
-              // 🔥 color対応
-              color:
-                typeof rawVehicle.color === "object"
-                  ? rawVehicle.color?.id
-                  : rawVehicle.color ?? null,
-            }
-          : null;
-
-        dispatch({
-          type: "INIT_FROM_API",
-          payload: {
-            basic: {
-              shop: order.shop?.id ?? null,
-
-              customer_id: order.customer?.id ?? null,
-
-              new_customer: order.customer
-                ? {
-                    ...order.customer,
-                    customer_class:
-                      order.customer.customer_class?.id ?? null,
-                    gender: order.customer.gender?.id ?? null,
-                    region: order.customer.region?.id ?? null,
-                  }
-                : null,
-
-              created_by_id: order.created_by?.id ?? null,
-              vehicle_mode: order.vehicle_mode ?? "none",
-              order_date: order.order_date,
-              payment_method:
-                order.payments?.[0]?.payment_method ?? "現金",
-            },
-
-            items: order.items ?? [],
-            vehicle,
-          },
-        });
-      } catch (e) {
-        console.error(e);
-        alert("複製失敗");
-      }
-    };
-
-    fetchCopy();
-  }, [mode, copyFrom]);
-
-  /* ===============================
-     edit初期化
-  =============================== */
-
-  useEffect(() => {
-    if (mode !== "edit" || !orderId) return;
-
-    const fetchOrder = async () => {
-      setLoading(true);
-
-      try {
-        const res = await apiClient.get(`/orders/${orderId}/`);
-        const order = res.data;
-
-        const vehicle =
-          order.vehicles?.find((v: any) => !v.is_trade_in) ?? null;
-
-        const vehicleItem =
-          order.items?.find((i: any) => i.item_type === "vehicle") ??
-          null;
-
-        dispatch({
-          type: "INIT_FROM_API",
-          payload: {
-            meta: { id: order.id, mode: "edit" },
-
-            basic: {
-              shop: order.shop?.id ?? null,
-              customer_id: order.customer?.id ?? null,
-
-              new_customer: order.customer
-                ? {
-                    ...order.customer,
-                    customer_class:
-                      order.customer.customer_class?.id ?? null,
-                    gender: order.customer.gender?.id ?? null,
-                    region: order.customer.region?.id ?? null,
-                  }
-                : null,
-
-              created_by_id: order.created_by?.id ?? null,
-              vehicle_mode: order.vehicle_mode ?? "none",
-              order_date:
-                order.order_date ?? dayjs().format("YYYY-MM-DD"),
-              payment_method:
-                order.payments?.[0]?.payment_method ?? "現金",
-            },
-
-            items: order.items ?? [],
-
-            vehicle: vehicle
-              ? {
-                  ...vehicle,
-                  manufacturer: vehicle.manufacturer?.id ?? null,
-                  category_id: vehicleItem?.category?.id ?? null,
-                  unit_price: Number(vehicleItem?.unit_price ?? 0),
-                }
-              : null,
-          },
-        });
-      } catch (e) {
-        console.error(e);
-        alert("受注データ取得失敗");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrder();
-  }, [mode, orderId]);
-
-  /* ===============================
-     保存
-  =============================== */
 
   const handleFinish = async () => {
     try {
@@ -443,7 +274,27 @@ export default function OrderForm({ mode, orderId }: Props) {
         )}
 
         {currentStep === "items" && (
-          <OtherStep items={state.items} dispatch={dispatch} />
+          <OtherStep
+            items={state.items}
+            dispatch={dispatch}
+            itemType="accessory"
+          />
+        )}
+
+        {currentStep === "expenses" && (
+          <ExpenseStep
+            items={state.items}
+            dispatch={dispatch}
+            itemType="fee"
+          />
+        )}
+
+        {currentStep === "insurance" && (
+          <InsuranceStep
+            items={state.items}
+            dispatch={dispatch}
+            itemType="insurance"
+          />
         )}
 
         {currentStep === "payment" && (

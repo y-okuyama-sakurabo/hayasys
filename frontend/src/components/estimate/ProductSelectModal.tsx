@@ -45,12 +45,12 @@ export default function ProductSelectModal({
   }, [itemType]);
 
   /* ===============================
-     🔥 state
+     state
   =============================== */
   const [categoryId1, setCategoryId1] = useState<number | null>(null);
   const [categoryId2, setCategoryId2] = useState<number | null>(null);
   const [manualName, setManualName] = useState("");
-  const [manualPrice, setManualPrice] = useState<number>(0);
+  const [manualPrice, setManualPrice] = useState<number | "">("");
   const [keyword, setKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -59,26 +59,24 @@ export default function ProductSelectModal({
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
 
   /* ===============================
-     🔥 リセット関数
+     リセット
   =============================== */
   const resetState = () => {
     setTab(0);
     setCategoryId1(null);
     setCategoryId2(null);
     setManualName("");
-    setManualPrice(0);
+    setManualPrice(""); // ←ここ修正
     setKeyword("");
     setSearchResults([]);
     setProducts([]);
   };
 
   /* ===============================
-     🔥 open時リセット（超重要）
+     open時リセット
   =============================== */
   useEffect(() => {
-    if (open) {
-      resetState();
-    }
+    if (open) resetState();
   }, [open]);
 
   /* ===============================
@@ -172,7 +170,7 @@ export default function ProductSelectModal({
   }, [keyword]);
 
   /* ===============================
-     🔥 closeラップ
+     close
   =============================== */
   const handleClose = () => {
     resetState();
@@ -183,7 +181,12 @@ export default function ProductSelectModal({
      手入力追加
   =============================== */
   const handleManualAdd = () => {
-    if (!categoryId2 || !manualName.trim() || manualPrice <= 0) {
+    if (
+      !categoryId2 ||
+      !manualName.trim() ||
+      !manualPrice ||
+      manualPrice <= 0
+    ) {
       alert("入力内容を確認してください");
       return;
     }
@@ -196,7 +199,7 @@ export default function ProductSelectModal({
       })
     );
 
-    resetState(); // ←重要
+    resetState();
     onClose();
   };
 
@@ -213,7 +216,7 @@ export default function ProductSelectModal({
       })
     );
 
-    resetState(); // ←重要
+    resetState();
     onClose();
   };
 
@@ -261,9 +264,15 @@ export default function ProductSelectModal({
                 label="単価"
                 type="number"
                 value={manualPrice}
+                placeholder="例: 10000"
                 onChange={(e) =>
-                  setManualPrice(Number(e.target.value))
+                  setManualPrice(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleManualAdd();
+                }}
                 fullWidth
               />
 

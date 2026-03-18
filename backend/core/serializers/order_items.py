@@ -53,6 +53,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
 
+            "item_type", 
+
             # product
             "product",
             "product_id",
