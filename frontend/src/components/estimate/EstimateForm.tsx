@@ -116,6 +116,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
+  
 
   const copyFrom = searchParams.get("copy_from");
 
@@ -127,6 +128,13 @@ export default function EstimateForm({ mode, estimateId }: Props) {
   }, [state.basic.vehicle_mode]);
 
   const currentStep: StepKey = visibleSteps[stepIndex]?.key as StepKey;
+  const handleNext = () => {
+    if (stepIndex < visibleSteps.length - 1) {
+      setStepIndex((s) => s + 1);
+    }
+  };
+
+  const isLastStep = stepIndex === visibleSteps.length - 1;
 
   /* ===============================
      🔥 create初期化
@@ -444,7 +452,10 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
       <Divider sx={{ my: 3 }} />
 
+      
+
       <Box display="flex" justifyContent="space-between">
+        {/* 前へ */}
         <Button
           disabled={stepIndex === 0}
           onClick={() => setStepIndex((s) => s - 1)}
@@ -452,9 +463,19 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           前へ
         </Button>
 
-        <Button variant="contained" onClick={handleFinish}>
-          完了
-        </Button>
+        <Box display="flex" gap={2}>
+          {/* 次へ */}
+          {!isLastStep && (
+            <Button variant="outlined" onClick={handleNext}>
+              次へ
+            </Button>
+          )}
+
+          {/* 完了（どこからでも押せる） */}
+          <Button variant="contained" onClick={handleFinish}>
+            完了
+          </Button>
+        </Box>
       </Box>
     </Box>
   );

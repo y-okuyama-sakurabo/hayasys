@@ -57,7 +57,7 @@ const initialState: OrderState = {
     customer_id: null,
     new_customer: null,
     created_by_id: null,
-    vehicle_mode: "none",
+    vehicle_mode: "sale",
     order_date: dayjs().format("YYYY-MM-DD"),
     payment_method: "現金",
   },
@@ -68,19 +68,34 @@ const initialState: OrderState = {
 function reducer(state: OrderState, action: any): OrderState {
   switch (action.type) {
     case "INIT_FROM_API":
-      return { ...state, ...action.payload };
+      return {
+        ...state,
+        ...action.payload,
+      };
 
     case "SET_BASIC":
-      return { ...state, basic: { ...state.basic, ...action.payload } };
+      return {
+        ...state,
+        basic: { ...state.basic, ...action.payload },
+      };
 
     case "SET_VEHICLE":
-      return { ...state, vehicle: action.payload };
+      return {
+        ...state,
+        vehicle: action.payload,
+      };
 
     case "SET_ITEMS":
-      return { ...state, items: action.payload };
+      return {
+        ...state,
+        items: action.payload,
+      };
 
     case "ADD_ITEM":
-      return { ...state, items: [...state.items, action.payload] };
+      return {
+        ...state,
+        items: [...state.items, action.payload],
+      };
 
     case "UPDATE_ITEM":
       return {
@@ -109,10 +124,10 @@ export default function OrderForm({ mode, orderId }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [initialized, setInitialized] = useState(false);
 
   const searchParams = useSearchParams();
   const fromEstimate = searchParams.get("from_estimate");
-  const copyFrom = searchParams.get("copy_from");
 
   const visibleSteps = useMemo(() => {
     if (state.basic.vehicle_mode === "none") {
@@ -122,55 +137,67 @@ export default function OrderForm({ mode, orderId }: Props) {
   }, [state.basic.vehicle_mode]);
 
   const currentStep: StepKey = visibleSteps[stepIndex]?.key as StepKey;
+  const handleNext = () => {
+    if (stepIndex < visibleSteps.length - 1) {
+      setStepIndex((s) => s + 1);
+    }
+  };
+
+  const isLastStep = stepIndex === visibleSteps.length - 1;
 
   useEffect(() => {
     if (stepIndex >= visibleSteps.length) {
-      setStepIndex(visibleSteps.length - 1);
+      setStepIndex(Math.max(visibleSteps.length - 1, 0));
     }
   }, [visibleSteps, stepIndex]);
-
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (mode !== "create" || initialized) return;
     setInitialized(true);
 
     const init = async () => {
-      const user = (await apiClient.get("/auth/user/")).data;
-
-      dispatch({
-        type: "SET_BASIC",
-        payload: {
-          shop: user.shop_id ?? null,
-          created_by_id: user.id,
-        },
-      });
-
-      if (fromEstimate) {
-        const res = await apiClient.post(
-          "/orders/prepare-from-estimate/",
-          { estimate_id: Number(fromEstimate) }
-        );
-
-        const data = res.data;
+      try {
+        const user = (await apiClient.get("/auth/user/")).data;
 
         dispatch({
-          type: "INIT_FROM_API",
+          type: "SET_BASIC",
           payload: {
-            basic: {
-              shop: data.shop ?? user.shop_id ?? null,
-              customer_id: data.customer_id ?? null,
-              new_customer: data.new_customer ?? null,
-              created_by_id: user.id,
-              vehicle_mode: data.vehicle_mode ?? "none",
-              order_date: dayjs().format("YYYY-MM-DD"),
-              payment_method:
-                data.payments?.[0]?.payment_method ?? "現金",
-            },
-            items: data.items ?? [],
-            vehicle: data.target_vehicle ?? null,
+            shop: user.shop_id ?? null,
+            created_by_id: user.id,
+            vehicle_mode: "sale",
           },
         });
+
+        if (fromEstimate) {
+          const res = await apiClient.post(
+            "/orders/prepare-from-estimate/",
+            { estimate_id: Number(fromEstimate) }
+          );
+
+          const data = res.data;
+
+          dispatch({
+            type: "INIT_FROM_API",
+            payload: {
+              basic: {
+                order_no: data.order_no ?? "",
+                shop: data.shop ?? user.shop_id ?? null,
+                customer_id: data.customer_id ?? null,
+                new_customer: data.new_customer ?? null,
+                created_by_id: user.id,
+                vehicle_mode: data.vehicle_mode ?? "sale",
+                order_date: dayjs().format("YYYY-MM-DD"),
+                payment_method:
+                  data.payments?.[0]?.payment_method ?? "現金",
+              },
+              items: data.items ?? [],
+              vehicle: data.target_vehicle ?? null,
+            },
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        alert("初期データ取得に失敗しました");
       }
     };
 
@@ -191,8 +218,14 @@ export default function OrderForm({ mode, orderId }: Props) {
           name: state.vehicle.vehicle_name || "車両",
           quantity: 1,
           unit_price: state.vehicle.unit_price ?? 0,
-          category_id: state.vehicle.category_id ?? null,
-          manufacturer: state.vehicle.manufacturer ?? null,
+          category_id:
+            state.vehicle.category_id ??
+            state.vehicle.category?.id ??
+            null,
+          manufacturer:
+            state.vehicle.manufacturer?.id ??
+            state.vehicle.manufacturer ??
+            null,
         });
       }
 
@@ -205,7 +238,10 @@ export default function OrderForm({ mode, orderId }: Props) {
         new_customer: state.basic.customer_id
           ? null
           : state.basic.new_customer ?? null,
-        items,
+        items: items.map((item) => ({
+          ...item,
+          category_id: item.category_id ?? item.category?.id ?? null,
+        })),
         target_vehicle: state.vehicle,
         payments: [
           {
@@ -277,7 +313,6 @@ export default function OrderForm({ mode, orderId }: Props) {
           <OtherStep
             items={state.items}
             dispatch={dispatch}
-            itemType="accessory"
           />
         )}
 
@@ -285,7 +320,6 @@ export default function OrderForm({ mode, orderId }: Props) {
           <ExpenseStep
             items={state.items}
             dispatch={dispatch}
-            itemType="fee"
           />
         )}
 
@@ -293,28 +327,41 @@ export default function OrderForm({ mode, orderId }: Props) {
           <InsuranceStep
             items={state.items}
             dispatch={dispatch}
-            itemType="insurance"
           />
         )}
 
         {currentStep === "payment" && (
-          <EstimatePaymentForm basic={state.basic} dispatch={dispatch} />
+          <EstimatePaymentForm
+            basic={state.basic}
+            dispatch={dispatch}
+          />
         )}
       </Paper>
 
       <Divider sx={{ my: 3 }} />
 
-      <Box display="flex" justifyContent="space-between">
-        <Button
-          disabled={stepIndex === 0}
-          onClick={() => setStepIndex((s) => s - 1)}
-        >
-          前へ
-        </Button>
+<Box display="flex" justifyContent="space-between">
+  {/* 前へ */}
+  <Button
+    disabled={stepIndex === 0}
+    onClick={() => setStepIndex((s) => s - 1)}
+  >
+    前へ
+  </Button>
 
-        <Button variant="contained" onClick={handleFinish}>
-          完了
-        </Button>
+        <Box display="flex" gap={2}>
+          {/* 次へ */}
+          {!isLastStep && (
+            <Button variant="outlined" onClick={handleNext}>
+              次へ
+            </Button>
+          )}
+
+          {/* 完了（どこからでも押せる） */}
+          <Button variant="contained" onClick={handleFinish}>
+            完了
+          </Button>
+        </Box>
       </Box>
     </Box>
   );
