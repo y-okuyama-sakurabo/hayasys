@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Box,
   Paper,
@@ -19,7 +19,6 @@ import {
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
-// ---- 型（必要最低限）----
 type CustomerClass = { id: number; code: string; name: string; is_wholesale: boolean };
 type Region = { id: number; code: string; name: string };
 type Gender = { id: number; code: string; name: string };
@@ -35,34 +34,36 @@ type CreatePayload = {
   mobile_phone?: string | null;
   company?: string | null;
   company_phone?: string | null;
-  birthdate?: string | null; // "YYYY-MM-DD"
-
-  customer_class: number | null; // required=True 前提でUIでも必須にする
+  birthdate?: string | null;
+  customer_class: number | null;
   staff?: number | null;
   region?: number | null;
   gender?: number | null;
-
-  // vehicles?: any[]  // 今回は一旦なし（必要なら後で追加）
 };
 
 const blankToNull = (v: string) => (v.trim() === "" ? null : v.trim());
 const toNumberOrNull = (v: any) => (v === "" || v == null ? null : Number(v));
 
+const formatZip = (val: string) => {
+  const v = val.replace("-", "");
+  if (v.length <= 3) return v;
+  return `${v.slice(0, 3)}-${v.slice(3)}`;
+};
+
 export default function CustomerNewPage() {
   const router = useRouter();
-
-  // ---- masters ----
-  const [loadingMasters, setLoadingMasters] = useState(true);
-  const [mastersError, setMastersError] = useState<string | null>(null);
 
   const [customerClasses, setCustomerClasses] = useState<CustomerClass[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [genders, setGenders] = useState<Gender[]>([]);
   const [staffs, setStaffs] = useState<Staff[]>([]);
 
-  // ---- form ----
-  const [saving, setSaving] = useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [zipError, setZipError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const debounceRef = useRef<any>(null);
 
   const [form, setForm] = useState<CreatePayload>({
     name: "",
@@ -84,16 +85,8 @@ export default function CustomerNewPage() {
   const toArray = (res: any) =>
     Array.isArray(res?.data) ? res.data : res?.data?.results ?? res?.data ?? [];
 
-  // ============================
-  // マスタ取得
-  // ============================
   useEffect(() => {
-    let mounted = true;
-
     (async () => {
-      setLoadingMasters(true);
-      setMastersError(null);
-
       try {
         const [cc, st, rg, gd] = await Promise.all([
           apiClient.get("/masters/customer_classes/"),
@@ -102,91 +95,119 @@ export default function CustomerNewPage() {
           apiClient.get("/masters/genders/"),
         ]);
 
-        if (!mounted) return;
-
         setCustomerClasses(toArray(cc));
         setStaffs(toArray(st));
         setRegions(toArray(rg));
         setGenders(toArray(gd));
-      } catch (e: any) {
-        if (!mounted) return;
-        const msg =
-          e?.response?.data
-            ? typeof e.response.data === "string"
-              ? e.response.data
-              : JSON.stringify(e.response.data)
-            : "マスタ取得に失敗しました";
-        setMastersError(msg);
+      } catch {
+        setError("マスタ取得失敗");
       } finally {
-        if (mounted) setLoadingMasters(false);
+        setLoadingMasters(false);
       }
     })();
-
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   const setField =
-    <K extends keyof CreatePayload>(key: K) =>
-    (e: any) => {
+    (key: keyof CreatePayload) =>
+    (e: any) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
-    };
 
   const canSubmit = useMemo(() => {
-    if (!form.name.trim()) return false;
-    if (form.customer_class == null) return false;
-    return true;
-  }, [form.name, form.customer_class]);
+    return form.name.trim() && form.customer_class != null;
+  }, [form]);
 
-  // ============================
-  // 登録
-  // ============================
+  // =========================
+  // 郵便番号 → 住所取得
+  // =========================
+  const fetchAddress = async (zip: string, force = false) => {
+    if (zip.length !== 7) return;
+
+    try {
+      setZipError(null);
+
+      const res = await fetch(
+        `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`
+      );
+      const data = await res.json();
+
+      if (!data.results) {
+        setZipError("郵便番号が見つかりません");
+        return;
+      }
+
+      const r = data.results[0];
+      const prefecture = r.address1;
+      const address = r.address2 + r.address3;
+
+      const regionMatch = regions.find((x) => x.name === prefecture);
+
+      setForm((prev) => ({
+        ...prev,
+        region: regionMatch?.id ?? prev.region,
+        // 🔥 ここが重要
+        address: force ? address : prev.address || address,
+      }));
+    } catch {
+      setZipError("住所取得に失敗しました");
+    }
+  };
+
+  const handleZipChange = (val: string) => {
+    const raw = val.replace("-", "");
+
+    setForm((p) => ({
+      ...p,
+      postal_code: formatZip(raw),
+    }));
+
+    // 🔥 自動取得はしない
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  const [birth, setBirth] = useState({
+    year: "",
+    month: "",
+    day: "",
+  });
+
   const submit = async () => {
-    setError(null);
-
-    if (!form.name.trim()) {
-      setError("氏名は必須です");
-      return;
-    }
-    if (form.customer_class == null) {
-      setError("顧客区分（customer_class）は必須です");
-      return;
-    }
-
-    const payload: CreatePayload = {
-      name: form.name.trim(),
-      kana: blankToNull(String(form.kana ?? "")),
-      email: blankToNull(String(form.email ?? "")),
-      postal_code: blankToNull(String(form.postal_code ?? "")),
-      address: blankToNull(String(form.address ?? "")),
-      phone: blankToNull(String(form.phone ?? "")),
-      mobile_phone: blankToNull(String(form.mobile_phone ?? "")),
-      company: blankToNull(String(form.company ?? "")),
-      company_phone: blankToNull(String(form.company_phone ?? "")),
-      birthdate: blankToNull(String(form.birthdate ?? "")),
-
-      customer_class: form.customer_class,
-      staff: form.staff ?? null,
-      region: form.region ?? null,
-      gender: form.gender ?? null,
-    };
+    if (!canSubmit) return;
 
     setSaving(true);
+
     try {
-      const res = await apiClient.post("/customers/", payload);
-      // 作成後：詳細へ
+      // 🔥 生年月日生成
+      let birthdate = null;
+
+      if (birth.year && birth.month && birth.day) {
+        const m = String(birth.month).padStart(2, "0");
+        const d = String(birth.day).padStart(2, "0");
+        birthdate = `${birth.year}-${m}-${d}`;
+      }
+
+      const res = await apiClient.post("/customers/", {
+        ...form,
+        name: form.name.trim(),
+        kana: blankToNull(form.kana || ""),
+        email: blankToNull(form.email || ""),
+        postal_code: blankToNull(form.postal_code || ""),
+        address: blankToNull(form.address || ""),
+        phone: blankToNull(form.phone || ""),
+        mobile_phone: blankToNull(form.mobile_phone || ""),
+        company: blankToNull(form.company || ""),
+        company_phone: blankToNull(form.company_phone || ""),
+        // 🔥 ここ差し替え
+        birthdate,
+      });
+
       router.push(`/dashboard/customers/${res.data.id}`);
-      // もし「一覧へ戻して更新」運用ならこっちでもOK
-      // router.push(`/dashboard/customers?_r=${Date.now()}`);
-    } catch (e: any) {
-      const msg =
-        e?.response?.data
-          ? typeof e.response.data === "string"
-            ? e.response.data
-            : JSON.stringify(e.response.data)
-          : "作成に失敗しました";
-      setError(msg);
+    } catch {
+      setError("作成失敗");
     } finally {
       setSaving(false);
     }
@@ -195,141 +216,255 @@ export default function CustomerNewPage() {
   return (
     <Box sx={{ p: 2 }}>
       <Stack spacing={2}>
+
         {/* ヘッダ */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+        <Stack direction="row" justifyContent="space-between">
           <Typography variant="h5" fontWeight="bold">
             顧客 新規登録
           </Typography>
 
           <Stack direction="row" spacing={1}>
-            <Button variant="outlined" onClick={() => router.push("/dashboard/customers")}>
+            <Button onClick={() => router.push("/dashboard/customers")}>
               一覧へ戻る
             </Button>
-            <Button variant="contained" onClick={submit} disabled={saving || !canSubmit}>
+            <Button variant="contained" onClick={submit} disabled={!canSubmit || saving}>
               {saving ? <CircularProgress size={20} /> : "登録"}
             </Button>
           </Stack>
         </Stack>
 
-        {mastersError && <Alert severity="error">{mastersError}</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
+        {zipError && <Alert severity="warning">{zipError}</Alert>}
 
+        {/* システム管理 */}
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            基本情報
-          </Typography>
+          <Typography fontWeight="bold">システム管理</Typography>
           <Divider sx={{ mb: 2 }} />
 
-          {loadingMasters ? (
-            <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
-              <CircularProgress />
+          <Stack direction={{ md: "row" }} spacing={2}>
+            <FormControl fullWidth>
+              <InputLabel>顧客区分（必須）</InputLabel>
+              <Select
+                value={form.customer_class ?? ""}
+                label="顧客区分"
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    customer_class: toNumberOrNull(e.target.value),
+                  }))
+                }
+              >
+                <MenuItem value="">未選択</MenuItem>
+                {customerClasses.map((x) => (
+                  <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>担当スタッフ</InputLabel>
+              <Select
+                value={form.staff ?? ""}
+                label="担当スタッフ"
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    staff: toNumberOrNull(e.target.value),
+                  }))
+                }
+              >
+                <MenuItem value="">未選択</MenuItem>
+                  {staffs
+                    .filter((x: any) => x.role === "staff") // ← admin除外（おすすめ）
+                    .map((x: any) => (
+                      <MenuItem key={x.id} value={x.id}>
+                        {x.display_name || x.login_id}
+                        {x.shop_name ? `（${x.shop_name}）` : ""}
+                      </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </Paper>
+
+        {/* 個人情報 */}
+        <Paper sx={{ p: 2 }}>
+          <Typography fontWeight="bold">個人情報</Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          <Stack spacing={2}>
+            <TextField
+              label="氏名（必須）"
+              value={form.name}
+              onChange={setField("name")}
+              fullWidth
+            />
+
+            <TextField
+              label="フリガナ"
+              value={form.kana ?? ""}
+              onChange={setField("kana")}
+              fullWidth
+            />
+
+            {/* 性別 */}
+            <FormControl sx={{ maxWidth: 200 }}>
+              <InputLabel>性別</InputLabel>
+              <Select
+                value={form.gender ?? ""}
+                label="性別"
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    gender: toNumberOrNull(e.target.value),
+                  }))
+                }
+              >
+                <MenuItem value="">未選択</MenuItem>
+                {genders.map((x) => (
+                  <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* 🔥 生年月日（独立） */}
+            <Box sx={{ maxWidth: 400 }}>
+              <Typography variant="caption" color="text.secondary">
+                生年月日
+              </Typography>
+
+              <Stack direction="row" spacing={1.5} mt={1} alignItems="center">
+                <FormControl sx={{ flex: 1 }}>
+                  <Select
+                    displayEmpty
+                    value={birth.year}
+                    onChange={(e) =>
+                      setBirth((p) => ({ ...p, year: e.target.value }))
+                    }
+                  >
+                    <MenuItem value="">年</MenuItem>
+                    {years.map((y) => (
+                      <MenuItem key={y} value={y}>{y}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Typography>年</Typography>
+
+                <FormControl sx={{ flex: 1 }}>
+                  <Select
+                    displayEmpty
+                    value={birth.month}
+                    onChange={(e) =>
+                      setBirth((p) => ({ ...p, month: e.target.value }))
+                    }
+                  >
+                    <MenuItem value="">月</MenuItem>
+                    {months.map((m) => (
+                      <MenuItem key={m} value={m}>{m}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Typography>月</Typography>
+
+                <FormControl sx={{ flex: 1 }}>
+                  <Select
+                    displayEmpty
+                    value={birth.day}
+                    onChange={(e) =>
+                      setBirth((p) => ({ ...p, day: e.target.value }))
+                    }
+                  >
+                    <MenuItem value="">日</MenuItem>
+                    {days.map((d) => (
+                      <MenuItem key={d} value={d}>{d}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Typography>日</Typography>
+                
+              </Stack>
             </Box>
-          ) : (
-            <Stack spacing={2}>
-              <TextField label="氏名（必須）" value={form.name} onChange={setField("name")} fullWidth />
+          </Stack>
+        </Paper>
 
-              <TextField label="フリガナ" value={form.kana ?? ""} onChange={setField("kana")} fullWidth />
+        {/* 連絡先 */}
+        <Paper sx={{ p: 2 }}>
+          <Typography fontWeight="bold">連絡先情報</Typography>
+          <Divider sx={{ mb: 2 }} />
 
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <TextField label="電話" value={form.phone ?? ""} onChange={setField("phone")} fullWidth />
-                <TextField label="携帯" value={form.mobile_phone ?? ""} onChange={setField("mobile_phone")} fullWidth />
-              </Stack>
+          <Stack spacing={2}>
 
-              <TextField label="メール" value={form.email ?? ""} onChange={setField("email")} fullWidth />
-
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <TextField label="郵便番号" value={form.postal_code ?? ""} onChange={setField("postal_code")} fullWidth />
-                <TextField label="住所" value={form.address ?? ""} onChange={setField("address")} fullWidth />
-              </Stack>
-
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <TextField label="会社名" value={form.company ?? ""} onChange={setField("company")} fullWidth />
-                <TextField label="会社電話" value={form.company_phone ?? ""} onChange={setField("company_phone")} fullWidth />
-              </Stack>
-
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
-                label="生年月日"
-                type="date"
-                value={form.birthdate ?? ""}
-                onChange={setField("birthdate")}
-                InputLabelProps={{ shrink: true }}
+                label="郵便番号"
+                value={form.postal_code ?? ""}
+                onChange={(e) => handleZipChange(e.target.value)}
+                sx={{ maxWidth: 200 }}
               />
 
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel id="customer-class-label">顧客区分（必須）</InputLabel>
-                  <Select
-                    labelId="customer-class-label"
-                    label="顧客区分（必須）"
-                    value={form.customer_class ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, customer_class: toNumberOrNull(e.target.value) }))}
-                  >
-                    <MenuItem value="">未選択</MenuItem>
-                    {customerClasses.map((x) => (
-                      <MenuItem key={x.id} value={x.id}>
-                        {x.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth>
-                  <InputLabel id="staff-label">担当スタッフ</InputLabel>
-                  <Select
-                    labelId="staff-label"
-                    label="担当スタッフ"
-                    value={form.staff ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, staff: toNumberOrNull(e.target.value) }))}
-                  >
-                    <MenuItem value="">未選択</MenuItem>
-                    {staffs.map((x) => (
-                      <MenuItem key={x.id} value={x.id}>
-                        {x.full_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel id="region-label">都道府県</InputLabel>
-                  <Select
-                    labelId="region-label"
-                    label="都道府県"
-                    value={form.region ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, region: toNumberOrNull(e.target.value) }))}
-                  >
-                    <MenuItem value="">未選択</MenuItem>
-                    {regions.map((x) => (
-                      <MenuItem key={x.id} value={x.id}>
-                        {x.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth>
-                  <InputLabel id="gender-label">性別</InputLabel>
-                  <Select
-                    labelId="gender-label"
-                    label="性別"
-                    value={form.gender ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, gender: toNumberOrNull(e.target.value) }))}
-                  >
-                    <MenuItem value="">未選択</MenuItem>
-                    {genders.map((x) => (
-                      <MenuItem key={x.id} value={x.id}>
-                        {x.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
+              <Button
+                variant="outlined"
+                onClick={() =>
+                  fetchAddress((form.postal_code || "").replace("-", ""), true)
+                }
+              >
+                住所自動入力
+              </Button>
             </Stack>
-          )}
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <FormControl sx={{ minWidth: 160 }}>
+                <InputLabel>都道府県</InputLabel>
+                <Select
+                  value={form.region ?? ""}
+                  label="都道府県"
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      region: toNumberOrNull(e.target.value),
+                    }))
+                  }
+                >
+                  <MenuItem value="">未選択</MenuItem>
+                  {regions.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="住所"
+                value={form.address ?? ""}
+                onChange={setField("address")}
+                fullWidth
+              />
+            </Stack>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField label="電話番号（自宅・固定）" value={form.phone ?? ""} onChange={setField("phone")} fullWidth />
+              <TextField label="携帯電話番号" value={form.mobile_phone ?? ""} onChange={setField("mobile_phone")} fullWidth />
+            </Stack>
+
+            <TextField label="メール" value={form.email ?? ""} onChange={setField("email")} fullWidth />
+          </Stack>
         </Paper>
+
+        {/* 勤務先 */}
+        <Paper sx={{ p: 2 }}>
+          <Typography fontWeight="bold">勤務先情報</Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          <Stack direction={{ md: "row" }} spacing={2}>
+            <TextField label="会社名（勤務先・法人名）" value={form.company ?? ""} onChange={setField("company")} fullWidth />
+            <TextField label="会社電話番号" value={form.company_phone ?? ""} onChange={setField("company_phone")} fullWidth />
+          </Stack>
+        </Paper>
+
         
+
       </Stack>
     </Box>
   );

@@ -15,14 +15,14 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
-    # 🔥 追加：顧客車両
+   
     source_customer_vehicle = serializers.PrimaryKeyRelatedField(
         queryset=CustomerVehicle.objects.all(),
         required=False,
         allow_null=True,
     )
 
-    # 🔥 フロント用（ID取得）
+    
     source_customer_vehicle_id = serializers.IntegerField(
         source="source_customer_vehicle.id",
         read_only=True,
@@ -35,7 +35,7 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
             "order",
             "is_trade_in",
 
-            # 🔥 追加
+        
             "source_customer_vehicle",
             "source_customer_vehicle_id",
 
