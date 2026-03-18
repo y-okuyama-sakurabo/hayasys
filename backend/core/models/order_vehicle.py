@@ -10,6 +10,13 @@ class OrderVehicle(models.Model):
         default=False,
         help_text="Trueなら下取り車両、Falseなら商談車両"
     )
+    source_customer_vehicle = models.ForeignKey(
+        "core.CustomerVehicle",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="元となる顧客所有車両"
+    )
     category = models.ForeignKey(
         "core.Category",
         on_delete=models.SET_NULL,
