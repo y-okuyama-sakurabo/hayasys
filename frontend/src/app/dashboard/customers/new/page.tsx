@@ -15,6 +15,13 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItemButton,
+  ListItemText,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
@@ -62,6 +69,9 @@ export default function CustomerNewPage() {
   const [error, setError] = useState<string | null>(null);
   const [zipError, setZipError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [similarCandidates, setSimilarCandidates] = useState<any[]>([]);
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<any>(null);
 
   const debounceRef = useRef<any>(null);
 
@@ -190,7 +200,7 @@ export default function CustomerNewPage() {
         birthdate = `${birth.year}-${m}-${d}`;
       }
 
-      const res = await apiClient.post("/customers/", {
+      const payload = {
         ...form,
         name: form.name.trim(),
         kana: blankToNull(form.kana || ""),
@@ -201,11 +211,31 @@ export default function CustomerNewPage() {
         mobile_phone: blankToNull(form.mobile_phone || ""),
         company: blankToNull(form.company || ""),
         company_phone: blankToNull(form.company_phone || ""),
-        // 🔥 ここ差し替え
         birthdate,
+      };
+
+      // 🔥 追加：類似チェック
+      const similarRes = await apiClient.post("/customers/similar/", {
+        name: payload.name,
+        kana: payload.kana,
+        phone: payload.phone,
+        mobile_phone: payload.mobile_phone,
+        email: payload.email,
+        address: payload.address,
       });
 
+      if (similarRes.data.has_similar) {
+        setSimilarCandidates(similarRes.data.candidates);
+        setPendingPayload(payload);
+        setSimilarOpen(true);
+        setSaving(false);
+        return;
+      }
+
+      // 元の処理
+      const res = await apiClient.post("/customers/", payload);
       router.push(`/dashboard/customers/${res.data.id}`);
+
     } catch {
       setError("作成失敗");
     } finally {
@@ -461,11 +491,47 @@ export default function CustomerNewPage() {
             <TextField label="会社名（勤務先・法人名）" value={form.company ?? ""} onChange={setField("company")} fullWidth />
             <TextField label="会社電話番号" value={form.company_phone ?? ""} onChange={setField("company_phone")} fullWidth />
           </Stack>
-        </Paper>
-
-        
+        </Paper>      
 
       </Stack>
+      <Dialog open={similarOpen} onClose={() => setSimilarOpen(false)} fullWidth>
+        <DialogTitle>類似顧客が見つかりました</DialogTitle>
+
+        <DialogContent>
+          <List>
+            {similarCandidates.map((c) => (
+              <ListItemButton
+                key={c.id}
+                onClick={() => router.push(`/dashboard/customers/${c.id}`)}
+              >
+                <ListItemText
+                  primary={`${c.name}（スコア:${c.score}）`}
+                  secondary={c.reasons.join(" / ")}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setSimilarOpen(false)}>
+            戻る
+          </Button>
+
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={async () => {
+              if (!pendingPayload) return;
+
+              const res = await apiClient.post("/customers/", pendingPayload);
+              router.push(`/dashboard/customers/${res.data.id}`);
+            }}
+          >
+            無視して登録
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

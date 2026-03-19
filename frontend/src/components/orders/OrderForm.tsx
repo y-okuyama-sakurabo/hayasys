@@ -12,6 +12,13 @@ import {
   Stepper,
   Step,
   StepLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItemButton,
+  ListItemText,
 } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
@@ -125,6 +132,9 @@ export default function OrderForm({ mode, orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [initialized, setInitialized] = useState(false);
+  const [similarCandidates, setSimilarCandidates] = useState<any[]>([]);
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [pendingOrderPayload, setPendingOrderPayload] = useState<any>(null);
 
   const searchParams = useSearchParams();
   const fromEstimate = searchParams.get("from_estimate");
@@ -250,6 +260,28 @@ export default function OrderForm({ mode, orderId }: Props) {
         ],
       };
 
+      // 🔥 類似チェック（新規顧客のときだけ）
+      if (!state.basic.customer_id && state.basic.new_customer) {
+        const nc = state.basic.new_customer;
+
+        const similarRes = await apiClient.post("/customers/similar/", {
+          name: nc.name,
+          kana: nc.kana,
+          phone: nc.phone,
+          mobile_phone: nc.mobile_phone,
+          email: nc.email,
+          address: nc.address,
+        });
+
+        if (similarRes.data.has_similar) {
+          setSimilarCandidates(similarRes.data.candidates);
+          setPendingOrderPayload(payload);
+          setSimilarOpen(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       let res;
 
       if (mode === "create") {
@@ -339,30 +371,91 @@ export default function OrderForm({ mode, orderId }: Props) {
       </Paper>
 
       <Divider sx={{ my: 3 }} />
-
-<Box display="flex" justifyContent="space-between">
-  {/* 前へ */}
-  <Button
-    disabled={stepIndex === 0}
-    onClick={() => setStepIndex((s) => s - 1)}
-  >
-    前へ
-  </Button>
-
-        <Box display="flex" gap={2}>
-          {/* 次へ */}
-          {!isLastStep && (
-            <Button variant="outlined" onClick={handleNext}>
-              次へ
-            </Button>
-          )}
-
-          {/* 完了（どこからでも押せる） */}
-          <Button variant="contained" onClick={handleFinish}>
-            完了
+        <Box display="flex" justifyContent="space-between">
+          {/* 前へ */}
+          <Button
+            disabled={stepIndex === 0}
+            onClick={() => setStepIndex((s) => s - 1)}
+          >
+            前へ
           </Button>
-        </Box>
-      </Box>
+
+                <Box display="flex" gap={2}>
+                  {/* 次へ */}
+                  {!isLastStep && (
+                    <Button variant="outlined" onClick={handleNext}>
+                      次へ
+                    </Button>
+                  )}
+
+                  {/* 完了（どこからでも押せる） */}
+                  <Button variant="contained" onClick={handleFinish}>
+                    完了
+                  </Button>
+                </Box>
+              </Box>
+              <Dialog open={similarOpen} fullWidth>
+          <DialogTitle>既存顧客の可能性があります</DialogTitle>
+
+          <DialogContent>
+            <Typography color="error" mb={2}>
+              同じ顧客が存在する可能性が高いです
+            </Typography>
+
+            <List>
+              {similarCandidates.map((c) => (
+                <ListItemButton
+                  key={c.id}
+                  onClick={async () => {
+                    if (!pendingOrderPayload) return;
+
+                    const newPayload = {
+                      ...pendingOrderPayload,
+                      customer_id: c.id,
+                      new_customer: null,
+                    };
+
+                    let res;
+
+                    if (mode === "create") {
+                      res = await apiClient.post("/orders/", newPayload);
+                    } else {
+                      res = await apiClient.patch(`/orders/${orderId}/`, newPayload);
+                    }
+
+                    window.location.href = `/dashboard/orders/${res.data.id}`;
+                  }}
+                >
+                  <ListItemText
+                    primary={`${c.name}（スコア:${c.score}）`}
+                    secondary={c.reasons.join(" / ")}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </DialogContent>
+
+          <DialogActions>
+            <Button
+              color="warning"
+              onClick={async () => {
+                if (!pendingOrderPayload) return;
+
+                let res;
+
+                if (mode === "create") {
+                  res = await apiClient.post("/orders/", pendingOrderPayload);
+                } else {
+                  res = await apiClient.patch(`/orders/${orderId}/`, pendingOrderPayload);
+                }
+
+                window.location.href = `/dashboard/orders/${res.data.id}`;
+              }}
+            >
+              新規で作成する
+            </Button>
+          </DialogActions>
+        </Dialog>
     </Box>
   );
 }
