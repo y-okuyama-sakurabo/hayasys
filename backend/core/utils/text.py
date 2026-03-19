@@ -1,19 +1,25 @@
+import unicodedata
 import jaconv
 import re
+
 
 def normalize_japanese(text: str) -> str:
     if not text:
         return ""
 
+    # ① Unicode正規化（最重要）
+    text = unicodedata.normalize("NFKC", text)
+
+    # ② 英数字は小文字
     text = text.lower()
 
-    # 全角 → 半角（英数）
-    text = jaconv.z2h(text, ascii=True, digit=True)
+    # ③ 半角カナ → 全角カナ
+    text = jaconv.h2z(text, kana=True, digit=False, ascii=False)
 
-    # カタカナ → ひらがな
-    text = jaconv.kata2hira(text)
+    # ④ ひらがな → カタカナ（業務的にこっちが強い）
+    text = jaconv.hira2kata(text)
 
-    # 記号除去（必要に応じて調整）
-    text = re.sub(r"[^\wぁ-ん]", "", text)
+    # ⑤ 不要記号削除（ゆるめ）
+    text = re.sub(r"[^\wァ-ンー]", "", text)
 
     return text

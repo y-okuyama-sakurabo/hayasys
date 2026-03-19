@@ -15,6 +15,9 @@ import {
   ListItemText,
   CircularProgress,
   Stack,
+  Checkbox,
+  FormControlLabel,
+  Paper,
 } from "@mui/material";
 
 import EstimateCategorySelector from "@/components/estimate/EstimateCategorySelector";
@@ -49,14 +52,22 @@ export default function ProductSelectModal({
   =============================== */
   const [categoryId1, setCategoryId1] = useState<number | null>(null);
   const [categoryId2, setCategoryId2] = useState<number | null>(null);
+
   const [manualName, setManualName] = useState("");
   const [manualPrice, setManualPrice] = useState<number | "">("");
+
   const [keyword, setKeyword] = useState("");
+
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+
   const [products, setProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
+
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [saveAsProduct, setSaveAsProduct] = useState(true);
 
   /* ===============================
      リセット
@@ -66,15 +77,14 @@ export default function ProductSelectModal({
     setCategoryId1(null);
     setCategoryId2(null);
     setManualName("");
-    setManualPrice(""); // ←ここ修正
+    setManualPrice("");
     setKeyword("");
     setSearchResults([]);
     setProducts([]);
+    setSuggestions([]);
+    setSaveAsProduct(true);
   };
 
-  /* ===============================
-     open時リセット
-  =============================== */
   useEffect(() => {
     if (open) resetState();
   }, [open]);
@@ -97,10 +107,7 @@ export default function ProductSelectModal({
           nodes.forEach((node) => {
             const enriched = { ...node, parent };
             map[node.id] = enriched;
-
-            if (node.children?.length) {
-              flatten(node.children, enriched);
-            }
+            if (node.children?.length) flatten(node.children, enriched);
           });
         };
 
@@ -170,6 +177,29 @@ export default function ProductSelectModal({
   }, [keyword]);
 
   /* ===============================
+     サジェスト
+  =============================== */
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!manualName.trim()) {
+        setSuggestions([]);
+        return;
+      }
+
+      try {
+        const res = await apiClient.get(
+          `/products/search/?q=${manualName}`
+        );
+        setSuggestions(res.data);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [manualName]);
+
+  /* ===============================
      close
   =============================== */
   const handleClose = () => {
@@ -180,7 +210,7 @@ export default function ProductSelectModal({
   /* ===============================
      手入力追加
   =============================== */
-  const handleManualAdd = () => {
+  const handleManualAdd = async () => {
     if (
       !categoryId2 ||
       !manualName.trim() ||
@@ -191,16 +221,35 @@ export default function ProductSelectModal({
       return;
     }
 
-    onSelect(
-      buildPayload({
-        category_id: categoryId2,
-        name: manualName,
-        unit_price: manualPrice,
-      })
-    );
+    try {
+      let productData = null;
 
-    resetState();
-    onClose();
+      if (saveAsProduct) {
+        const res = await apiClient.post("/products/", {
+          name: manualName,
+          unit_price: manualPrice,
+          category_id: categoryId2,
+          tax_type: "taxable",
+        });
+
+        productData = res.data;
+      }
+
+      onSelect(
+        buildPayload({
+          category_id: productData?.category?.id ?? categoryId2,
+          name: productData?.name ?? manualName,
+          unit_price: Number(productData?.unit_price ?? manualPrice),
+          tax_type: productData?.tax_type ?? "taxable",
+        })
+      );
+
+      resetState();
+      onClose();
+    } catch (e) {
+      console.error(e);
+      alert("商品登録に失敗しました");
+    }
   };
 
   /* ===============================
@@ -231,7 +280,7 @@ export default function ProductSelectModal({
           <Tab label="商品検索" />
         </Tabs>
 
-        {/* 手入力 */}
+        {/* ================= 手入力 ================= */}
         {tab === 0 && (
           <Box>
             <EstimateCategorySelector
@@ -260,11 +309,36 @@ export default function ProductSelectModal({
                 </Button>
               </Stack>
 
+              {/* 🔥 サジェスト */}
+              {suggestions.length > 0 && (
+                <Paper>
+                  <List>
+                    {suggestions.map((s) => (
+                      <ListItemButton
+                        key={s.id}
+                        onClick={() => {
+                          setManualName(s.name);
+                          setManualPrice(Number(s.unit_price));
+                          setCategoryId2(s.category?.id ?? null);
+                          setSuggestions([]);
+                        }}
+                      >
+                        <ListItemText
+                          primary={s.name}
+                          secondary={`¥${Number(
+                            s.unit_price
+                          ).toLocaleString()}`}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Paper>
+              )}
+
               <TextField
                 label="単価"
                 type="number"
                 value={manualPrice}
-                placeholder="例: 10000"
                 onChange={(e) =>
                   setManualPrice(
                     e.target.value === "" ? "" : Number(e.target.value)
@@ -276,6 +350,19 @@ export default function ProductSelectModal({
                 fullWidth
               />
 
+              {/* 🔥 登録トグル */}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={saveAsProduct}
+                    onChange={(e) =>
+                      setSaveAsProduct(e.target.checked)
+                    }
+                  />
+                }
+                label="商品マスタにも登録する"
+              />
+
               <Button variant="contained" onClick={handleManualAdd}>
                 明細に追加
               </Button>
@@ -283,7 +370,7 @@ export default function ProductSelectModal({
           </Box>
         )}
 
-        {/* カテゴリから選択 */}
+        {/* ================= カテゴリ選択 ================= */}
         {tab === 1 && (
           <Box>
             <EstimateCategorySelector
@@ -314,7 +401,7 @@ export default function ProductSelectModal({
           </Box>
         )}
 
-        {/* 商品検索 */}
+        {/* ================= 商品検索 ================= */}
         {tab === 2 && (
           <Box>
             <TextField

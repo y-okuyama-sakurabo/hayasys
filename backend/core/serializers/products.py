@@ -42,7 +42,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "unit_price",
             "tax_type",
             "category",
-            "category_id",          # ← 追加
+            "category_id",
             "manufacturer",
             "manufacturer_detail",
         ]

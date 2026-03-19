@@ -399,7 +399,7 @@ export default function CustomerNewPage() {
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
-                label="郵便番号"
+                label="郵便番号（必須）"
                 value={form.postal_code ?? ""}
                 onChange={(e) => handleZipChange(e.target.value)}
                 sx={{ maxWidth: 200 }}
