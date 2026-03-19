@@ -49,6 +49,7 @@ class ProductListAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         category_id = self.request.query_params.get("category")
         search = self.request.query_params.get("search")
+        category_types = self.request.query_params.getlist("type")
 
         qs = Product.objects.filter(
             is_active=True
@@ -56,6 +57,15 @@ class ProductListAPIView(generics.ListCreateAPIView):
 
         if category_id:
             qs = qs.filter(category_id=category_id)
+
+        # 🔥 ここが本質
+        if category_types:
+            qs = qs.filter(
+                Q(category__category_type__in=category_types) |
+                Q(category__parent__category_type__in=category_types) |
+                Q(category__parent__parent__category_type__in=category_types) |
+                Q(category__parent__parent__parent__category_type__in=category_types)
+            )
 
         if search:
             normalized_q = normalize_japanese(search)
@@ -99,18 +109,28 @@ class ProductSearchAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        q = self.request.query_params.get("q", "")
+        category_id = self.request.query_params.get("category")
+        search = self.request.query_params.get("search")
+        category_types = self.request.query_params.getlist("type")  # ←追加
 
         qs = Product.objects.filter(
             is_active=True
         ).exclude(category__isnull=True)
 
-        if q:
-            normalized_q = normalize_japanese(q)
+        # 🔥 typeフィルター（最優先）
+        if category_types:
+            qs = qs.filter(category__category_type__in=category_types)
+
+        # カテゴリ
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+
+        # 検索
+        if search:
+            normalized_q = normalize_japanese(search)
             qs = qs.filter(name_search__icontains=normalized_q)
 
-        # 🔥 よく使う or 最近使う優先（将来usage_countに変更可）
-        return qs.order_by("-updated_at")[:20]
+        return qs.order_by("name")
 
 
 # ============================================

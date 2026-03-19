@@ -165,7 +165,9 @@ export default function ProductSelectModal({
       try {
         setSearching(true);
         const res = await apiClient.get(
-          `/products/?search=${keyword}`
+          `/products/?search=${keyword}&${categoryTypes
+            .map((t) => `type=${t}`)
+            .join("&")}`
         );
         setSearchResults(res.data?.results || res.data || []);
       } finally {
