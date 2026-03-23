@@ -126,7 +126,12 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
             <IconButton color="inherit" onClick={toggleDrawer}>
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" noWrap>
+            <Typography
+              variant="h6"
+              noWrap
+              sx={{ cursor: "pointer" }}
+              onClick={() => router.push("/dashboard")}
+            >
               Hayasys
             </Typography>
           </Box>

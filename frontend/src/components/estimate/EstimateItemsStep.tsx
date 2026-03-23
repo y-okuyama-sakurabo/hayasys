@@ -80,8 +80,13 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   const [staffs, setStaffs] = useState<any[]>([]);
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
 
+  /* ===============================
+     🔥 indexズレ対策（最重要）
+  =============================== */
   const filteredItems = useMemo(() => {
-    return items.filter((item) => item?.item_type === config.itemType);
+    return items
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .filter((x) => x.item?.item_type === config.itemType);
   }, [items, config.itemType]);
 
   useEffect(() => {
@@ -130,7 +135,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
 
   const totals = useMemo(() => {
     return filteredItems.reduce(
-      (acc, item) => {
+      (acc, { item }) => {
         const line = calcLine(item, {
           taxable: config.taxable,
           showLaborCost: config.showLaborCost,
@@ -177,7 +182,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
           </Grid>
         )}
 
-        {filteredItems.map((item, index) => {
+        {filteredItems.map(({ item, originalIndex }) => {
           const line = calcLine(item, {
             taxable: config.taxable,
             showLaborCost: config.showLaborCost,
@@ -186,7 +191,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
           const categoryId = item?.category_id ?? item?.category?.id ?? null;
 
           return (
-            <Grid size={{ xs: 12 }} key={item.id ?? index}>
+            <Grid size={{ xs: 12 }} key={item.id ?? originalIndex}>
               <Paper sx={{ p: 2 }}>
                 <Stack direction="row" spacing={1} mb={1}>
                   <Chip
@@ -197,13 +202,13 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                 </Stack>
 
                 <Grid container spacing={1} alignItems="center">
-                  <Grid size={{ xs: 12, md: config.showLaborCost ? 3 : 3 }}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <TextField
                       fullWidth
                       label={config.nameLabel}
                       value={item?.name ?? ""}
                       onChange={(e) =>
-                        handleChange(index, "name", e.target.value)
+                        handleChange(originalIndex, "name", e.target.value)
                       }
                     />
                   </Grid>
@@ -212,12 +217,11 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                     <TextField
                       fullWidth
                       type="number"
-                      inputProps={{ step: 1, min: 1 }}
                       label="数量"
                       value={item?.quantity ?? 1}
                       onChange={(e) =>
                         handleChange(
-                          index,
+                          originalIndex,
                           "quantity",
                           Math.round(Number(e.target.value))
                         )
@@ -225,16 +229,15 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                     />
                   </Grid>
 
-                  <Grid size={{ xs: 6, md: config.showLaborCost ? 1.5 : 2 }}>
+                  <Grid size={{ xs: 6, md: 2 }}>
                     <TextField
                       fullWidth
                       type="number"
-                      inputProps={{ step: 1, min: 0 }}
                       label="単価"
                       value={item?.unit_price ?? 0}
                       onChange={(e) =>
                         handleChange(
-                          index,
+                          originalIndex,
                           "unit_price",
                           Math.round(Number(e.target.value))
                         )
@@ -247,12 +250,11 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                       <TextField
                         fullWidth
                         type="number"
-                        inputProps={{ step: 1, min: 0 }}
                         label="工賃"
                         value={item?.labor_cost ?? 0}
                         onChange={(e) =>
                           handleChange(
-                            index,
+                            originalIndex,
                             "labor_cost",
                             Math.round(Number(e.target.value))
                           )
@@ -265,12 +267,11 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                     <TextField
                       fullWidth
                       type="number"
-                      inputProps={{ step: 1, min: 0 }}
                       label="割引"
                       value={item?.discount ?? 0}
                       onChange={(e) =>
                         handleChange(
-                          index,
+                          originalIndex,
                           "discount",
                           Math.round(Number(e.target.value))
                         )
@@ -283,18 +284,22 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                       select
                       fullWidth
                       label="担当"
-                      value={item?.staff_id ?? ""}
+                      value={
+                        item?.staff_id != null ? String(item.staff_id) : ""
+                      }
                       onChange={(e) =>
                         handleChange(
-                          index,
+                          originalIndex,
                           "staff_id",
-                          e.target.value === "" ? null : Number(e.target.value)
+                          e.target.value === ""
+                            ? null
+                            : Number(e.target.value)
                         )
                       }
                     >
                       <MenuItem value="">未選択</MenuItem>
                       {staffs.map((s) => (
-                        <MenuItem key={s.id} value={s.id}>
+                        <MenuItem key={s.id} value={String(s.id)}>
                           {s.display_name || s.login_id}
                           {s.shop_name && `（${s.shop_name}）`}
                         </MenuItem>
@@ -302,7 +307,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                     </TextField>
                   </Grid>
 
-                  <Grid size={{ xs: 6, md: config.showLaborCost ? 1.5 : 2 }}>
+                  <Grid size={{ xs: 6, md: 2 }}>
                     <Box textAlign="right">
                       <Typography variant="body2" color="text.secondary">
                         {config.taxable ? "税込" : "合計"}
@@ -317,7 +322,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleRemove(index)}
+                      onClick={() => handleRemove(originalIndex)}
                     >
                       <DeleteIcon />
                     </IconButton>

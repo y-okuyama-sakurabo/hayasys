@@ -73,7 +73,18 @@ export default function CustomerNewPage() {
   const [similarOpen, setSimilarOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const debounceRef = useRef<any>(null);
+  const isEmpty = (v: any) =>
+    v == null || (typeof v === "string" && v.trim() === "");
+
+  const [touched, setTouched] = useState(false);
+
+  const hasError = (v: any) => touched && isEmpty(v);
+
+  const RequiredLabel = ({ label }: { label: string }) => (
+    <>
+      {label} <span style={{ color: "#d32f2f" }}></span>
+    </>
+  );
 
   const [form, setForm] = useState<CreatePayload>({
     name: "",
@@ -186,6 +197,7 @@ export default function CustomerNewPage() {
   });
 
   const submit = async () => {
+    setTouched(true);
     if (!canSubmit) return;
 
     setSaving(true);
@@ -257,9 +269,6 @@ export default function CustomerNewPage() {
             <Button onClick={() => router.push("/dashboard/customers")}>
               一覧へ戻る
             </Button>
-            <Button variant="contained" onClick={submit} disabled={!canSubmit || saving}>
-              {saving ? <CircularProgress size={20} /> : "登録"}
-            </Button>
           </Stack>
         </Stack>
 
@@ -272,8 +281,11 @@ export default function CustomerNewPage() {
           <Divider sx={{ mb: 2 }} />
 
           <Stack direction={{ md: "row" }} spacing={2}>
-            <FormControl fullWidth>
-              <InputLabel>顧客区分（必須）</InputLabel>
+            {/* 顧客区分（Select） */}
+            <FormControl fullWidth required error={hasError(form.customer_class)}>
+              <InputLabel>
+                <RequiredLabel label="顧客区分" />
+              </InputLabel>
               <Select
                 value={form.customer_class ?? ""}
                 label="顧客区分"
@@ -285,9 +297,7 @@ export default function CustomerNewPage() {
                 }
               >
                 <MenuItem value="">未選択</MenuItem>
-                {customerClasses.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
-                ))}
+                {customerClasses.map((x) => <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>)}
               </Select>
             </FormControl>
 
@@ -323,11 +333,15 @@ export default function CustomerNewPage() {
           <Divider sx={{ mb: 2 }} />
 
           <Stack spacing={2}>
+            {/* 氏名（TextField） */}
             <TextField
-              label="氏名（必須）"
+              label={<RequiredLabel label="氏名" />}
+              required
               value={form.name}
               onChange={setField("name")}
               fullWidth
+              error={hasError(form.name)}
+              helperText={hasError(form.name) ? "必須項目です" : ""}
             />
 
             <TextField
@@ -428,11 +442,15 @@ export default function CustomerNewPage() {
           <Stack spacing={2}>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              {/* 郵便番号（TextField） */}
               <TextField
-                label="郵便番号（必須）"
+                label={<RequiredLabel label="郵便番号" />}
+                required
                 value={form.postal_code ?? ""}
                 onChange={(e) => handleZipChange(e.target.value)}
                 sx={{ maxWidth: 200 }}
+                error={hasError(form.postal_code)}
+                helperText={hasError(form.postal_code) ? "必須項目です" : ""}
               />
 
               <Button
@@ -491,7 +509,18 @@ export default function CustomerNewPage() {
             <TextField label="会社名（勤務先・法人名）" value={form.company ?? ""} onChange={setField("company")} fullWidth />
             <TextField label="会社電話番号" value={form.company_phone ?? ""} onChange={setField("company_phone")} fullWidth />
           </Stack>
-        </Paper>      
+        </Paper>
+     
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={submit}
+              disabled={saving}
+            >
+              {saving ? <CircularProgress size={20} /> : "登録"}
+            </Button>
+          </Stack>
+            
 
       </Stack>
       <Dialog open={similarOpen} onClose={() => setSimilarOpen(false)} fullWidth>

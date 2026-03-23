@@ -283,7 +283,10 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             created_by_id: estimate.created_by?.id ?? null,
           },
 
-          items: estimate.items ?? [],
+          items: (estimate.items ?? []).map((item: any) => ({
+            ...item,
+            staff_id: item.staff?.id ?? item.staff_id ?? null,
+          })),
 
           vehicle: vehicle
             ? {
@@ -372,6 +375,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       for (const item of items) {
         const payload = {
           ...item,
+          staff: item.staff_id ?? null,
           category_id: item.category_id ?? item.category?.id ?? null,
         };
 
