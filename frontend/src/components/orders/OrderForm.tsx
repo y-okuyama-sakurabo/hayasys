@@ -214,6 +214,69 @@ export default function OrderForm({ mode, orderId }: Props) {
     init();
   }, [mode, fromEstimate, initialized]);
 
+    // =============================
+  // 🔥 edit初期化（←ここに追加）
+  // =============================
+  useEffect(() => {
+    if (mode !== "edit" || !orderId) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        const res = await apiClient.get(`/orders/${orderId}/`);
+        const order = res.data;
+
+        dispatch({
+          type: "INIT_FROM_API",
+          payload: {
+            meta: { id: order.id, mode: "edit" },
+
+            basic: {
+              order_no: order.order_no,
+              shop: order.shop?.id ?? null,
+              customer_id: order.customer?.id ?? null,
+              new_customer: order.customer
+                ? {
+                    ...order.customer,
+                    customer_class:
+                      typeof order.customer.customer_class === "object"
+                        ? order.customer.customer_class.id
+                        : order.customer.customer_class ?? null,
+
+                    region:
+                      typeof order.customer.region === "object"
+                        ? order.customer.region.id
+                        : order.customer.region ?? null,
+
+                    gender:
+                      typeof order.customer.gender === "object"
+                        ? order.customer.gender.id
+                        : order.customer.gender ?? null,
+                  }
+                : null,
+              created_by_id: order.created_by?.id ?? null,
+              vehicle_mode: order.vehicle_mode ?? "none",
+              order_date: order.order_date,
+              payment_method:
+                order.payments?.[0]?.payment_method ?? "現金",
+            },
+
+            items: order.items ?? [],
+            vehicle: order.target_vehicle ?? null,
+          },
+        });
+      } catch (e) {
+        console.error(e);
+        alert("受注データ取得失敗");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [mode, orderId]);
+
   const handleFinish = async () => {
     try {
       setLoading(true);
