@@ -262,7 +262,10 @@ export default function OrderForm({ mode, orderId }: Props) {
                 order.payments?.[0]?.payment_method ?? "現金",
             },
 
-            items: order.items ?? [],
+            items: (order.items ?? []).map((item: any) => ({
+              ...item,
+              staff_id: item.staff?.id ?? item.staff_id ?? null,
+            })),
             vehicle: order.target_vehicle ?? null,
           },
         });
@@ -313,6 +316,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           : state.basic.new_customer ?? null,
         items: items.map((item) => ({
           ...item,
+          staff: item.staff_id ?? null,
           category_id: item.category_id ?? item.category?.id ?? null,
         })),
         target_vehicle: state.vehicle,

@@ -278,6 +278,8 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "vehicles",
             "payments",
             "created_by",
+
+            "estimate_date",
             "created_at",
             "updated_at",
         ]

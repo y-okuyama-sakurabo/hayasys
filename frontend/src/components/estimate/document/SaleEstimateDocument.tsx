@@ -146,7 +146,10 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                       伝票No：{estimate.estimate_no}
                     </Typography>
                     <Typography>
-                      見積日：{estimate.created_at?.slice(0, 10)}
+                      見積日：
+                        {estimate.estimate_date
+                          ? estimate.estimate_date
+                          : estimate.created_at?.slice(0, 10)}
                     </Typography>
                   </Box>
 

@@ -7,6 +7,10 @@ from core.models import (
     CustomerMemo, Order, Estimate,
 )
 from .vehicles import VehicleWriteSerializer, VehicleDetailSerializer
+from PIL import Image
+from io import BytesIO
+from django.core.files.base import ContentFile
+from core.utils.images import compress_image
 
 User = get_user_model()
 
@@ -254,6 +258,40 @@ class CustomerImageSerializer(serializers.ModelSerializer):
         model = CustomerImage
         fields = ["id", "customer", "image", "mime", "width", "height", "bytes", "created_at"]
         read_only_fields = ["id", "customer", "mime", "width", "height", "bytes", "created_at"]
+            # 🔥 容量制限
+    def validate_image(self, image):
+        max_size = 5 * 1024 * 1024  # 5MB
+
+        if image.size > max_size:
+            raise serializers.ValidationError("画像は5MB以下にしてください")
+
+        return image
+
+    # 🔥 圧縮
+    def create(self, validated_data):
+        image = validated_data.get("image")
+
+        if image:
+            compressed = compress_image(image)
+            validated_data["image"] = compressed
+
+            # 🔥 ここ追加（超重要）
+            img = Image.open(compressed)
+
+            validated_data["width"] = img.width
+            validated_data["height"] = img.height
+            validated_data["bytes"] = compressed.size
+
+            # MIME
+            ext = compressed.name.lower().split(".")[-1]
+            if ext in ["jpg", "jpeg"]:
+                validated_data["mime"] = "image/jpeg"
+            elif ext == "png":
+                validated_data["mime"] = "image/png"
+            else:
+                validated_data["mime"] = "image/jpeg"
+
+        return super().create(validated_data)
 
 
 class CustomerMemosSerializer(serializers.ModelSerializer):

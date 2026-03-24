@@ -163,12 +163,8 @@ from core.views.audit_logs.views import AuditLogViewSet
 
 # === Analytics ===
 from core.views.analytics.views import (
-    SalesSummaryAPIView,
     SalesDailyAPIView,
-    SalesByStaffAPIView,
-    SalesByCategoryAPIView,
-    EstimateConversionAPIView,
-    OrdersByCreatorAPIView,
+    SalesListAPIView,
 )
 
 urlpatterns = [
@@ -275,15 +271,9 @@ urlpatterns = [
     # =========================
     # Analytics
     # =========================
-    path("analytics/sales-summary/", SalesSummaryAPIView.as_view()),
     path("analytics/sales-daily/", SalesDailyAPIView.as_view()),
-    path("analytics/sales-by-staff/", SalesByStaffAPIView.as_view()),
-    path("analytics/sales-by-category/", SalesByCategoryAPIView.as_view()),
-    path("analytics/estimate-conversion/", EstimateConversionAPIView.as_view()),
-    path("analytics/orders-by-creator/", OrdersByCreatorAPIView.as_view()),
+    path("analytics/sales-list/", SalesListAPIView.as_view()),
 
-    path("estimates/<int:estimate_id>/payments/", EstimatePaymentListCreateView.as_view(), name="estimate-payments"), 
-    path("payments/<int:pk>/", PaymentUpdateView.as_view(), name="payment-update"),
 
     # =========================
     # Management（納品・入金管理）

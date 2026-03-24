@@ -1,281 +1,158 @@
-#views/analytics/views.py
+# views/analytics/views.py
 
-from datetime import date, datetime
-from django.db.models import Sum, Count
-from django.db.models.functions import TruncDate
-from django.utils.timezone import make_aware
+from datetime import datetime, timedelta, date
+
+from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 
-from core.models import Order, OrderItem, Estimate
-
-
-# ==================================================
-# 共通ヘルパ
-# ==================================================
-def parse_date(value, default=None):
-    if not value:
-        return default
-    try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    except ValueError:
-        return default
+from core.models import Order, Estimate
+from core.serializers.orders import OrderSerializer
+from core.serializers.estimates import EstimateSerializer
 
 
 # ==================================================
-# 📊 売上サマリー（カード表示用）
-# ==================================================
-class SalesSummaryAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        qs = Order.objects.all()
-
-        shop_id = request.query_params.get("shop_id")
-        if shop_id:
-            qs = qs.filter(shop_id=shop_id)
-
-        data = qs.aggregate(
-            order_count=Count("id"),
-            subtotal=Sum("subtotal"),
-            tax_total=Sum("tax_total"),
-            grand_total=Sum("grand_total"),
-        )
-
-        return Response({
-            "order_count": data["order_count"] or 0,
-            "subtotal": data["subtotal"] or 0,
-            "tax_total": data["tax_total"] or 0,
-            "grand_total": data["grand_total"] or 0,
-        })
-
-
-# ==================================================
-# 📈 日別売上推移
+# 日別グラフ用API
 # ==================================================
 class SalesDailyAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from_date = parse_date(request.query_params.get("from"))
-        to_date = parse_date(request.query_params.get("to"))
+        start_str = request.query_params.get("start")
+        end_str = request.query_params.get("end")
         shop_id = request.query_params.get("shop_id")
+        staff_id = request.query_params.get("staff_id")
 
-        qs = Order.objects.all()
+        today = date.today()
 
-        if shop_id:
-            qs = qs.filter(shop_id=shop_id)
-        if from_date:
-            qs = qs.filter(order_date__gte=from_date)
-        if to_date:
-            qs = qs.filter(order_date__lte=to_date)
+        try:
+            start = datetime.strptime(start_str, "%Y-%m-%d").date() if start_str else today.replace(day=1)
+            end = datetime.strptime(end_str, "%Y-%m-%d").date() if end_str else today
+        except Exception:
+            raise ValidationError("日付形式は YYYY-MM-DD で指定してください")
 
-        daily = (
-            qs
-            .annotate(day=TruncDate("order_date"))
-            .values("day")
-            .annotate(
-                sales_count=Count("id"),
-                subtotal=Sum("subtotal"),
-                tax_total=Sum("tax_total"),
-                grand_total=Sum("grand_total"),
-            )
-            .order_by("day")
+        # -----------------------------
+        # filter作成
+        # -----------------------------
+        estimate_filter = {
+            "estimate_date__range": [start, end],
+        }
+
+        order_filter = {
+            "order_date__range": [start, end],
+        }
+
+        # 店舗フィルタ
+        if shop_id and shop_id != "all":
+            estimate_filter["shop_id"] = shop_id
+            order_filter["shop_id"] = shop_id
+        else:
+            estimate_filter["shop"] = request.user.shop
+            order_filter["shop"] = request.user.shop
+        
+        if staff_id and staff_id != "all":
+            estimate_filter["created_by_id"] = staff_id
+            order_filter["created_by_id"] = staff_id
+
+        # -----------------------------
+        # DB取得
+        # -----------------------------
+        estimate_qs = (
+            Estimate.objects
+            .filter(**estimate_filter)
+            .values("estimate_date")
+            .annotate(total=Sum("grand_total"))
         )
 
-        return Response({
-            "range": {
-                "from": from_date,
-                "to": to_date,
-            },
-            "items": [
-                {
-                    "date": d["day"],
-                    "sales_count": d["sales_count"],
-                    "subtotal": d["subtotal"] or 0,
-                    "tax_total": d["tax_total"] or 0,
-                    "grand_total": d["grand_total"] or 0,
-                }
-                for d in daily
-            ],
-        })
-
-
-# ==================================================
-# 🧑‍💼 担当者別売上
-# ==================================================
-class SalesByStaffAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        shop_id = request.query_params.get("shop_id")
-
-        qs = OrderItem.objects.select_related("staff")
-
-        if shop_id:
-            qs = qs.filter(order__shop_id=shop_id)
-
-        data = (
-            qs
-            .values(
-                "staff_id",
-                "staff__display_name",
-                "staff__first_name",
-                "staff__last_name",
-                "staff__login_id",
-            )
-            .annotate(
-                sales_count=Count("id"),
-                subtotal=Sum("subtotal"),
-            )
-            .order_by("-subtotal")
+        order_qs = (
+            Order.objects
+            .filter(**order_filter)
+            .values("order_date")
+            .annotate(total=Sum("grand_total"))
         )
 
-        items = []
-        for d in data:
-            # 表示名決定ロジック
-            staff_name = (
-                d["staff__display_name"]
-                or f'{d["staff__last_name"] or ""} {d["staff__first_name"] or ""}'.strip()
-                or d["staff__login_id"]
-                or "未設定"
-            )
+        # -----------------------------
+        # dict化
+        # -----------------------------
+        estimate_map = {x["estimate_date"]: x["total"] for x in estimate_qs}
+        order_map = {x["order_date"]: x["total"] for x in order_qs}
 
-            items.append({
-                "staff_id": d["staff_id"],
-                "staff_name": staff_name,
-                "sales_count": d["sales_count"],
-                "subtotal": d["subtotal"] or 0,
+        result = []
+        current = start
+
+        while current <= end:
+            result.append({
+                "date": current,
+                "estimate": float(estimate_map.get(current, 0) or 0),
+                "order": float(order_map.get(current, 0) or 0),
             })
+            current += timedelta(days=1)
 
-        return Response({ "items": items })
+        return Response(result)
 
 
 # ==================================================
-# 📦 カテゴリ別売上（最上位カテゴリ）
+# 日別明細一覧API
 # ==================================================
-class SalesByCategoryAPIView(APIView):
+class SalesListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        date_str = request.query_params.get("date")
+        start_str = request.query_params.get("start")
+        end_str = request.query_params.get("end")
         shop_id = request.query_params.get("shop_id")
+        staff_id = request.query_params.get("staff_id")
 
-        qs = OrderItem.objects.select_related("category")
+        # -----------------------------
+        # 日付指定
+        # -----------------------------
+        if date_str:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
-        if shop_id:
-            qs = qs.filter(order__shop_id=shop_id)
-
-        # 一旦シンプルに「category 単位」
-        data = (
-            qs
-            .values("category_id", "category__name")
-            .annotate(
-                subtotal=Sum("subtotal"),
+            estimates = Estimate.objects.filter(
+                estimate_date=target_date
             )
-            .order_by("-subtotal")
-        )
+            orders = Order.objects.filter(
+                order_date=target_date
+            )
 
-        total = sum(d["subtotal"] or 0 for d in data)
+        # -----------------------------
+        # 期間指定
+        # -----------------------------
+        elif start_str and end_str:
+            start = datetime.strptime(start_str, "%Y-%m-%d").date()
+            end = datetime.strptime(end_str, "%Y-%m-%d").date()
+
+            estimates = Estimate.objects.filter(
+                estimate_date__range=[start, end]
+            )
+            orders = Order.objects.filter(
+                order_date__range=[start, end]
+            )
+
+        else:
+            raise ValidationError("date または start/end を指定してください")
+
+        # -----------------------------
+        # 店舗フィルタ
+        # -----------------------------
+        if shop_id and shop_id != "all":
+            estimates = estimates.filter(shop_id=shop_id)
+            orders = orders.filter(shop_id=shop_id)
+        else:
+            estimates = estimates.filter(shop=request.user.shop)
+            orders = orders.filter(shop=request.user.shop)
+
+        if staff_id and staff_id != "all":
+            estimates = estimates.filter(created_by_id=staff_id)
+            orders = orders.filter(created_by_id=staff_id)
 
         return Response({
-            "items": [
-                {
-                    "category_id": d["category_id"],
-                    "category_name": d["category__name"],
-                    "subtotal": d["subtotal"] or 0,
-                    "ratio": round((d["subtotal"] / total * 100), 1) if total else 0,
-                }
-                for d in data
-            ]
+            "estimates": EstimateSerializer(estimates, many=True).data,
+            "orders": OrderSerializer(orders, many=True).data,
         })
 
-
-# ==================================================
-# 🎯 見積 → 受注 成約率
-# ==================================================
-class EstimateConversionAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        shop_id = request.query_params.get("shop_id")
-
-        qs = Estimate.objects.all()
-
-        if shop_id:
-            qs = qs.filter(shop_id=shop_id)
-
-        total = qs.count()
-        ordered = qs.filter(status="ordered").count()
-
-        rate = round((ordered / total * 100), 1) if total else 0
-
-        return Response({
-            "total_estimates": total,
-            "ordered_estimates": ordered,
-            "conversion_rate": rate,
-        })
-    
-# ==================================================
-# 🧑‍💼 受注作成者別売上（営業成績）
-# ==================================================
-class OrdersByCreatorAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        shop_id = request.query_params.get("shop_id")
-        from_date = parse_date(request.query_params.get("from"))
-        to_date = parse_date(request.query_params.get("to"))
-
-        qs = Order.objects.select_related("created_by")
-
-        qs = qs.filter(
-            created_by__isnull=False,
-            order_date__isnull=False,
-        )
-
-        if shop_id:
-            qs = qs.filter(shop_id=shop_id)
-
-        if from_date:
-            qs = qs.filter(order_date__gte=from_date)
-        if to_date:
-            qs = qs.filter(order_date__lte=to_date)
-
-        data = (
-            qs
-            .values(
-                "created_by_id",
-                "created_by__display_name",
-                "created_by__first_name",
-                "created_by__last_name",
-                "created_by__login_id",
-            )
-            .annotate(
-                order_count=Count("id"),
-                subtotal=Sum("subtotal"),
-            )
-            .order_by("-subtotal")
-        )
-
-        items = []
-        for d in data:
-            staff_name = (
-                d["created_by__display_name"]
-                or f'{d["created_by__last_name"] or ""} {d["created_by__first_name"] or ""}'.strip()
-                or d["created_by__login_id"]
-                or "未設定"
-            )
-
-            subtotal = d["subtotal"] or 0
-
-            items.append({
-                "staff_id": d["created_by_id"],
-                "staff_name": staff_name,
-                "order_count": d["order_count"],
-                "subtotal": subtotal,
-                "average_sales": int(subtotal / d["order_count"]) if d["order_count"] else 0,
-            })
-
-        return Response({"items": items})
-
+        

@@ -39,6 +39,21 @@ class OrderItemSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
+    # 書き込み用
+    staff_input = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="staff",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    # 表示用
+    staff_id = serializers.IntegerField(
+        source="staff.id",
+        read_only=True,
+    )
+
     # ==================================================
     # UI専用フラグ（DBには保存しない）
     # ==================================================
@@ -72,7 +87,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "sale_type",
             "subtotal",
 
-            "staff",  
+            "staff",
+            "staff_id",
+            "staff_input", 
 
             # UI flag
             "saveAsProduct",

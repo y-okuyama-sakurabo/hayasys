@@ -1,308 +1,392 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  CircularProgress,
-  Divider,
   Table,
+  TableBody,
+  TableCell,
   TableHead,
   TableRow,
-  TableCell,
-  TableBody,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Stack,
+  CircularProgress,
+  Divider,
+  ToggleButton,
+  ToggleButtonGroup,
+  Grid,
 } from "@mui/material";
+import dayjs from "dayjs";
 import {
   LineChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
-import dayjs from "dayjs";
+
 import apiClient from "@/lib/apiClient";
 
-// ==================================================
-// 色定義
-// ==================================================
-const COLORS = ["#1976d2", "#9c27b0", "#ef6c00", "#2e7d32", "#d32f2f"];
+type DailyData = {
+  date: string;
+  estimate: number;
+  order: number;
+};
 
-// ==================================================
-// Page
-// ==================================================
-export default function AnalyticsPage() {
-  const [loading, setLoading] = useState(true);
+export default function SalesDashboard() {
+  const today = dayjs();
+  const router = useRouter();
 
-  const [summary, setSummary] = useState<any>(null);
-  const [daily, setDaily] = useState<any[]>([]);
-  const [byStaff, setByStaff] = useState<any[]>([]);
-  const [byCategory, setByCategory] = useState<any[]>([]);
-  const [conversion, setConversion] = useState<any>(null);
-  const [bySales, setBySales] = useState<any[]>([]);
+  const [start, setStart] = useState(
+    today.startOf("month").format("YYYY-MM-DD")
+  );
+  const [end, setEnd] = useState(today.format("YYYY-MM-DD"));
 
-  // ==================================================
-  // 初期ロード
-  // ==================================================
+  const [data, setData] = useState<DailyData[]>([]);
+  const [prevData, setPrevData] = useState<DailyData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [mode, setMode] = useState<"order" | "estimate">("order");
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [list, setList] = useState<any>({ estimates: [], orders: [] });
+  const [fullList, setFullList] = useState({
+    estimates: [],
+    orders: [],
+  });
+  const fetchFullList = async () => {
+    try {
+      const res = await apiClient.get("/analytics/sales-list/", {
+        params: { start, end, shop_id: shopId, staff_id: staffId }
+      });
+      setFullList(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const [shopId, setShopId] = useState<number | "all">("all");
+  const [shops, setShops] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [staffId, setStaffId] = useState<number | "all">("all");
+  const [staffs, setStaffs] = useState<any[]>([]);
+
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        setLoading(true);
-
-        const from = dayjs().subtract(30, "day").format("YYYY-MM-DD");
-        const to = dayjs().format("YYYY-MM-DD");
-
-        const [
-          summaryRes,
-          dailyRes,
-          staffRes,
-          categoryRes,
-          conversionRes,
-          salesRes,
-        ] = await Promise.all([
-          apiClient.get("/analytics/sales-summary/"),
-          apiClient.get("/analytics/sales-daily/", {
-            params: { from, to },
-          }),
-          apiClient.get("/analytics/sales-by-staff/"),
-          apiClient.get("/analytics/sales-by-category/"),
-          apiClient.get("/analytics/estimate-conversion/"),
-          apiClient.get("/analytics/orders-by-creator/"),
-        ]);
-
-        setSummary(summaryRes.data);
-        setDaily(dailyRes.data.items || []);
-        setByStaff(staffRes.data.items || []);
-        setByCategory(categoryRes.data.items || []);
-        setConversion(conversionRes.data);
-        setBySales(salesRes.data.items || []);
-      } catch (e) {
-        console.error("❌ analytics load error:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
+    apiClient.get("/masters/staffs/")
+      .then(res => setStaffs(res.data.results || res.data))
+      .catch(console.error);
   }, []);
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" mt={10}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  useEffect(() => {
+    apiClient.get("/auth/user/")
+      .then(res => {
+        setUser(res.data);
+        setShopId(res.data.shop_id); // ←これが重要
+      })
+      .catch(console.error);
+  }, []);
 
-  // ==================================================
-  // JSX
-  // ==================================================
+  useEffect(() => {
+    if (!shopId) return;
+    fetchDaily();
+    fetchFullList();
+  }, [start, end, shopId, staffId]);
+
+  const displayList = selectedDate ? list : fullList;
+
+
+
+  useEffect(() => {
+    apiClient.get("/masters/shops/")
+      .then(res => setShops(res.data.results || res.data))
+      .catch(console.error);
+  }, []);
+  // =========================
+  // データ取得
+  // =========================
+  const fetchDaily = async () => {
+    setLoading(true);
+
+    try {
+      const res = await apiClient.get("/analytics/sales-daily/", {
+        params: { start, end, shop_id: shopId, staff_id: staffId }
+      });
+
+      setData(res.data);
+
+      // 前月
+      const prevStart = dayjs(start).subtract(1, "month").format("YYYY-MM-DD");
+      const prevEnd = dayjs(end).subtract(1, "month").format("YYYY-MM-DD");
+
+      const prevRes = await apiClient.get("/analytics/sales-daily/", {
+        params: { start: prevStart, end: prevEnd, shop_id: shopId },
+      });
+
+      setPrevData(prevRes.data);
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchList = async (date: string) => {
+    const res = await apiClient.get("/analytics/sales-list/", {
+      params: { start, end, shop_id: shopId, staff_id: staffId }
+    });
+    setList(res.data);
+  };
+
+  const handleClick = (state: any) => {
+    if (!state?.activeLabel) return;
+
+    setSelectedDate(state.activeLabel);
+    fetchList(state.activeLabel);
+  };
+
+  // =========================
+  // 計算
+  // =========================
+  const total = data.reduce((sum, d) => sum + d[mode], 0);
+
+  const prevTotal = prevData.reduce((sum, d) => sum + d[mode], 0);
+
+  const diff = prevTotal
+    ? ((total - prevTotal) / prevTotal) * 100
+    : 0;
+
+  const count =
+    mode === "order"
+      ? displayList.orders.length
+      : displayList.estimates.length;
+
+  // =========================
   return (
-    <Box>
-      <Typography variant="h5" fontWeight="bold" mb={3}>
-        分析ダッシュボード
+    <Box p={3}>
+      <Typography variant="h5" mb={2}>
+        売上分析
       </Typography>
 
-      {/* ===============================
-          サマリーカード
-      =============================== */}
-      <Grid container spacing={2} mb={4}>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <SummaryCard title="受注件数" value={summary.order_count} />
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <SummaryCard
-            title="売上合計"
-            value={`¥${Number(summary.grand_total).toLocaleString()}`}
+      {/* =========================
+          フィルタ
+      ========================= */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
           />
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <SummaryCard
-            title="税抜売上"
-            value={`¥${Number(summary.subtotal).toLocaleString()}`}
+          <TextField
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
           />
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <SummaryCard
-            title="消費税"
-            value={`¥${Number(summary.tax_total).toLocaleString()}`}
-          />
-        </Grid>
-      </Grid>
 
-      {/* ===============================
-          日別売上推移
-      =============================== */}
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography fontWeight="bold" mb={2}>
-          日別売上推移
-        </Typography>
-
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={daily}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="grand_total"
-              stroke="#1976d2"
-              strokeWidth={2}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+          <ToggleButtonGroup
+            value={mode}
+            exclusive
+            onChange={(_, val) => val && setMode(val)}
+          >
+            <ToggleButton value="order">受注</ToggleButton>
+            <ToggleButton value="estimate">見積</ToggleButton>
+          </ToggleButtonGroup>
+          <FormControl sx={{ minWidth: 160 }}>
+            <InputLabel>店舗</InputLabel>
+            <Select
+              value={shopId}
+              label="店舗"
+              onChange={(e) => setShopId(e.target.value)}
+            >
+              <MenuItem value="all">全店舗</MenuItem>
+              {shops.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl sx={{ minWidth: 160 }}>
+            <InputLabel>担当</InputLabel>
+            <Select
+              value={staffId}
+              label="担当"
+              onChange={(e) => setStaffId(e.target.value)}
+            >
+              <MenuItem value="all">全担当</MenuItem>
+              {staffs.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.display_name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
       </Paper>
 
-      {/* ===============================
-          担当者別・営業担当者別 売上
-      =============================== */}
-      <Grid container spacing={2} mt={2}>
-        {/* 担当者別売上 */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3, height: "100%" }}>
-            <Typography fontWeight="bold" mb={2}>
-              作業担当者別売上
+      {/* =========================
+          KPIカード
+      ========================= */}
+      <Grid container spacing={2} mb={3}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ p: 2 }}>
+            <Typography fontSize={13}>合計金額</Typography>
+            <Typography variant="h6">
+              ¥{total.toLocaleString()}
             </Typography>
-
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>順位</TableCell>
-                  <TableCell>担当者</TableCell>
-                  <TableCell align="right">売上</TableCell>
-                  <TableCell align="right">件数</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {[...byStaff]
-                  .sort((a, b) => (b.subtotal ?? 0) - (a.subtotal ?? 0))
-                  .map((row, index) => (
-                    <TableRow key={row.staff_id ?? index}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{row.staff_name || "未割当"}</TableCell>
-                      <TableCell align="right">
-                        ¥{Number(row.subtotal ?? 0).toLocaleString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        {row.sales_count}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
           </Paper>
         </Grid>
 
-        {/* 営業担当者別売上 */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3, height: "100%" }}>
-            <Typography fontWeight="bold" mb={2}>
-              営業担当者別売上
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ p: 2 }}>
+            <Typography fontSize={13}>件数</Typography>
+            <Typography variant="h6">
+              {count} 件
             </Typography>
+          </Paper>
+        </Grid>
 
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>順位</TableCell>
-                  <TableCell>営業担当</TableCell>
-                  <TableCell align="right">売上</TableCell>
-                  <TableCell align="right">受注数</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {[...bySales]
-                  .sort((a, b) => (b.total_sales ?? 0) - (a.total_sales ?? 0))
-                  .map((row, index) => (
-                    <TableRow key={row.staff_id ?? index}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{row.staff_name || "未設定"}</TableCell>
-                      <TableCell align="right">
-                        ¥{Number(row.subtotal ?? 0).toLocaleString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        {row.order_count}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ p: 2 }}>
+            <Typography fontSize={13}>前月比</Typography>
+            <Typography
+              variant="h6"
+              color={diff >= 0 ? "green" : "red"}
+            >
+              {diff.toFixed(1)} %
+            </Typography>
           </Paper>
         </Grid>
       </Grid>
 
-        {/* カテゴリ別 */}
-        {/* <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography fontWeight="bold" mb={2}>
-              カテゴリ別売上
-            </Typography>
+      {/* =========================
+          グラフ
+      ========================= */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        {loading ? (
+          <CircularProgress />
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={data} onClick={handleClick}>
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
 
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={byCategory}
-                  dataKey="subtotal"
-                  nameKey="category_name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                >
-                  {byCategory.map((_: any, index: number) => (
-                    <Cell
-                      key={index}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid> */}
+              <Line
+                type="monotone"
+                dataKey={mode}
+                stroke={mode === "order" ? "#2e7d32" : "#1565c0"}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </Paper>
 
-
-      {/* ===============================
-          成約率
-      =============================== */}
-      {/* <Paper sx={{ p: 3, mt: 4 }}>
-        <Typography fontWeight="bold" mb={1}>
-          見積 → 受注 成約率
+      <Paper sx={{ p: 2 }}>
+        <Typography mb={2}>
+          {selectedDate ? `${selectedDate} の一覧` : "期間内一覧"}
         </Typography>
+
         <Divider sx={{ mb: 2 }} />
 
-        <Typography variant="h6">
-          {conversion.conversion_rate}%（
-          {conversion.ordered_estimates} / {conversion.total_estimates}）
-        </Typography>
-      </Paper> */}
-    </Box>
-  );
-}
+        {/* =========================
+            見積テーブル
+        ========================= */}
+        {mode === "estimate" && (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>見積番号</TableCell>
+                <TableCell>見積日</TableCell>
+                <TableCell>顧客名</TableCell>
+                <TableCell align="right">金額</TableCell>
+                <TableCell>担当</TableCell>
+              </TableRow>
+            </TableHead>
 
-// ==================================================
-// Components
-// ==================================================
-function SummaryCard({ title, value }: { title: string; value: any }) {
-  return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="body2" color="text.secondary">
-        {title}
-      </Typography>
-      <Typography variant="h6" fontWeight="bold">
-        {value}
-      </Typography>
-    </Paper>
+            <TableBody>
+              {displayList.estimates.map((e: any) => (
+                <TableRow
+                  key={e.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => router.push(`/dashboard/estimates/${e.id}`)}
+                >
+                  <TableCell>{e.estimate_no}</TableCell>
+
+                  <TableCell>
+                    {e.estimate_date || e.created_at?.slice(0, 10)}
+                  </TableCell>
+
+                  <TableCell>{e.party?.name}</TableCell>
+
+                  <TableCell align="right">
+                    ¥{Number(e.grand_total).toLocaleString()}
+                  </TableCell>
+
+                  <TableCell>
+                    {e.created_by?.display_name}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        {/* =========================
+            受注テーブル
+        ========================= */}
+        {mode === "order" && (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>受注番号</TableCell>
+                <TableCell>受注日</TableCell>
+                <TableCell>顧客名</TableCell>
+                <TableCell align="right">金額</TableCell>
+                <TableCell>担当</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {displayList.orders.map((o: any) => (
+                <TableRow
+                  key={o.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => router.push(`/dashboard/orders/${o.id}`)}
+                >
+                  <TableCell>{o.order_no}</TableCell>
+
+                  <TableCell>
+                    {o.order_date || o.created_at?.slice(0, 10)}
+                  </TableCell>
+
+                  <TableCell>{o.party_name}</TableCell>
+
+                  <TableCell align="right">
+                    ¥{Number(o.grand_total).toLocaleString()}
+                  </TableCell>
+
+                  <TableCell>
+                    {o.created_by?.display_name}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+    </Box>
   );
 }

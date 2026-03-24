@@ -258,6 +258,9 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         (i: any) => i.item_type === "vehicle"
       );
 
+      const normalizeFk = (v: any) =>
+        typeof v === "object" ? v?.id ?? null : v ?? null;
+
       dispatch({
         type: "INIT_FROM_API",
         payload: {
@@ -272,15 +275,16 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             new_party: estimate.party
               ? {
                   ...estimate.party,
-                  customer_class:
-                    estimate.party.customer_class?.id ?? null,
-                  region: estimate.party.region?.id ?? null,
-                  gender: estimate.party.gender?.id ?? null,
+                  customer_class: normalizeFk(estimate.party.customer_class),
+                  region: normalizeFk(estimate.party.region),
+                  gender: normalizeFk(estimate.party.gender),
                 }
               : null,
 
             vehicle_mode: estimate.vehicle_mode ?? "none",
             created_by_id: estimate.created_by?.id ?? null,
+
+            estimate_date: estimate.estimate_date,
           },
 
           items: (estimate.items ?? []).map((item: any) => ({
@@ -320,6 +324,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         shop: state.basic.shop,
         created_by_id: state.basic.created_by_id,
         vehicle_mode: state.basic.vehicle_mode,
+        estimate_date: state.basic.estimate_date,
         new_party: state.basic.new_party,
         payments: [
           {

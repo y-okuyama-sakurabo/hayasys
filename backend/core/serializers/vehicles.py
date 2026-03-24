@@ -9,6 +9,9 @@ from core.models import (
     CustomerVehicle,
 )
 from core.models import Manufacturer, VehicleCategory, Color
+from core.utils.images import compress_image
+from PIL import Image
+
 
 
 # ---- Write 用 ----
@@ -242,9 +245,9 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         model = VehicleImage
         fields = [
             "id",
-            "vehicle",     
+            "vehicle",
             "image",
-            "image_url",     
+            "image_url",
             "mime",
             "width",
             "height",
@@ -253,7 +256,7 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "vehicle",    
+            "vehicle",
             "mime",
             "width",
             "height",
@@ -266,6 +269,37 @@ class VehicleImageSerializer(serializers.ModelSerializer):
         if obj.image and hasattr(obj.image, "url"):
             return request.build_absolute_uri(obj.image.url) if request else obj.image.url
         return None
+
+    # 🔥 容量制限
+    def validate_image(self, image):
+        max_size = 5 * 1024 * 1024  # 5MB
+        if image.size > max_size:
+            raise serializers.ValidationError("画像は5MB以下にしてください")
+        return image
+
+    # 🔥 圧縮＋メタ保存
+    def create(self, validated_data):
+        image = validated_data.get("image")
+
+        if image:
+            compressed = compress_image(image)
+            validated_data["image"] = compressed
+
+            img = Image.open(compressed)
+
+            validated_data["width"] = img.width
+            validated_data["height"] = img.height
+            validated_data["bytes"] = compressed.size
+
+            ext = compressed.name.lower().split(".")[-1]
+            if ext in ["jpg", "jpeg"]:
+                validated_data["mime"] = "image/jpeg"
+            elif ext == "png":
+                validated_data["mime"] = "image/png"
+            else:
+                validated_data["mime"] = "image/jpeg"
+
+        return super().create(validated_data)
 
 class VehicleMemosSerializer(serializers.ModelSerializer):
     vehicle = serializers.StringRelatedField()  

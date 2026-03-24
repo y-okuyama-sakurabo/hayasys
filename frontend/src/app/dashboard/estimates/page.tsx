@@ -45,6 +45,7 @@ type Estimate = {
   party: { name: string } | null;
   items?: { product?: { name: string } | null; name: string }[];
   grand_total?: string | number;
+  estimate_date?: string;
   created_at: string;
   created_by?: { display_name?: string } | null;
 };
@@ -446,7 +447,9 @@ function EstimateListPageInner() {
                 >
 
                   <TableCell>
-                    {new Date(est.created_at).toLocaleDateString("ja-JP")}
+                    {est.estimate_date
+                      ? new Date(est.estimate_date).toLocaleDateString("ja-JP")
+                      : new Date(est.created_at).toLocaleDateString("ja-JP")}
                   </TableCell>
 
                   <TableCell>{est.party?.name || "-"}</TableCell>
