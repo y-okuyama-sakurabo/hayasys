@@ -32,15 +32,10 @@ services:
       "
     depends_on:
       - db
-    # 👇 本番では外さないとダメ
-    # ports:
-    #   - "8000:8000"
-    #volumes:
-     # - ./backend:/app
 
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend   # ← ここが重要
       dockerfile: ../docker/frontend/Dockerfile.prod
     working_dir: /usr/src/app
     environment:
@@ -48,16 +43,13 @@ services:
       NEXT_PUBLIC_API_BASE_URL: "/api"
     depends_on:
       - backend
-    # 👇 本番では外す
-    # ports:
-    #   - "3000:3000"
 
   nginx:
     image: nginx:latest
     ports:
       - "80:80"
     volumes:
-      - /opt/hayasys/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - /opt/hayasys/docker/nginx:/etc/nginx/conf.d   # ← フォルダごと
     depends_on:
       - frontend
       - backend
