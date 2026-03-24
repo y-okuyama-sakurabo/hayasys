@@ -35,12 +35,12 @@ services:
     # 👇 本番では外さないとダメ
     # ports:
     #   - "8000:8000"
-    volumes:
-      - ./backend:/app
+    #volumes:
+     # - ./backend:/app
 
   frontend:
     build:
-      context: ./frontend
+      context: /opt/hayasys
       dockerfile: ../docker/frontend/Dockerfile.prod
     working_dir: /usr/src/app
     environment:

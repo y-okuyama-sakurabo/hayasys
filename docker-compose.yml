@@ -6,8 +6,6 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: app
       TZ: Asia/Tokyo
-    ports:
-      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
 
@@ -15,7 +13,6 @@ services:
     build:
       context: .
       dockerfile: ./docker/backend/Dockerfile
-    command: bash -lc "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     working_dir: /app
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
@@ -25,37 +22,45 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       TZ: Asia/Tokyo
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
+      DEBUG: "0"
+      ALLOWED_HOSTS: "*"
+    command: >
+      bash -lc "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+      "
     depends_on:
       - db
+    # 👇 本番では外さないとダメ
+    # ports:
+    #   - "8000:8000"
+    #volumes:
+     # - ./backend:/app
 
   frontend:
-      build:
-        context: .
-        dockerfile: docker/frontend/Dockerfile
-      working_dir: /usr/src/app
-      command: npm run dev # command はシンプルに戻し、host設定は vite.config.js または Dockerfile CMDで行います
-      # command: sh -lc "npm run dev -- --host 0.0.0.0" # もし vite.config.js がなければこれで代用
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile.prod
+    working_dir: /usr/src/app
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: "/api"
+    depends_on:
+      - backend
+    # 👇 本番では外す
+    # ports:
+    #   - "3000:3000"
 
-      environment:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api
-      volumes:
-        # 1. ソースコードはマウントする (設定ファイル、srcなど)
-        - ./frontend:/usr/src/app
-
-        # ★ 2. node_modules ディレクトリをローカルではなく、コンテナ内の匿名ボリュームにマウントする
-        #    これにより、ホストのファイルで上書きされるのを防ぎ、RUN npm install でインストールされた状態を保持する
-        - /usr/src/app/node_modules
-        
-      ports:
-        - "3000:3000"
-      depends_on:
-        - backend
-
-
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - frontend
+      - backend
 
 volumes:
   db-data: {}
