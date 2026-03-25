@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 import { useRouter, useSearchParams } from "next/navigation";
+import dayjs from "dayjs";
 
 import BasicInfoForm from "./BasicInfoForm";
 import VehicleStep from "./VehicleStep";
@@ -58,6 +59,7 @@ const initialState: EstimateState = {
     new_party: null,
     payment_method: "現金",
     vehicle_mode: "sale",
+    estimate_date: dayjs().format("YYYY-MM-DD"),
   },
   vehicle: null,
   items: [],
@@ -153,6 +155,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           estimate_no: nextNo,
           shop: user.shop_id,
           created_by_id: user.id,
+          estimate_date: dayjs().format("YYYY-MM-DD"),
         },
       });
     };
@@ -384,6 +387,24 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           category_id: item.category_id ?? item.category?.id ?? null,
         };
 
+        if (item.item_type === "vehicle") {
+          const existingVehicle = state.items.find(
+            (i) => i.item_type === "vehicle" && i.id
+          );
+
+          if (existingVehicle?.id) {
+            await apiClient.patch(
+              `/estimates/${id}/items/${existingVehicle.id}/`,
+              payload
+            );
+          } else {
+            await apiClient.post(`/estimates/${id}/items/`, payload);
+          }
+
+          continue; // ←これ重要
+        }
+
+        // 通常item
         if (mode === "edit" && item.id) {
           await apiClient.patch(
             `/estimates/${id}/items/${item.id}/`,
