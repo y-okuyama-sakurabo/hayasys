@@ -22,4 +22,4 @@ COPY docker/backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # 必要なら
-# COPY backend /app
+COPY backend /app
