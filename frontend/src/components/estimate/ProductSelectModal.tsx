@@ -18,6 +18,7 @@ import {
   Checkbox,
   FormControlLabel,
   Paper,
+  MenuItem
 } from "@mui/material";
 
 import EstimateCategorySelector from "@/components/estimate/EstimateCategorySelector";
@@ -36,7 +37,11 @@ export default function ProductSelectModal({
   onSelect,
   itemType,
 }: Props) {
+
+  console.log("modal itemType:", itemType);
+  
   const [tab, setTab] = useState(0);
+  console.log("tab:", tab); // ←これ追加
 
   /* ===============================
      category type
@@ -68,6 +73,9 @@ export default function ProductSelectModal({
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [saveAsProduct, setSaveAsProduct] = useState(true);
+  const [laborCost, setLaborCost] = useState<number | "">("");
+  const [manufacturerId, setManufacturerId] = useState<number | null>(null);
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
 
   /* ===============================
      リセット
@@ -202,6 +210,20 @@ export default function ProductSelectModal({
   }, [manualName]);
 
   /* ===============================
+    メーカー取得（accessoryのみ）
+  =============================== */
+  useEffect(() => {
+    if (!categoryId2 || itemType !== "accessory") return;
+
+    apiClient
+      .get(`/masters/manufacturers/?category=${categoryId2}`)
+      .then((res) => {
+        setManufacturers(res.data || []);
+      })
+      .catch(() => setManufacturers([]));
+  }, [categoryId2, itemType]);
+
+  /* ===============================
      close
   =============================== */
   const handleClose = () => {
@@ -243,6 +265,8 @@ export default function ProductSelectModal({
           name: productData?.name ?? manualName,
           unit_price: Number(productData?.unit_price ?? manualPrice),
           tax_type: productData?.tax_type ?? "taxable",
+          labor_cost: Number(laborCost || 0),
+          manufacturer: manufacturerId,
         })
       );
 
@@ -351,6 +375,40 @@ export default function ProductSelectModal({
                 }}
                 fullWidth
               />
+              {itemType === "accessory" && (
+                <>
+                  <TextField
+                    label="工賃"
+                    type="number"
+                    value={laborCost}
+                    onChange={(e) =>
+                      setLaborCost(
+                        e.target.value === "" ? "" : Number(e.target.value)
+                      )
+                    }
+                    fullWidth
+                  />
+
+                  <TextField
+                    select
+                    label="メーカー"
+                    value={manufacturerId ?? ""}
+                    onChange={(e) =>
+                      setManufacturerId(
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="">未選択</MenuItem>
+                    {manufacturers.map((m) => (
+                      <MenuItem key={m.id} value={m.id}>
+                        {m.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </>
+              )}
 
               {/* 🔥 登録トグル */}
               <FormControlLabel

@@ -18,6 +18,9 @@ import {
   MenuItem,
   Divider,
 } from "@mui/material";
+import { Collapse } from "@mui/material";
+import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import { usePathname } from "next/navigation";
 import {
   Dashboard,
   People,
@@ -41,6 +44,8 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
   const [shopName, setShopName] = React.useState<string>("");
   const [drawerOpen, setDrawerOpen] = React.useState(true);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [openAnalytics, setOpenAnalytics] = React.useState(false);
+  const pathname = usePathname();
 
   // === 初期ロード：ユーザー情報 ===
   React.useEffect(() => {
@@ -58,6 +63,12 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
 
     fetchUser();
   }, []);
+
+  React.useEffect(() => {
+    if (pathname.includes("/analytics")) {
+      setOpenAnalytics(true);
+    }
+  }, [pathname]);
 
   // === Drawer 開閉 ===
   const toggleDrawer = () => setDrawerOpen((prev) => !prev);
@@ -100,7 +111,10 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     {
       text: "分析",
       icon: <TrendingUpIcon />,
-      path: "/dashboard/analytics",
+      children: [
+        { text: "売上分析", path: "/dashboard/analytics/sales" },
+        { text: "商品分析", path: "/dashboard/analytics/product" },
+      ],
     },
 
     // 👇 ★ここが今回の変更
@@ -197,15 +211,45 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         <Toolbar />
         <Box sx={{ overflow: "auto" }}>
           <List>
-            {menus.map((item) => (
-              <ListItemButton
-                key={item.text}
-                onClick={() => router.push(item.path)}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            ))}
+            {menus.map((item) => {
+              // ★ サブメニューあり（分析）
+              if (item.children) {
+                return (
+                  <React.Fragment key={item.text}>
+                    <ListItemButton onClick={() => setOpenAnalytics((prev) => !prev)}>
+                      <ListItemIcon>{item.icon}</ListItemIcon>
+                      <ListItemText primary={item.text} />
+                      {openAnalytics ? <ExpandLess /> : <ExpandMore />}
+                    </ListItemButton>
+
+                    <Collapse in={openAnalytics} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {item.children.map((child) => (
+                          <ListItemButton
+                            key={child.text}
+                            sx={{ pl: 4 }}
+                            onClick={() => router.push(child.path)}
+                          >
+                            <ListItemText primary={child.text} />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </Collapse>
+                  </React.Fragment>
+                );
+              }
+
+              // ★ 通常メニュー
+              return (
+                <ListItemButton
+                  key={item.text}
+                  onClick={() => router.push(item.path)}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItemButton>
+              );
+            })}
           </List>
         </Box>
       </Drawer>

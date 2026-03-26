@@ -365,6 +365,8 @@ class OrderFromEstimateAPIView(APIView):
                 subtotal=item.subtotal,
                 staff=item.staff,
                 sale_type=item.sale_type,
+                labor_cost=item.labor_cost,
+                manufacturer=item.manufacturer,
             )
 
         # ===============================
@@ -521,6 +523,8 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "tax_type": item.tax_type,
                 "sale_type": item.sale_type,
                 "staff": item.staff.id if item.staff else None,
+                "labor_cost": item.labor_cost,
+                "manufacturer": item.manufacturer.id if item.manufacturer else None,
             })
 
         # ===== 返却（OrderForm state.basic にそのまま入れられる形）=====

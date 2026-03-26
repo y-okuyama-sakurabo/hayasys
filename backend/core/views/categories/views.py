@@ -15,6 +15,7 @@ from django.db.models import Q
 class CategoryListAPIView(generics.ListAPIView):
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         qs = Category.objects.all()
@@ -148,6 +149,7 @@ class CategoryRetrieveAPIView(generics.RetrieveAPIView):
 class CategoryTreeAPIView(generics.ListAPIView):
     serializer_class = CategoryTreeSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None 
 
     def get_queryset(self):
         qs = Category.objects.filter(parent__isnull=True)
@@ -183,3 +185,4 @@ class LeafCategoryListAPIView(generics.ListAPIView):
             qs = qs.filter(category_type=category_type)
 
         return qs.order_by("sort_order", "id")
+    

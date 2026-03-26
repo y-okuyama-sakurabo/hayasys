@@ -124,12 +124,23 @@ class OrderItem(models.Model):
         related_name="order_items",
         help_text="分析用カテゴリ（見積から引き継ぎ）"
     )
+    manufacturer = models.ForeignKey(
+        "core.Manufacturer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     staff = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="order_items",
         help_text="実作業担当スタッフ"
+    )
+    labor_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0
     )
     name = models.CharField(max_length=200)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)

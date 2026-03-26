@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from core.models import OrderItem, Category, Product
+from core.models.categories import Manufacturer
 from core.serializers.products import ProductSerializer
 
 User = get_user_model()
@@ -54,6 +55,20 @@ class OrderItemSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+
+    manufacturer = serializers.PrimaryKeyRelatedField(
+        queryset=Manufacturer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    labor_cost = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0,
+    )
+
     # ==================================================
     # UI専用フラグ（DBには保存しない）
     # ==================================================
@@ -91,6 +106,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "staff_id",
             "staff_input", 
 
+            "manufacturer",
+            "labor_cost",
+
             # UI flag
             "saveAsProduct",
 
@@ -127,7 +145,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
         except InvalidOperation:
             raise serializers.ValidationError("数量・単価・値引の値が不正です")
 
-        data["subtotal"] = (qty * price) - discount
+        labor = Decimal(str(data.get("labor_cost") or "0"))
+        data["subtotal"] = (qty * price) + labor - discount
         return data
 
     # ==================================================

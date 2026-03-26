@@ -165,6 +165,7 @@ from core.views.audit_logs.views import AuditLogViewSet
 from core.views.analytics.views import (
     SalesDailyAPIView,
     SalesListAPIView,
+    ProductAnalyticsAPIView,
 )
 
 urlpatterns = [
@@ -273,6 +274,7 @@ urlpatterns = [
     # =========================
     path("analytics/sales-daily/", SalesDailyAPIView.as_view()),
     path("analytics/sales-list/", SalesListAPIView.as_view()),
+    path("analytics/product/", ProductAnalyticsAPIView.as_view()),
 
 
     # =========================

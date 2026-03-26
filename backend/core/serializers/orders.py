@@ -307,10 +307,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 明細
         if items_data is not None:
-            instance.items.all().delete()
-            for item in items_data:
-                item.pop("saveAsProduct", None)
-                OrderItem.objects.create(order=instance, **item)
+                    instance.items.all().delete()
+                    for item in items_data:
+                        item.pop("saveAsProduct", None)
+                        # ⭕ 直接作成
+                        OrderItem.objects.create(order=instance, **item)
 
         # 支払い
         if payments_data is not None:

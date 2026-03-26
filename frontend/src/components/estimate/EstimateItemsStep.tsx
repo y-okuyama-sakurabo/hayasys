@@ -56,6 +56,8 @@ const STEP_CONFIG = {
   },
 } as const;
 
+
+
 function calcLine(item: any, options: { taxable: boolean; showLaborCost: boolean }) {
   const qty = Math.round(Number(item?.quantity ?? 1));
   const unit = Math.round(Number(item?.unit_price ?? 0));
@@ -76,8 +78,11 @@ function calcLine(item: any, options: { taxable: boolean; showLaborCost: boolean
 
 export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   const config = STEP_CONFIG[type];
+  console.log("type:", type);
+  console.log("config:", config);
   const [modalOpen, setModalOpen] = useState(false);
   const [staffs, setStaffs] = useState<any[]>([]);
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
 
   /* ===============================
@@ -95,6 +100,15 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
       .then((res) => setStaffs(res.data?.results || res.data || []))
       .catch(() => setStaffs([]));
   }, []);
+
+  useEffect(() => {
+    if (type !== "accessory") return;
+
+    apiClient
+      .get("/masters/manufacturers/")
+      .then((res) => setManufacturers(res.data || []))
+      .catch(() => setManufacturers([]));
+  }, [type]);
 
   useEffect(() => {
     apiClient
@@ -201,133 +215,211 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                   />
                 </Stack>
 
-                <Grid container spacing={1} alignItems="center">
-                  <Grid size={{ xs: 12, md: 3 }}>
-                    <TextField
-                      fullWidth
-                      label={config.nameLabel}
-                      value={item?.name ?? ""}
-                      onChange={(e) =>
-                        handleChange(originalIndex, "name", e.target.value)
-                      }
-                    />
-                  </Grid>
+                <>
+                  {/* ===== 1段目（メイン） ===== */}
+                  <Grid container spacing={1} alignItems="center">
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <TextField
+                        fullWidth
+                        label={config.nameLabel}
+                        value={item?.name ?? ""}
+                        onChange={(e) =>
+                          handleChange(originalIndex, "name", e.target.value)
+                        }
+                      />
+                    </Grid>
 
-                  <Grid size={{ xs: 6, md: 1 }}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="数量"
-                      value={item?.quantity ?? 1}
-                      onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "quantity",
-                          Math.round(Number(e.target.value))
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 6, md: 2 }}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="単価"
-                      value={item?.unit_price ?? 0}
-                      onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "unit_price",
-                          Math.round(Number(e.target.value))
-                        )
-                      }
-                    />
-                  </Grid>
-
-                  {config.showLaborCost && (
-                    <Grid size={{ xs: 6, md: 1.5 }}>
+                    <Grid size={{ xs: 4, md: 1 }}>
                       <TextField
                         fullWidth
                         type="number"
-                        label="工賃"
-                        value={item?.labor_cost ?? 0}
+                        label="数量"
+                        value={item?.quantity ?? 1}
                         onChange={(e) =>
                           handleChange(
                             originalIndex,
-                            "labor_cost",
+                            "quantity",
                             Math.round(Number(e.target.value))
                           )
                         }
                       />
                     </Grid>
+
+                    <Grid size={{ xs: 4, md: 2 }}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="単価"
+                        value={item?.unit_price ?? 0}
+                        onChange={(e) =>
+                          handleChange(
+                            originalIndex,
+                            "unit_price",
+                            Math.round(Number(e.target.value))
+                          )
+                        }
+                      />
+                    </Grid>
+
+                    <Grid size={{ xs: 4, md: 2 }}>
+                      <Box textAlign="right">
+                        <Typography variant="body2" color="text.secondary">
+                          {config.taxable ? "税込" : "合計"}
+                        </Typography>
+                        <Typography fontWeight="bold">
+                          ¥{line.total.toLocaleString()}
+                        </Typography>
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 1 }}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemove(originalIndex)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+
+                  {/* ===== 2段目（アクセサリーのみ） ===== */}
+                  {type === "accessory" && (
+                    <Grid container spacing={1} mt={1}>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="メーカー"
+                          value={item?.manufacturer ?? ""}
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "manufacturer",
+                              e.target.value === "" ? null : Number(e.target.value)
+                            )
+                          }
+                        >
+                          <MenuItem value="">未選択</MenuItem>
+                          {manufacturers.map((m) => (
+                            <MenuItem key={m.id} value={m.id}>
+                              {m.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+
+                      <Grid size={{ xs: 6, md: 2 }}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="工賃"
+                          value={item?.labor_cost ?? 0}
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "labor_cost",
+                              Math.round(Number(e.target.value))
+                            )
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 6, md: 2 }}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="割引"
+                          value={item?.discount ?? 0}
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "discount",
+                              Math.round(Number(e.target.value))
+                            )
+                          }
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="担当"
+                          value={
+                            item?.staff_id != null ? String(item.staff_id) : ""
+                          }
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "staff_id",
+                              e.target.value === ""
+                                ? null
+                                : Number(e.target.value)
+                            )
+                          }
+                        >
+                          <MenuItem value="">未選択</MenuItem>
+                          {staffs.map((s) => (
+                            <MenuItem key={s.id} value={String(s.id)}>
+                              {s.display_name || s.login_id}
+                              {s.shop_name && `（${s.shop_name}）`}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    </Grid>
                   )}
 
-                  <Grid size={{ xs: 6, md: 1 }}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="割引"
-                      value={item?.discount ?? 0}
-                      onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "discount",
-                          Math.round(Number(e.target.value))
-                        )
-                      }
-                    />
-                  </Grid>
+                  {/* ===== 非アクセサリー用（今まで通り） ===== */}
+                  {type !== "accessory" && (
+                    <Grid container spacing={1} mt={1}>
+                      <Grid size={{ xs: 6, md: 2 }}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="割引"
+                          value={item?.discount ?? 0}
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "discount",
+                              Math.round(Number(e.target.value))
+                            )
+                          }
+                        />
+                      </Grid>
 
-                  <Grid size={{ xs: 6, md: 2 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="担当"
-                      value={
-                        item?.staff_id != null ? String(item.staff_id) : ""
-                      }
-                      onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "staff_id",
-                          e.target.value === ""
-                            ? null
-                            : Number(e.target.value)
-                        )
-                      }
-                    >
-                      <MenuItem value="">未選択</MenuItem>
-                      {staffs.map((s) => (
-                        <MenuItem key={s.id} value={String(s.id)}>
-                          {s.display_name || s.login_id}
-                          {s.shop_name && `（${s.shop_name}）`}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid size={{ xs: 6, md: 2 }}>
-                    <Box textAlign="right">
-                      <Typography variant="body2" color="text.secondary">
-                        {config.taxable ? "税込" : "合計"}
-                      </Typography>
-                      <Typography fontWeight="bold">
-                        ¥{line.total.toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Grid>
-
-                  <Grid size={{ xs: 6, md: 1 }}>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemove(originalIndex)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Grid>
-                </Grid>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="担当"
+                          value={
+                            item?.staff_id != null ? String(item.staff_id) : ""
+                          }
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "staff_id",
+                              e.target.value === ""
+                                ? null
+                                : Number(e.target.value)
+                            )
+                          }
+                        >
+                          <MenuItem value="">未選択</MenuItem>
+                          {staffs.map((s) => (
+                            <MenuItem key={s.id} value={String(s.id)}>
+                              {s.display_name || s.login_id}
+                              {s.shop_name && `（${s.shop_name}）`}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    </Grid>
+                  )}
+                </>
               </Paper>
             </Grid>
           );

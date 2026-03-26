@@ -200,7 +200,14 @@ export default function OrderForm({ mode, orderId }: Props) {
                 payment_method:
                   data.payments?.[0]?.payment_method ?? "現金",
               },
-              items: data.items ?? [],
+              items: (data.items ?? []).map((item: any) => ({
+                ...item,
+                staff_id: item.staff ?? null,
+
+                // 🔥 これ追加
+                manufacturer: item.manufacturer ?? null,
+                labor_cost: item.labor_cost ?? 0,
+              })),
               vehicle: data.target_vehicle ?? null,
             },
           });
@@ -266,7 +273,36 @@ export default function OrderForm({ mode, orderId }: Props) {
               ...item,
               staff_id: item.staff?.id ?? item.staff_id ?? null,
             })),
-            vehicle: order.target_vehicle ?? null,
+            vehicle: (() => {
+              const v = order.vehicles?.find((x: any) => !x.is_trade_in);
+              if (!v) return null;
+
+              return {
+                id: v.id ?? null,
+
+                category_id: v.category ?? null, // ← numberで来てる
+                manufacturer: v.manufacturer ?? null,
+
+                vehicle_name: v.vehicle_name ?? "",
+                model_year: v.model_year ?? "",
+                chassis_no: v.chassis_no ?? "",
+                displacement: v.displacement ?? null,
+                engine_type: v.engine_type ?? "",
+                model_code: v.model_code ?? "",
+
+                color: v.color ?? null,
+                color_name: v.color_name ?? "",
+                color_code: v.color_code ?? "",
+
+                new_car_type: v.new_car_type ?? "new",
+
+                // 🔥 ここ重要（itemsから取る）
+                unit_price:
+                  order.items?.find((i: any) => i.item_type === "vehicle")?.unit_price ?? 0,
+
+                source_customer_vehicle: null,
+              };
+            })(),
           },
         });
       } catch (e) {
@@ -315,8 +351,27 @@ export default function OrderForm({ mode, orderId }: Props) {
           ? null
           : state.basic.new_customer ?? null,
         items: items.map((item) => ({
-          ...item,
-          staff: item.staff_id ?? null,
+          // ❌ spreadやめる（これが事故の元）
+          item_type: item.item_type,
+          name: item.name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          tax_type: item.tax_type,
+          discount: item.discount,
+          sale_type: item.sale_type,
+          labor_cost: item.labor_cost ?? 0,
+
+          // 🔥 ここが重要
+          staff:
+            typeof item.staff === "object"
+              ? item.staff?.id
+              : item.staff_id ?? item.staff ?? null,
+
+          manufacturer:
+            typeof item.manufacturer === "object"
+              ? item.manufacturer?.id
+              : item.manufacturer ?? null,
+
           category_id: item.category_id ?? item.category?.id ?? null,
         })),
         target_vehicle: state.vehicle,
