@@ -496,6 +496,70 @@ class ProductAnalyticsAPIView(APIView):
             result.sort(key=lambda x: x["count"], reverse=True)
 
             return Response(result)
+        
+        # ==========================================
+        # 作業担当分析
+        # ==========================================
+        elif type_ == "staff_work":
+
+            data = {}
+
+            for item in qs:
+                staff = item.staff
+
+                if not staff:
+                    key = "unknown"
+                    name = "未割当"
+                else:
+                    key = staff.id
+                    name = staff.display_name
+
+                if key not in data:
+                    data[key] = {
+                        "name": name,
+                        "total": 0,
+                        "count": 0,
+                        "categories": {},  # ←追加🔥
+                    }
+
+                data[key]["total"] += item.subtotal or 0
+                data[key]["count"] += 1
+
+                # -----------------------------
+                # 作業内容（カテゴリ）
+                # -----------------------------
+                if item.category:
+                    cat_name = item.category.name
+
+                    if cat_name not in data[key]["categories"]:
+                        data[key]["categories"][cat_name] = {
+                            "name": cat_name,
+                            "count": 0,
+                            "total": 0,
+                        }
+
+                    data[key]["categories"][cat_name]["count"] += 1
+                    data[key]["categories"][cat_name]["total"] += item.subtotal or 0
+
+            # -----------------------------
+            # 整形
+            # -----------------------------
+            result = []
+
+            for s in data.values():
+                cats = list(s["categories"].values())
+                cats.sort(key=lambda x: x["count"], reverse=True)
+
+                result.append({
+                    "name": s["name"],
+                    "total": s["total"],
+                    "count": s["count"],
+                    "categories": cats,
+                })
+
+            result.sort(key=lambda x: x["total"], reverse=True)
+
+            return Response(result)
 
         else:
             raise ValidationError("typeが不正")

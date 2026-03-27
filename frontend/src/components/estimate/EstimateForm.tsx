@@ -375,6 +375,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           name: state.vehicle.vehicle_name || "車両",
           quantity: 1,
           unit_price: state.vehicle.unit_price ?? 0,
+          discount: state.vehicle.discount ?? 0,
           category_id: state.vehicle.category_id ?? null,
           manufacturer: state.vehicle.manufacturer ?? null,
         });

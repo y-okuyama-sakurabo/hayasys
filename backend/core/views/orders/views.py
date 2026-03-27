@@ -463,6 +463,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
         vehicle_item = estimate.items.filter(item_type="vehicle").select_related("category").first()
         vehicle_category_id = vehicle_item.category.id if vehicle_item and vehicle_item.category else None
         vehicle_unit_price = vehicle_item.unit_price if vehicle_item else 0
+        vehicle_discount = vehicle_item.discount if vehicle_item else 0
 
         for v in vehicles:
             data = {
@@ -485,6 +486,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 # ★ target側にカテゴリと価格も入れる（VehicleStepが使える）
                 data["category_id"] = vehicle_category_id
                 data["unit_price"] = vehicle_unit_price
+                data["discount"] = vehicle_discount
                 target_vehicle = data
 
         # ===== 支払い（見積の Payment → orderの payments 形式へ）=====

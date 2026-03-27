@@ -5,6 +5,8 @@ from rest_framework import serializers
 from core.models import EstimateItem, Product, Category, Manufacturer
 from core.serializers.categories import CategorySerializer
 from core.serializers.manufacturers import ManufacturerSerializer
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 
 class EstimateItemSerializer(serializers.ModelSerializer):
@@ -37,6 +39,30 @@ class EstimateItemSerializer(serializers.ModelSerializer):
     )
 
     # =========================
+    # 作業担当（Orderと揃える）
+    # =========================
+    staff = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    # 書き込み用（任意：Orderと揃えるなら）
+    staff_input = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="staff",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    # 表示用
+    staff_id = serializers.IntegerField(
+        source="staff.id",
+        read_only=True,
+    )
+
+    # =========================
     # UI専用フラグ
     # =========================
     saveAsProduct = serializers.BooleanField(
@@ -65,6 +91,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
             "subtotal",
             "staff",
             "staff_id",
+            "staff_input",
             "saveAsProduct",
             "created_at",
             "updated_at",

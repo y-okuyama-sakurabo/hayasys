@@ -41,6 +41,7 @@ export default function VehicleStep({
     color_code: "",
     new_car_type: "new",
     unit_price: 0,
+    discount: 0,
     source_customer_vehicle: null,
   };
 
@@ -426,6 +427,25 @@ export default function VehicleStep({
               }
             />
           </Grid>
+          
+        )}
+        {vehicleMode === "sale" && (
+          <>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="値引き"
+                type="number"
+                fullWidth
+                value={currentVehicle.discount ?? 0}
+                onChange={(e) =>
+                  updateVehicle(
+                    "discount",
+                    e.target.value === "" ? 0 : Number(e.target.value)
+                  )
+                }
+              />
+            </Grid>
+          </>
         )}
       </Grid>
     </Paper>

@@ -299,6 +299,8 @@ export default function OrderForm({ mode, orderId }: Props) {
                 // 🔥 ここ重要（itemsから取る）
                 unit_price:
                   order.items?.find((i: any) => i.item_type === "vehicle")?.unit_price ?? 0,
+                discount:
+                  order.items?.find((i: any) => i.item_type === "vehicle")?.discount ?? 0,
 
                 source_customer_vehicle: null,
               };
@@ -330,6 +332,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           name: state.vehicle.vehicle_name || "車両",
           quantity: 1,
           unit_price: state.vehicle.unit_price ?? 0,
+          discount: state.vehicle.discount ?? 0,
           category_id:
             state.vehicle.category_id ??
             state.vehicle.category?.id ??

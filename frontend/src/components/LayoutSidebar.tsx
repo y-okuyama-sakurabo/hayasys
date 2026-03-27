@@ -114,6 +114,7 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
       children: [
         { text: "売上分析", path: "/dashboard/analytics/sales" },
         { text: "商品分析", path: "/dashboard/analytics/product" },
+        { text: "作業分析", path: "/dashboard/analytics/staff" },
       ],
     },
 
@@ -151,17 +152,16 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
           </Box>
 
           <Box display="flex" alignItems="center">
-            <IconButton onClick={handleMenuOpen} sx={{ p: 0 }}>
-              <Avatar
-                sx={{
-                  bgcolor: "#fff",
-                  color: "#1976d2",
-                  fontWeight: "bold",
-                }}
-              >
-                {displayName?.charAt(0)?.toUpperCase() || "?"}
-              </Avatar>
-            </IconButton>
+            <Typography
+              onClick={handleMenuOpen}
+              sx={{
+                color: "white",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {displayName}
+            </Typography>
 
             <Menu
               anchorEl={anchorEl}

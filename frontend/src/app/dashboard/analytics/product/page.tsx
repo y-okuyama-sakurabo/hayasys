@@ -222,9 +222,6 @@ export default function ProductAnalyticsPage() {
                   label="カテゴリ"
                   onChange={(e) => handleCategoryChange(e.target.value as any)}
                 >
-                  {categoryStack.length > 0 && (
-                    <MenuItem value="">← 戻る</MenuItem>
-                  )}
 
                   {currentLevel.map((c: any) => (
                     <MenuItem key={c.id} value={c.id}>
@@ -269,26 +266,6 @@ export default function ProductAnalyticsPage() {
           ? "色分析"
           : "メーカー分析"}
       </Typography>
-
-      {/* =============================
-         グラフ
-      ============================== */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={type === "color" ? "color_label" : "name"} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: any) => `¥${Number(value).toLocaleString()}`}
-              labelFormatter={(label: any) =>
-                type === "color" ? `色: ${label}` : label
-              }
-            />
-            <Bar dataKey="total" fill="#1976d2" />
-          </BarChart>
-        </ResponsiveContainer>
-      </Paper>
 
       {/* =============================
          ランキング
