@@ -54,6 +54,9 @@ type OrderState = {
   basic: any;
   vehicle: any | null;
   items: any[];
+  global_discount: number;
+
+  schedule?: any; 
 };
 
 const initialState: OrderState = {
@@ -70,6 +73,15 @@ const initialState: OrderState = {
   },
   vehicle: null,
   items: [],
+  schedule: {
+    id: null,
+    start_at: "",
+    end_at: "",
+    delivery_method: "",
+    delivery_shop: null,
+    description: "",
+  },
+  global_discount: 0,
 };
 
 function reducer(state: OrderState, action: any): OrderState {
@@ -78,6 +90,12 @@ function reducer(state: OrderState, action: any): OrderState {
       return {
         ...state,
         ...action.payload,
+        schedule: action.payload.schedule
+          ? {
+              ...state.schedule,
+              ...action.payload.schedule,
+            }
+          : state.schedule,
       };
 
     case "SET_BASIC":
@@ -116,6 +134,21 @@ function reducer(state: OrderState, action: any): OrderState {
       return {
         ...state,
         items: state.items.filter((_, i) => i !== action.index),
+      };
+    
+    case "SET_GLOBAL_DISCOUNT":
+      return {
+        ...state,
+        global_discount: action.payload,
+      };
+
+    case "SET_SCHEDULE":
+      return {
+        ...state,
+        schedule: {
+          ...state.schedule,
+          ...action.payload,
+        },
       };
 
     default:
@@ -183,8 +216,10 @@ export default function OrderForm({ mode, orderId }: Props) {
             "/orders/prepare-from-estimate/",
             { estimate_id: Number(fromEstimate) }
           );
-
           const data = res.data;
+          const discountItem = data.items?.find(
+            (item: any) => item.item_type === "discount"
+          );
 
           dispatch({
             type: "INIT_FROM_API",
@@ -208,7 +243,14 @@ export default function OrderForm({ mode, orderId }: Props) {
                 manufacturer: item.manufacturer ?? null,
                 labor_cost: item.labor_cost ?? 0,
               })),
-              vehicle: data.target_vehicle ?? null,
+              global_discount: discountItem?.discount ?? 0,
+              vehicle: data.target_vehicle
+                ? {
+                    ...data.target_vehicle,
+                    discount: data.target_vehicle.discount ?? 0,
+                  }
+                : null,
+              schedule: data.schedule,
             },
           });
         }
@@ -233,6 +275,10 @@ export default function OrderForm({ mode, orderId }: Props) {
 
         const res = await apiClient.get(`/orders/${orderId}/`);
         const order = res.data;
+
+        const discountItem = order.items?.find(
+          (item: any) => item.item_type === "discount"
+        );
 
         dispatch({
           type: "INIT_FROM_API",
@@ -273,6 +319,17 @@ export default function OrderForm({ mode, orderId }: Props) {
               ...item,
               staff_id: item.staff?.id ?? item.staff_id ?? null,
             })),
+            global_discount: discountItem?.discount ?? 0,
+            schedule: order.schedule
+              ? {
+                  id: order.schedule.id,
+                  start_at: order.schedule.start_at,
+                  end_at: order.schedule.end_at,
+                  delivery_method: order.schedule.delivery_method,
+                  delivery_shop: order.schedule.delivery_shop,
+                  description: order.schedule.description,
+                }
+              : initialState.schedule,
             vehicle: (() => {
               const v = order.vehicles?.find((x: any) => !x.is_trade_in);
               if (!v) return null;
@@ -281,8 +338,10 @@ export default function OrderForm({ mode, orderId }: Props) {
                 id: v.id ?? null,
 
                 category_id: v.category ?? null, // ← numberで来てる
-                manufacturer: v.manufacturer ?? null,
-
+                manufacturer:
+                  typeof v.manufacturer === "object"
+                    ? v.manufacturer.id
+                    : v.manufacturer ?? null,
                 vehicle_name: v.vehicle_name ?? "",
                 model_year: v.model_year ?? "",
                 chassis_no: v.chassis_no ?? "",
@@ -322,7 +381,9 @@ export default function OrderForm({ mode, orderId }: Props) {
     try {
       setLoading(true);
 
-      let items = [...state.items];
+      let items = [...state.items].filter(
+        (i) => i.item_type !== "vehicle" && i.item_type !== "discount"
+      );
 
       if (state.vehicle && state.basic.vehicle_mode === "sale") {
         items = items.filter((i) => i.item_type !== "vehicle");
@@ -344,6 +405,21 @@ export default function OrderForm({ mode, orderId }: Props) {
         });
       }
 
+      if (state.global_discount > 0) {
+        items.push({
+          item_type: "discount",
+          name: "値引き調整",
+          quantity: 1,
+          unit_price: 0,
+          discount: state.global_discount,
+          labor_cost: 0,
+          tax_type: "taxable",
+          category_id: null,
+          manufacturer: null,
+          staff_id: null,
+        });
+      }
+
       const payload = {
         shop: state.basic.shop,
         created_by_id: state.basic.created_by_id,
@@ -354,7 +430,6 @@ export default function OrderForm({ mode, orderId }: Props) {
           ? null
           : state.basic.new_customer ?? null,
         items: items.map((item) => ({
-          // ❌ spreadやめる（これが事故の元）
           item_type: item.item_type,
           name: item.name,
           quantity: item.quantity,
@@ -364,7 +439,6 @@ export default function OrderForm({ mode, orderId }: Props) {
           sale_type: item.sale_type,
           labor_cost: item.labor_cost ?? 0,
 
-          // 🔥 ここが重要
           staff:
             typeof item.staff === "object"
               ? item.staff?.id
@@ -377,7 +451,15 @@ export default function OrderForm({ mode, orderId }: Props) {
 
           category_id: item.category_id ?? item.category?.id ?? null,
         })),
-        target_vehicle: state.vehicle,
+        target_vehicle: state.vehicle
+          ? {
+              ...state.vehicle,
+              manufacturer:
+                typeof state.vehicle.manufacturer === "object"
+                  ? state.vehicle.manufacturer?.id
+                  : state.vehicle.manufacturer ?? null,
+            }
+          : null,
         payments: [
           {
             payment_method: state.basic.payment_method,
@@ -385,7 +467,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         ],
       };
 
-      // 🔥 類似チェック（新規顧客のときだけ）
+      // 類似チェック
       if (!state.basic.customer_id && state.basic.new_customer) {
         const nc = state.basic.new_customer;
 
@@ -414,6 +496,29 @@ export default function OrderForm({ mode, orderId }: Props) {
       } else {
         res = await apiClient.patch(`/orders/${orderId}/`, payload);
       }
+
+      /* =========================
+        🔥 ここ追加（スケジュール保存）
+      ========================= */
+      if (state.schedule?.start_at) {
+        const payload = {
+          start_at: state.schedule.start_at,
+          end_at: state.schedule.end_at,
+          delivery_method: state.schedule.delivery_method || "",
+          delivery_shop: state.schedule.delivery_shop || null,
+          description: state.schedule.description || "",
+        };
+
+        if (state.schedule.id) {
+          await apiClient.patch(`/schedules/${state.schedule.id}/`, payload);
+        } else {
+          await apiClient.post("/schedules/", {
+            order: res.data.id,
+            title: "納車予定日",
+            ...payload,
+          });
+        }
+      }     
 
       window.location.href = `/dashboard/orders/${res.data.id}`;
     } catch (e) {
@@ -460,6 +565,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         {currentStep === "vehicle" && (
           <VehicleStep
             vehicle={state.vehicle}
+            schedule={state.schedule}
             dispatch={dispatch}
             partyId={state.basic.customer_id}
             vehicleMode={state.basic.vehicle_mode}
@@ -493,6 +599,30 @@ export default function OrderForm({ mode, orderId }: Props) {
             dispatch={dispatch}
           />
         )}
+      </Paper>
+
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff",
+        }}
+      >
+        <Typography fontWeight="bold" mb={2}>
+          全体調整
+        </Typography>
+
+        <input
+          type="number"
+          value={state.global_discount}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_GLOBAL_DISCOUNT",
+              payload: e.target.value === "" ? 0 : Number(e.target.value),
+            })
+          }
+          style={{ width: "100%", padding: 8 }}
+        />
       </Paper>
 
       <Divider sx={{ my: 3 }} />

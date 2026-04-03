@@ -20,6 +20,7 @@ from core.models import (
     EstimateParty,
     Customer,
     Payment,
+    Schedule,
 )
 from core.models.base import Shop
 from core.serializers.order_detail import OrderDetailSerializer
@@ -142,27 +143,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
             shop=shop,
             order_no=order_no,
         )
-
-        subtotal = 0
-        discount_total = 0
-
-        for item in order.items.all():
-            qty = float(item.quantity or 0)
-            price = float(item.unit_price or 0)
-            discount = float(item.discount or 0)
-
-            subtotal += (qty * price) - discount
-            discount_total += discount
-
-        tax_total = int(subtotal * 0.1)
-        grand_total = subtotal + tax_total
-
-        order.subtotal = subtotal
-        order.discount_total = discount_total
-        order.tax_total = tax_total
-        order.grand_total = grand_total
-        order.save()
-
+        serializer._recalculate_order(order)
 
 # ======================================
 # 受注単体
@@ -368,6 +349,30 @@ class OrderFromEstimateAPIView(APIView):
                 labor_cost=item.labor_cost,
                 manufacturer=item.manufacturer,
             )
+        
+        # ===============================
+        # 5. スケジュールコピー
+        # ===============================
+        estimate_schedules = Schedule.objects.filter(
+            estimate_id=estimate.id,
+        )
+        if not Schedule.objects.filter(order=order).exists():
+            for s in estimate_schedules:
+                Schedule.objects.create(
+                    schedule_type="delivery",
+                    order=order,
+                    customer=order.customer,
+                    shop=order.shop,
+                    staff=order.created_by,
+
+                    title=s.title,
+                    start_at=s.start_at,
+                    end_at=s.end_at,
+
+                    delivery_method=s.delivery_method,
+                    delivery_shop=s.delivery_shop,
+                    description=s.description,
+                )
 
         # ===============================
         # 6. 支払いコピー（Estimate → Order）
@@ -528,6 +533,13 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "labor_cost": item.labor_cost,
                 "manufacturer": item.manufacturer.id if item.manufacturer else None,
             })
+        
+        # ===============================
+        # 🔥 スケジュール取得（ここ追加）
+        # ===============================
+        schedule = Schedule.objects.filter(
+            estimate_id=estimate.id
+        ).order_by("-start_at").first()
 
         # ===== 返却（OrderForm state.basic にそのまま入れられる形）=====
         data = {
@@ -546,7 +558,6 @@ class PrepareOrderFromEstimateAPIView(APIView):
             "target_vehicle": target_vehicle,
             "trade_in_vehicle": trade_in_vehicle,
 
-            # ★ OrderFormは payments を送るので合わせる
             "payments": payments_payload,
 
             "totals": {
@@ -555,6 +566,13 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "tax_total": estimate.tax_total,
                 "grand_total": estimate.grand_total,
             },
+            "schedule": {
+                "start_at": schedule.start_at,
+                "end_at": schedule.end_at,
+                "delivery_method": schedule.delivery_method,
+                "delivery_shop": schedule.delivery_shop.id if schedule.delivery_shop else None,
+                "description": schedule.description,
+            } if schedule else None,
         }
 
         return Response(data, status=200)

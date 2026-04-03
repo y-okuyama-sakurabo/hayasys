@@ -11,6 +11,7 @@ import {
   Stepper,
   Step,
   StepLabel,
+  TextField,
 } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -47,7 +48,9 @@ type EstimateState = {
   basic: any;
   vehicle: any | null;
   items: any[];
+  schedule: any;
   deletedItemIds: number[];
+  global_discount: number;
 };
 
 const initialState: EstimateState = {
@@ -63,13 +66,38 @@ const initialState: EstimateState = {
   },
   vehicle: null,
   items: [],
+  schedule: {
+    id: null,
+    start_at: "",
+    date: "",
+    time: "",
+    delivery_method: "",
+    delivery_shop: null,
+    description: "",
+  },
   deletedItemIds: [],
+  global_discount: 0,
 };
 
 function reducer(state: EstimateState, action: any): EstimateState {
   switch (action.type) {
     case "INIT_FROM_API":
-      return { ...state, ...action.payload };
+      const estimate = action.payload;
+      return {
+        ...state,
+        ...estimate,
+        schedule: estimate.schedule
+          ? {
+              id: estimate.schedule.id, // ←これ追加🔥🔥🔥
+              start_at: estimate.schedule.start_at,
+              date: dayjs(estimate.schedule.start_at).format("YYYY-MM-DD"),
+              time: dayjs(estimate.schedule.start_at).format("HH:mm"),
+              delivery_method: estimate.schedule.delivery_method,
+              delivery_shop: estimate.schedule.delivery_shop,
+              description: estimate.schedule.description,
+            }
+          : initialState.schedule,
+      };
 
     case "SET_BASIC":
       return { ...state, basic: { ...state.basic, ...action.payload } };
@@ -102,6 +130,21 @@ function reducer(state: EstimateState, action: any): EstimateState {
           : state.deletedItemIds,
       };
     }
+
+    case "SET_GLOBAL_DISCOUNT":
+      return {
+        ...state,
+        global_discount: action.payload,
+      };
+
+    case "SET_SCHEDULE":
+      return {
+        ...state,
+        schedule: {
+          ...state.schedule,
+          ...action.payload,
+        },
+      };
 
     default:
       return state;
@@ -183,6 +226,10 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           (i: any) => i.item_type === "vehicle"
         );
 
+        const discountItem = estimate.items?.find(
+          (i: any) => i.item_type === "discount"
+        );
+
         dispatch({
           type: "INIT_FROM_API",
           payload: {
@@ -218,6 +265,19 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             },
 
             items: estimate.items ?? [],
+
+            global_discount: discountItem?.discount ?? 0,
+
+            schedule: estimate.schedule
+              ? {
+                  start_at: estimate.schedule.start_at,
+                  date: dayjs(estimate.schedule.start_at).format("YYYY-MM-DD"),
+                  time: dayjs(estimate.schedule.start_at).format("HH:mm"),
+                  delivery_method: estimate.schedule.delivery_method,
+                  delivery_shop: estimate.schedule.delivery_shop,
+                  description: estimate.schedule.description,
+                }
+              : initialState.schedule,
 
             vehicle: vehicle
               ? {
@@ -264,6 +324,10 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       const normalizeFk = (v: any) =>
         typeof v === "object" ? v?.id ?? null : v ?? null;
 
+      const discountItem = estimate.items?.find(
+        (i: any) => i.item_type === "discount"
+      );
+
       dispatch({
         type: "INIT_FROM_API",
         payload: {
@@ -295,10 +359,27 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             staff_id: item.staff?.id ?? item.staff_id ?? null,
           })),
 
+          global_discount: discountItem?.discount ?? 0,
+
+          schedule: estimate.schedule
+            ? {
+                id: estimate.schedule.id,
+                start_at: estimate.schedule.start_at,
+                date: dayjs(estimate.schedule.start_at).format("YYYY-MM-DD"),
+                time: dayjs(estimate.schedule.start_at).format("HH:mm"),
+                delivery_method: estimate.schedule.delivery_method,
+                delivery_shop: estimate.schedule.delivery_shop,
+                description: estimate.schedule.description,
+              }
+            : initialState.schedule,
+
           vehicle: vehicle
             ? {
                 ...vehicle,
-                manufacturer: vehicle.manufacturer?.id ?? null,
+                manufacturer:
+                  vehicle.manufacturer_detail?.id ??
+                  vehicle.manufacturer ??
+                  null,
                 category_id: vehicleItem?.category?.id ?? null,
                 unit_price: vehicleItem?.unit_price ?? 0,
               }
@@ -344,6 +425,29 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       }
 
       /* =========================
+        🔥 ここ追加（スケジュール保存）
+      ========================= */
+      if (state.schedule?.start_at) {
+        const schedulePayload = {
+          start_at: state.schedule.start_at,
+          end_at: dayjs(state.schedule.start_at).add(1, "hour").format(),
+          delivery_method: state.schedule.delivery_method || "",
+          delivery_shop: state.schedule.delivery_shop || null,
+          description: state.schedule.description || "",
+        };
+
+        if (state.schedule.id) {
+          await apiClient.patch(`/schedules/${state.schedule.id}/`, schedulePayload);
+        } else {
+          await apiClient.post("/schedules/", {
+            estimate: id,
+            title: "納車予定日",
+            ...schedulePayload,
+          });
+        }
+      }
+
+      /* =========================
          車両保存
       ========================= */
 
@@ -366,7 +470,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       ========================= */
 
       let items = [...state.items].filter(
-        (i) => i.item_type !== "vehicle"
+        (i) => i.item_type !== "vehicle" && i.item_type !== "discount"
       );
 
       if (state.vehicle && state.basic.vehicle_mode === "sale") {
@@ -378,6 +482,21 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           discount: state.vehicle.discount ?? 0,
           category_id: state.vehicle.category_id ?? null,
           manufacturer: state.vehicle.manufacturer ?? null,
+        });
+      }
+
+      if (state.global_discount > 0) {
+        items.push({
+          item_type: "discount",
+          name: "値引き調整",
+          quantity: 1,
+          unit_price: 0,
+          discount: state.global_discount,
+          labor_cost: 0,
+          tax_type: "taxable",
+          category_id: null,
+          manufacturer: null,
+          staff_id: null,
         });
       }
 
@@ -458,6 +577,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         {currentStep === "vehicle" && (
           <VehicleStep
             vehicle={state.vehicle}
+            schedule={state.schedule}
             dispatch={dispatch}
             partyId={state.basic.party_id}
             vehicleMode={state.basic.vehicle_mode}
@@ -483,7 +603,30 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
       <Divider sx={{ my: 3 }} />
 
-      
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff",
+        }}
+      >
+        <Typography fontWeight="bold" mb={2}>
+          全体値引き
+        </Typography>
+
+        <TextField
+          label="金額"
+          type="number"
+          fullWidth
+          value={state.global_discount}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_GLOBAL_DISCOUNT",
+              payload: e.target.value === "" ? 0 : Number(e.target.value),
+            })
+          }
+        />
+      </Paper>
 
       <Box display="flex" justifyContent="space-between">
         {/* 前へ */}

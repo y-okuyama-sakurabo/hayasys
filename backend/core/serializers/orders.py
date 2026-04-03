@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
+from decimal import Decimal, ROUND_HALF_UP
+from django.db.models import Sum
 
 from core.models import (
     Order,
@@ -8,13 +10,17 @@ from core.models import (
     Customer,
     Shop,
     Payment,
+    Schedule,
 )
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer, Category
 from core.models.masters import Color
+from core.models import OrderVehicleRegistration
 from core.serializers.order_items import OrderItemSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.customers import CustomerWriteSerializer
+from core.serializers.order_vehicles import OrderVehicleSerializer
+
 
 User = get_user_model()
 
@@ -43,12 +49,20 @@ class OrderSerializer(serializers.ModelSerializer):
     new_customer = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     items = OrderItemSerializer(many=True, required=False)
+    schedule = serializers.JSONField(write_only=True, required=False, allow_null=True)
     payments = PaymentSerializer(many=True, required=False)
+    schedule = serializers.SerializerMethodField()
 
     target_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
     trade_in_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     created_by = CreatedBySerializer(read_only=True)
+
+    vehicles = OrderVehicleSerializer(
+        source="order_vehicles",
+        many=True,
+        read_only=True,
+    )
 
     created_by_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -99,6 +113,21 @@ class OrderSerializer(serializers.ModelSerializer):
 
         data.update(fk_id_updates)
         return Customer.objects.create(**data)
+    
+    def get_schedule(self, obj):
+        s = Schedule.objects.filter(order=obj).order_by("-id").first()
+
+        if not s:
+            return None
+
+        return {
+            "id": s.id,
+            "start_at": s.start_at,
+            "end_at": s.end_at,
+            "delivery_method": s.delivery_method,
+            "delivery_shop": s.delivery_shop.id if s.delivery_shop else None,
+            "description": s.description,
+        }
 
     def _create_payments(self, order, payments_data):
         order_ct = ContentType.objects.get_for_model(Order)
@@ -145,13 +174,13 @@ class OrderSerializer(serializers.ModelSerializer):
     # =========================================
 
     def _clean_vehicle_data(self, vehicle_data):
-        """危険フィールド除去"""
         if not vehicle_data:
             return None
 
         vehicle_data.pop("id", None)
         vehicle_data.pop("order", None)
         vehicle_data.pop("unit_price", None)
+        vehicle_data.pop("discount", None)
 
         return vehicle_data
 
@@ -176,13 +205,46 @@ class OrderSerializer(serializers.ModelSerializer):
                 setattr(existing, attr, value)
             existing.is_trade_in = False
             existing.save()
+
+            regs = raw_vehicle.get("registrations", []) if raw_vehicle else []
+
+            if regs is not None:
+                existing.registrations.all().delete()
+
+                for reg in regs:
+                    OrderVehicleRegistration.objects.create(
+                        vehicle=existing,
+                        registration_area=reg.get("registration_area"),
+                        registration_no=reg.get("registration_no"),
+                        certification_no=reg.get("certification_no"),
+                        inspection_expiration=reg.get("inspection_expiration"),
+                        first_registration_date=reg.get("first_registration_date"),
+                    )
+
             return existing
 
-        return OrderVehicle.objects.create(
+        vehicle = OrderVehicle.objects.create(
             order=order,
             is_trade_in=False,
             **vehicle_data,
         )
+
+        # 🔥 ここに移動
+        regs = raw_vehicle.get("registrations", []) if raw_vehicle else []
+
+        for reg in regs:
+            OrderVehicleRegistration.objects.create(
+                vehicle=vehicle,
+                registration_area=reg.get("registration_area"),
+                registration_no=reg.get("registration_no"),
+                certification_no=reg.get("certification_no"),
+                inspection_expiration=reg.get("inspection_expiration"),
+                first_registration_date=reg.get("first_registration_date"),
+            )
+
+        return vehicle
+    
+
 
     def _replace_trade_in_vehicle(self, order, raw_vehicle):
         order.order_vehicles.filter(is_trade_in=True).delete()
@@ -243,12 +305,29 @@ class OrderSerializer(serializers.ModelSerializer):
             }
         )
 
+        schedule_data = validated_data.pop("schedule", None)
+
         order = Order.objects.create(**validated_data)
+
+        if schedule_data:
+            Schedule.objects.create(
+                schedule_type="delivery",
+                order=order,
+                customer=order.customer,
+                shop=order.shop,
+                staff=order.created_by,
+                title="納車予定",
+                start_at=schedule_data.get("start_at"),
+                end_at=schedule_data.get("end_at"),
+                delivery_method=schedule_data.get("delivery_method", ""),
+                delivery_location=schedule_data.get("delivery_location", ""),
+                description=schedule_data.get("note", ""),
+            )
 
         for item in items_data:
             item.pop("saveAsProduct", None)
             OrderItem.objects.create(order=order, **item)
-
+        self._recalculate_order(order) 
         self._create_payments(order, payments_data)
         self._upsert_target_vehicle(order, raw_target_vehicle)
         self._replace_trade_in_vehicle(order, raw_trade_in_vehicle)
@@ -260,6 +339,7 @@ class OrderSerializer(serializers.ModelSerializer):
     # =========================================
 
     def update(self, instance, validated_data):
+        schedule_data = validated_data.pop("schedule", None)
         new_customer_data = validated_data.pop("new_customer", None)
         customer = validated_data.pop("customer", None)
         items_data = validated_data.pop("items", None)
@@ -307,11 +387,35 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 明細
         if items_data is not None:
-                    instance.items.all().delete()
-                    for item in items_data:
-                        item.pop("saveAsProduct", None)
-                        # ⭕ 直接作成
-                        OrderItem.objects.create(order=instance, **item)
+            instance.items.all().delete()
+            for item in items_data:
+                item.pop("saveAsProduct", None)
+                OrderItem.objects.create(order=instance, **item)
+            self._recalculate_order(instance) 
+
+        # =========================
+        # 🔥 schedule更新（追加）
+        # =========================
+        if schedule_data is not None:
+            existing = Schedule.objects.filter(order=instance).order_by("-id").first()
+
+            if existing:
+                for attr, value in schedule_data.items():
+                    setattr(existing, attr, value)
+                existing.save()
+            else:
+                Schedule.objects.create(
+                    schedule_type="delivery",
+                    order=instance,
+                    customer=instance.customer,
+                    shop=instance.shop,
+                    staff=instance.created_by,
+                    title="納車予定",
+                    start_at=schedule_data.get("start_at"),
+                    end_at=schedule_data.get("end_at"),
+                    delivery_method=schedule_data.get("delivery_method", ""),
+                    description=schedule_data.get("description", ""),
+                )
 
         # 支払い
         if payments_data is not None:
@@ -327,3 +431,33 @@ class OrderSerializer(serializers.ModelSerializer):
         self._replace_trade_in_vehicle(instance, raw_trade_in_vehicle)
 
         return instance
+    
+    def _recalculate_order(self, order):
+        items = order.items.all()
+
+        subtotal = items.aggregate(
+            total=Sum("subtotal")
+        )["total"] or Decimal("0.00")
+
+        taxable_subtotal = items.filter(
+            tax_type="taxable"
+        ).aggregate(
+            total=Sum("subtotal")
+        )["total"] or Decimal("0.00")
+
+        tax_total = (taxable_subtotal * Decimal("0.10")).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP
+        )
+
+        final_adjustment = order.final_adjustment or Decimal("0")
+
+        order.subtotal = subtotal
+        order.tax_total = tax_total
+        order.grand_total = subtotal + tax_total + final_adjustment
+
+        order.save(update_fields=[
+            "subtotal",
+            "tax_total",
+            "grand_total",
+        ])

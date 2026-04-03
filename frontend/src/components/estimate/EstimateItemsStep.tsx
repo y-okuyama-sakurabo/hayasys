@@ -176,7 +176,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <>
       <Typography variant="h6" fontWeight="bold" mb={2}>
         {config.title}
       </Typography>
@@ -461,6 +461,6 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
           });
         }}
       />
-    </Paper>
+    </>
   );
 }

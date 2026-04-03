@@ -8,13 +8,16 @@ import {
   Paper,
   MenuItem,
   Divider,
+  Select,
 } from "@mui/material";
 
 import EstimateCategorySelector from "@/components/estimate/EstimateCategorySelector";
 import apiClient from "@/lib/apiClient";
+import dayjs from "dayjs";
 
 type Props = {
   vehicle: any | null;
+  schedule: any;
   dispatch: React.Dispatch<any>;
   partyId: number | null;
   vehicleMode: "sale" | "maintenance" | "none";
@@ -22,6 +25,7 @@ type Props = {
 
 export default function VehicleStep({
   vehicle,
+  schedule,
   dispatch,
   partyId,
   vehicleMode,
@@ -50,6 +54,7 @@ export default function VehicleStep({
   const [customerVehicles, setCustomerVehicles] = useState<any[]>([]);
 
   const [chassisError, setChassisError] = useState("");
+  const [shops, setShops] = useState<any[]>([]);
 
   const isFirstCategoryLoad = useRef(true);
   const prevCategoryIdRef = useRef<number | null>(null);
@@ -130,6 +135,16 @@ export default function VehicleStep({
       .get(`/masters/colors/`)
       .then((res) => setColors(res.data || []))
       .catch(() => setColors([]));
+  }, []);
+
+  /* =============================
+     カラー取得
+  ============================= */
+  useEffect(() => {
+    apiClient
+      .get("/masters/shops/")
+      .then((res) => setShops(res.data || []))
+      .catch(() => setShops([]));
   }, []);
 
   /* =============================
@@ -226,10 +241,17 @@ export default function VehicleStep({
      UI
   ============================= */
   return (
-    <Paper sx={{ p: 3 }}>
+    <>
       <Typography variant="h6" fontWeight="bold" mb={3}>
         車両情報
       </Typography>
+
+      <Grid size={{ xs: 12 }}>
+        <Divider sx={{ my: 2 }} />
+          <Typography fontWeight="bold">
+            基本情報
+          </Typography>
+      </Grid>
 
       {vehicleMode === "maintenance" &&
         partyId &&
@@ -411,7 +433,96 @@ export default function VehicleStep({
             onChange={(e) => updateVehicle("color_code", e.target.value)}
           />
         </Grid>
+        {vehicleMode === "sale" && (
+          <>
+            <Grid size={{ xs: 12 }}>
+              <Divider sx={{ my: 2 }} />
+              <Typography fontWeight="bold">
+                登録情報
+              </Typography>
+            </Grid>
 
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                label="登録地域"
+                fullWidth
+                value={currentVehicle.registrations?.[0]?.registration_area || ""}
+                onChange={(e) => {
+                  const reg = currentVehicle.registrations?.[0] || {};
+                  updateVehicle("registrations", [
+                    { ...reg, registration_area: e.target.value },
+                  ]);
+                }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                label="ナンバー"
+                fullWidth
+                value={currentVehicle.registrations?.[0]?.registration_no || ""}
+                onChange={(e) => {
+                  const reg = currentVehicle.registrations?.[0] || {};
+                  updateVehicle("registrations", [
+                    { ...reg, registration_no: e.target.value },
+                  ]);
+                }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                label="型認番号"
+                fullWidth
+                value={currentVehicle.registrations?.[0]?.certification_no || ""}
+                onChange={(e) => {
+                  const reg = currentVehicle.registrations?.[0] || {};
+                  updateVehicle("registrations", [
+                    { ...reg, certification_no: e.target.value },
+                  ]);
+                }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="初年度登録"
+                type="date"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={currentVehicle.registrations?.[0]?.first_registration_date || ""}
+                onChange={(e) => {
+                  const reg = currentVehicle.registrations?.[0] || {};
+                  updateVehicle("registrations", [
+                    { ...reg, first_registration_date: e.target.value },
+                  ]);
+                }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="車検満了日"
+                type="date"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={currentVehicle.registrations?.[0]?.inspection_expiration || ""}
+                onChange={(e) => {
+                  const reg = currentVehicle.registrations?.[0] || {};
+                  updateVehicle("registrations", [
+                    { ...reg, inspection_expiration: e.target.value },
+                  ]);
+                }}
+              />
+            </Grid>
+          </>
+        )}
+                    <Grid size={{ xs: 12 }}>
+              <Divider sx={{ my: 2 }} />
+              <Typography fontWeight="bold">
+                金額
+              </Typography>
+            </Grid>
         {vehicleMode === "sale" && (
           <Grid size={{ xs: 12 }}>
             <TextField
@@ -448,6 +559,100 @@ export default function VehicleStep({
           </>
         )}
       </Grid>
-    </Paper>
+
+      <Divider sx={{ my: 3 }} />
+        <Typography fontWeight="bold" mb={2}>
+          納車予定
+        </Typography>
+
+        <TextField
+          label="納車日"
+          type="date"
+          fullWidth
+          value={schedule?.start_at ? dayjs(schedule.start_at).format("YYYY-MM-DD") : ""}
+          onChange={(e) => {
+            const time = schedule?.start_at?.slice(11, 16) || "00:00";
+
+            dispatch({
+              type: "SET_SCHEDULE",
+              payload: {
+                start_at: `${e.target.value}T${time}:00`,
+              },
+            });
+          }}
+        />
+
+        <TextField
+          label="納車時刻"
+          type="time"
+          fullWidth
+          value={schedule?.start_at ? dayjs(schedule.start_at + "Z").format("HH:mm") : ""}
+          onChange={(e) => {
+            const date =
+              schedule?.start_at?.slice(0, 10) ||
+              new Date().toISOString().slice(0, 10);
+
+            dispatch({
+              type: "SET_SCHEDULE",
+              payload: {
+                start_at: `${date}T${e.target.value}:00`,
+              },
+            });
+          }}
+        />
+
+        <TextField
+          label="納車方法"
+          fullWidth
+          value={schedule?.delivery_method || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_SCHEDULE",
+              payload: { delivery_method: e.target.value },
+            })
+          }
+        />
+
+        <Select
+          fullWidth
+          displayEmpty
+          value={
+            schedule?.delivery_shop === null ||
+            schedule?.delivery_shop === undefined
+              ? ""
+              : schedule.delivery_shop
+          }
+          onChange={(e) => {
+            const val = e.target.value;
+
+            dispatch({
+              type: "SET_SCHEDULE",
+              payload: {
+                delivery_shop: val === "" ? null : Number(val),
+              },
+            });
+          }}
+        >
+          <MenuItem value="">納車店舗を選択</MenuItem>
+          {shops.map((shop) => (
+            <MenuItem key={shop.id} value={shop.id}>
+              {shop.name}
+            </MenuItem>
+          ))}
+        </Select>
+
+        <TextField
+          label="備考"
+          fullWidth
+          multiline
+          value={schedule?.description || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_SCHEDULE",
+              payload: { description: e.target.value },
+            })
+          }
+        />
+    </>
   );
 }

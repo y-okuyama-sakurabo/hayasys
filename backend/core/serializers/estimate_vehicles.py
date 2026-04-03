@@ -5,10 +5,17 @@ from core.serializers.manufacturers import ManufacturerSerializer
 from core.serializers.categories import CategorySerializer
 from core.models.customers import CustomerVehicle
 from core.models.masters import Color
-
+from core.serializers.estimate_vehicle_registrations import (
+    EstimateVehicleRegistrationSerializer
+)
 
 class EstimateVehicleSerializer(serializers.ModelSerializer):
     estimate = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    registrations = EstimateVehicleRegistrationSerializer(
+        many=True,
+        read_only=True
+    )
 
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Manufacturer.objects.all(),
@@ -81,6 +88,7 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
             "engine_type",
             "created_at",
             "updated_at",
+            "registrations",
         ]
         read_only_fields = [
             "id",

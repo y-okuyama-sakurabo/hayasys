@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 
-from core.models import Order, Payment
+from core.models import Order, Payment, Schedule
 from core.serializers.order_items import OrderItemSerializer
 from core.serializers.order_vehicles import OrderVehicleSerializer
 from core.serializers.payment import PaymentSerializer
@@ -19,6 +19,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     shop = ShopSerializer(read_only=True)
     created_by = CreatedBySerializer(read_only=True)
     customer = CustomerDetailSerializer(read_only=True)
+    schedule = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -48,6 +49,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "vehicles",
             "payments",
 
+            "schedule",
+
             "created_by",
             "created_at",
             "updated_at",
@@ -62,3 +65,18 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         ).order_by("id")
 
         return PaymentSerializer(qs, many=True).data
+    
+    def get_schedule(self, obj):
+        s = Schedule.objects.filter(order=obj).order_by("-start_at").first()
+
+        if not s:
+            return None
+
+        return {
+            "start_at": s.start_at,
+            "end_at": s.end_at,
+            "delivery_method": s.delivery_method,
+            "delivery_shop": s.delivery_shop.id if s.delivery_shop else None,
+            "delivery_shop_name": s.delivery_shop.name if s.delivery_shop else None,
+            "description": s.description,
+        }

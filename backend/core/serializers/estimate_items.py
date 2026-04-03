@@ -181,7 +181,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
 
         estimate.subtotal = subtotal
         estimate.tax_total = tax_total
-        estimate.grand_total = subtotal + tax_total
+        estimate.grand_total = subtotal + tax_total + (estimate.final_adjustment or Decimal("0"))
 
         estimate.save(update_fields=[
             "subtotal",

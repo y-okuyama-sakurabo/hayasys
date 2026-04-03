@@ -10,8 +10,10 @@ from core.models import (
     EstimateVehicle,
     Payment,
     CustomerVehicle,
+    Schedule,
 )
 from core.models.masters import Gender, CustomerClass, Region
+from core.models import EstimateVehicleRegistration
 
 from core.serializers.estimate_items import EstimateItemSerializer
 from core.serializers.estimate_vehicles import EstimateVehicleSerializer
@@ -157,9 +159,24 @@ class EstimateSerializer(serializers.ModelSerializer):
             vehicle.source_customer_vehicle_id = source_cv_id
             vehicle.save()
 
+            registrations = data.get("registrations", [])
+
+            if registrations is not None:
+                vehicle.registrations.all().delete()
+
+                for reg in registrations:
+                    EstimateVehicleRegistration.objects.create(
+                        vehicle=vehicle,
+                        registration_area=reg.get("registration_area"),
+                        registration_no=reg.get("registration_no"),
+                        certification_no=reg.get("certification_no"),
+                        inspection_expiration=reg.get("inspection_expiration"),
+                        first_registration_date=reg.get("first_registration_date"),
+                    )
+
         else:
             # CREATE
-            EstimateVehicle.objects.create(
+            vehicle = EstimateVehicle.objects.create(
                 estimate=estimate,
                 is_trade_in=False,
                 source_customer_vehicle_id=source_cv_id,
@@ -177,6 +194,18 @@ class EstimateSerializer(serializers.ModelSerializer):
                 new_car_type=data.get("new_car_type", ""),
             )
 
+            registrations = data.get("registrations", [])
+
+            for reg in registrations:
+                EstimateVehicleRegistration.objects.create(
+                    vehicle=vehicle,
+                    registration_area=reg.get("registration_area"),
+                    registration_no=reg.get("registration_no"),
+                    certification_no=reg.get("certification_no"),
+                    inspection_expiration=reg.get("inspection_expiration"),
+                    first_registration_date=reg.get("first_registration_date"),
+                )
+
     # =========================================
     # CREATE
     # =========================================
@@ -185,6 +214,7 @@ class EstimateSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop("items", [])
         vehicles_data = validated_data.pop("vehicles_payload", [])
         payments_data = validated_data.pop("payments", [])
+        schedule_data = validated_data.pop("schedule", None)
 
         if new_party_data and not validated_data.get("party"):
             validated_data["party"] = EstimateParty.objects.create(
@@ -213,6 +243,7 @@ class EstimateSerializer(serializers.ModelSerializer):
 
         new_party_data = validated_data.pop("new_party", None)
         party = validated_data.pop("party", None)
+        schedule_data = validated_data.pop("schedule", None)
 
         if party:
             instance.party = party
@@ -253,10 +284,10 @@ class EstimateSerializer(serializers.ModelSerializer):
 
         return instance
 
-
 class EstimateDetailSerializer(serializers.ModelSerializer):
     party = EstimatePartySerializer(read_only=True)
     items = EstimateItemSerializer(many=True, read_only=True)
+    schedule = serializers.SerializerMethodField()
     vehicles = EstimateVehicleSerializer(
         many=True,
         read_only=True,
@@ -278,7 +309,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "vehicles",
             "payments",
             "created_by",
-
+            "schedule",
             "estimate_date",
             "created_at",
             "updated_at",
@@ -290,3 +321,18 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             object_id=obj.id,
         ).order_by("id")
         return PaymentSerializer(qs, many=True).data
+    
+    def get_schedule(self, obj):
+        s = Schedule.objects.filter(estimate=obj).first()
+
+        if not s:
+            return None
+
+        return {
+            "start_at": s.start_at,
+            "end_at": s.end_at,
+            "delivery_method": s.delivery_method,
+            "delivery_shop": s.delivery_shop_id,
+            "delivery_shop_name": s.delivery_shop.name if s.delivery_shop else None,
+            "description": s.description,
+        }

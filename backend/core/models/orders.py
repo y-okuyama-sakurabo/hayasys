@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models.payments import Payment
+from decimal import Decimal
 
 class OrderStatus(models.TextChoices):
     DRAFT = "draft", "下書き"
@@ -70,7 +71,11 @@ class Order(models.Model):
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
+    final_adjustment = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=Decimal("0"),
+    )
     payments = GenericRelation(Payment, related_query_name="order")
 
     # 作成者（スタッフ）
@@ -97,6 +102,7 @@ class OrderItem(models.Model):
     ("accessory", "用品"),
     ("insurance", "保険"),
     ("fee", "諸費用"),
+    ("discount", "値引き"), 
     ]
 
     item_type = models.CharField(

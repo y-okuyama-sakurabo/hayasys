@@ -7,6 +7,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Button,
   MenuItem,
   Typography,
 } from "@mui/material";
@@ -17,6 +18,12 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import apiClient from "@/lib/apiClient";
 import ScheduleEventDialog from "./ScheduleEventDialog";
+import ScheduleCreateDialog from "./ScheduleCreateDialog";
+
+type Customer = {
+  id: number;
+  name: string;
+};
 
 type Shop = {
   id: number;
@@ -24,7 +31,7 @@ type Shop = {
 };
 
 type Schedule = {
-  id: number;
+  id?: number; // ←ここ
   title: string;
   start_at: string;
   end_at?: string | null;
@@ -39,6 +46,10 @@ type Schedule = {
 
 export default function ScheduleCalendar() {
   const calendarRef = useRef<FullCalendar | null>(null);
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<number | "">("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<number | "all" | "">("");
@@ -63,6 +74,10 @@ export default function ScheduleCalendar() {
       try {
         const meRes = await apiClient.get("/auth/user/");
         const myShopId = meRes.data?.shop_id ?? "all";
+
+        const customerRes = await apiClient.get("/customers/");
+        const customerList = customerRes.data.results || customerRes.data || [];
+        setCustomers(customerList);
 
         const shopRes = await apiClient.get("/masters/shops/");
         const list = shopRes.data.results || shopRes.data || [];
@@ -147,15 +162,24 @@ export default function ScheduleCalendar() {
   const handleUpdate = async () => {
     if (!selectedSchedule) return;
 
-    await apiClient.patch(`/schedules/${selectedSchedule.id}/`, {
+    const payload = {
       title: selectedSchedule.title,
       start_at: selectedSchedule.start_at,
       end_at: selectedSchedule.end_at,
       description: selectedSchedule.description,
       shop: selectedSchedule.shop,
-    });
+      customer: selectedSchedule.customer,
+    };
+
+    if (selectedSchedule.id) {
+      await apiClient.patch(`/schedules/${selectedSchedule.id}/`, payload);
+    } else {
+      await apiClient.post("/schedules/", payload);
+    }
 
     setDialogOpen(false);
+    setCreateDialogOpen(false);
+
     if (visibleRange) {
       await fetchSchedules(
         visibleRange.startStr,
@@ -200,6 +224,24 @@ export default function ScheduleCalendar() {
       {/* ===== 店舗セレクタ ===== */}
      
         <Box display="flex" gap={2} alignItems="center">
+          <Button
+            variant="contained"
+            onClick={() => {
+              setSelectedSchedule({
+                id: undefined,
+                title: "",
+                start_at: "",
+                end_at: "",
+                description: "",
+                customer: null,
+                shop: selectedShop !== "all" ? selectedShop : null,
+              } as any);
+
+              setCreateDialogOpen(true);
+            }}
+          >
+            ＋ スケジュール追加
+          </Button>
           <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel>店舗</InputLabel>
             <Select
@@ -249,6 +291,23 @@ export default function ScheduleCalendar() {
         onDelete={handleDelete}
         onChange={setSelectedSchedule}
       />
+      {selectedSchedule && (
+        <ScheduleCreateDialog
+          open={createDialogOpen}
+          schedule={selectedSchedule}
+          customers={customers}
+          onClose={() => {
+            setCreateDialogOpen(false);
+            setSelectedSchedule(null);
+          }}
+          onChange={(s) => setSelectedSchedule(s)}
+          onSave={async () => {
+            await handleUpdate();
+            setCreateDialogOpen(false);
+            setSelectedSchedule(null);
+          }}
+        />
+      )}
     </Box>
   );
 }

@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models.payments import Payment
+from decimal import Decimal
 
 from django.db import models
 from django.conf import settings
@@ -99,6 +100,11 @@ class Estimate(models.Model):
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    final_adjustment = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        default=Decimal("0"),
+    )
     payments = GenericRelation(Payment, related_query_name="estimate")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -112,6 +118,7 @@ class EstimateItem(models.Model):
     ("accessory", "用品"),
     ("insurance", "保険"),
     ("fee", "諸費用"),
+    ("discount", "値引き"), 
     ]
 
     item_type = models.CharField(

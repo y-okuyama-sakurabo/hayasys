@@ -4,10 +4,18 @@ from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Category
 from core.serializers.masters import ManufacturerSerializer
 from core.models.customers import CustomerVehicle
+from core.serializers.order_vehicle_registrations import (
+    OrderVehicleRegistrationSerializer
+)
 
 
 class OrderVehicleSerializer(serializers.ModelSerializer):
     manufacturer = ManufacturerSerializer(read_only=True)
+
+    registrations = OrderVehicleRegistrationSerializer(
+        many=True,
+        read_only=True
+    )
 
     category = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
@@ -53,6 +61,7 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
             "engine_type",
             "created_at",
             "updated_at",
+            "registrations",
         ]
 
         read_only_fields = [

@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions
-from core.models import Schedule
+from core.models import Schedule, Estimate, Order
 from core.serializers.schedules import ScheduleSerializer
 
 
@@ -77,8 +77,35 @@ class ScheduleListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
+
+        estimate = serializer.validated_data.get("estimate")
+        order = serializer.validated_data.get("order")
+        customer = serializer.validated_data.get("customer")
+
+        # customer補完
+        if not customer:
+            if order and order.customer:
+                customer = order.customer
+            elif estimate and estimate.party:
+                customer = estimate.party.source_customer
+
+        # 🔥 ここ追加（最重要）
+        if estimate:
+            existing = Schedule.objects.filter(estimate=estimate).first()
+
+            if existing:
+                # update
+                for attr, value in serializer.validated_data.items():
+                    setattr(existing, attr, value)
+                existing.staff = user
+                existing.shop = getattr(user, "shop", None)
+                existing.customer = customer
+                existing.save()
+                return existing
+
         serializer.save(
             staff=user,
             shop=getattr(user, "shop", None),
+            customer=customer,
         )
 
