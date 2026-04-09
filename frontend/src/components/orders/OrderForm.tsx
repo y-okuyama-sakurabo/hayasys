@@ -234,7 +234,9 @@ export default function OrderForm({ mode, orderId }: Props) {
                 order_date: dayjs().format("YYYY-MM-DD"),
                 payment_method:
                   data.payments?.[0]?.payment_method ?? "現金",
+                estimate: data.estimate_id ?? null,
               },
+              
               items: (data.items ?? []).map((item: any) => ({
                 ...item,
                 staff_id: item.staff ?? null,
@@ -425,6 +427,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         created_by_id: state.basic.created_by_id,
         order_date: state.basic.order_date,
         vehicle_mode: state.basic.vehicle_mode,
+        estimate: state.basic.estimate ?? null,
         customer_id: state.basic.customer_id ?? null,
         new_customer: state.basic.customer_id
           ? null

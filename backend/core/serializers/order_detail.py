@@ -8,6 +8,7 @@ from core.serializers.payment import PaymentSerializer
 from core.serializers.orders import CreatedBySerializer
 from core.serializers.masters import ShopSerializer
 from core.serializers.customers import CustomerDetailSerializer
+from core.serializers.estimates import EstimateSerializer
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
@@ -19,7 +20,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     shop = ShopSerializer(read_only=True)
     created_by = CreatedBySerializer(read_only=True)
     customer = CustomerDetailSerializer(read_only=True)
+    estimate = EstimateSerializer(read_only=True)
     schedule = serializers.SerializerMethodField()
+    estimate = EstimateSerializer(read_only=True)
 
     class Meta:
         model = Order
@@ -50,6 +53,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "payments",
 
             "schedule",
+
+            "estimate",
 
             "created_by",
             "created_at",

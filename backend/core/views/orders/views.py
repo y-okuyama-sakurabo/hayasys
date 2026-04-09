@@ -483,6 +483,18 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "model_code": v.model_code,
                 "chassis_no": v.chassis_no,
                 "engine_type": v.engine_type,
+
+                # 🔥 これ追加
+                "registrations": [
+                    {
+                        "registration_area": r.registration_area,
+                        "registration_no": r.registration_no,
+                        "certification_no": r.certification_no,
+                        "inspection_expiration": r.inspection_expiration,
+                        "first_registration_date": r.first_registration_date,
+                    }
+                    for r in v.registrations.all()
+                ]
             }
 
             if v.is_trade_in:

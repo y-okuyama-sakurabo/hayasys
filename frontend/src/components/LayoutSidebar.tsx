@@ -133,57 +133,68 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         position="fixed"
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: "#1976d2",
+          backgroundColor: "#146ec8",
         }}
       >
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box display="flex" alignItems="center" gap={3}>
             <IconButton color="inherit" onClick={toggleDrawer}>
               <MenuIcon />
             </IconButton>
-            <Typography
-              variant="h6"
-              noWrap
-              sx={{ cursor: "pointer" }}
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="Links"
+              sx={{
+                height: 35,
+                cursor: "pointer",
+              }}
               onClick={() => router.push("/dashboard")}
-            >
-              Hayasys
-            </Typography>
+            />
           </Box>
 
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" gap={2}>
+            {/* ユーザー表示 */}
             <Typography
-              onClick={handleMenuOpen}
               sx={{
                 color: "white",
                 fontWeight: 500,
-                cursor: "pointer",
               }}
             >
-              {displayName}
+              {displayName}さん
             </Typography>
 
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            {/* 店舗名 */}
+            <Typography
+              sx={{
+                color: "rgba(255,255,255,0.8)",
+                fontSize: 14,
+              }}
             >
-              <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {displayName}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {shopName || "店舗未設定"}
-                </Typography>
-              </Box>
-              <Divider />
-              <MenuItem onClick={handleLogout}>
-                <Logout fontSize="small" sx={{ mr: 1 }} />
-                ログアウト
-              </MenuItem>
-            </Menu>
+              ({shopName || "店舗未設定"})
+            </Typography>
+
+            {/* 区切り線 */}
+            <Box
+              sx={{
+                width: "1px",
+                height: 20,
+                bgcolor: "rgba(255,255,255,0.3)",
+              }}
+            />
+
+            {/* ログアウト */}
+            <Button
+              color="inherit"
+              startIcon={<Logout />}
+              onClick={handleLogout}
+              sx={{
+                textTransform: "none",
+                fontWeight: 500,
+              }}
+            >
+              ログアウト
+            </Button>
           </Box>
         </Toolbar>
       </AppBar>

@@ -11,6 +11,7 @@ from core.models import (
     Shop,
     Payment,
     Schedule,
+    Estimate,
 )
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer, Category
@@ -20,6 +21,7 @@ from core.serializers.order_items import OrderItemSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.customers import CustomerWriteSerializer
 from core.serializers.order_vehicles import OrderVehicleSerializer
+from core.serializers.order_settlements import OrderSettlementSerializer
 
 
 User = get_user_model()
@@ -34,6 +36,13 @@ class CreatedBySerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.PrimaryKeyRelatedField(
         queryset=Customer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    settlements = OrderSettlementSerializer(many=True, required=False)
+
+    estimate = serializers.PrimaryKeyRelatedField(
+        queryset=Estimate.objects.all(),
         required=False,
         allow_null=True,
     )
@@ -181,6 +190,7 @@ class OrderSerializer(serializers.ModelSerializer):
         vehicle_data.pop("order", None)
         vehicle_data.pop("unit_price", None)
         vehicle_data.pop("discount", None)
+        vehicle_data.pop("registrations", None)
 
         return vehicle_data
 
@@ -306,8 +316,15 @@ class OrderSerializer(serializers.ModelSerializer):
         )
 
         schedule_data = validated_data.pop("schedule", None)
+        estimate = validated_data.get("estimate")
+        settlements_data = validated_data.pop("settlements", [])
 
         order = Order.objects.create(**validated_data)
+
+        
+        if estimate:
+            estimate.status = "ordered"
+            estimate.save(update_fields=["status"])
 
         if schedule_data:
             Schedule.objects.create(
@@ -327,6 +344,10 @@ class OrderSerializer(serializers.ModelSerializer):
         for item in items_data:
             item.pop("saveAsProduct", None)
             OrderItem.objects.create(order=order, **item)
+
+        for s in settlements_data:
+            OrderSettlement.objects.create(order=order, **s)
+            
         self._recalculate_order(order) 
         self._create_payments(order, payments_data)
         self._upsert_target_vehicle(order, raw_target_vehicle)
@@ -347,6 +368,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
         raw_target_vehicle = validated_data.pop("target_vehicle", None)
         raw_trade_in_vehicle = validated_data.pop("trade_in_vehicle", None)
+
+        settlements_data = validated_data.pop("settlements", None)
 
         # 顧客更新
         if customer:
@@ -425,6 +448,12 @@ class OrderSerializer(serializers.ModelSerializer):
                 object_id=instance.id,
             ).delete()
             self._create_payments(instance, payments_data)
+        
+        if settlements_data is not None:
+            instance.settlements.all().delete()
+
+            for s in settlements_data:
+                OrderSettlement.objects.create(order=instance, **s)
 
         # 車両
         self._upsert_target_vehicle(instance, raw_target_vehicle)

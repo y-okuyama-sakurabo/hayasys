@@ -104,14 +104,12 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                     </Box>
 
                     {estimate.vehicle_mode === "sale" && (
-                      <SummaryRow label="商談車両" value={format(vehicleAmount)} />
+                    <SummaryRow label="ご商談車両" value={format(vehicleAmount)} />
                     )}
-
-                    <SummaryRow label="その他の項目" value={format(otherAmount)} />
+                    <SummaryRow label="用品＆パーツ" value={format(otherAmount)} />
                     <SummaryRow label="課税費用" value={format(taxableTotal)} />
-                    <SummaryRow label="非課税費用" value={format(nonTaxableTotal)} />
                     <SummaryRow label="消費税" value={format(tax)} />
-
+                    <SummaryRow label="非課税費用" value={format(nonTaxableTotal)} />
                     <Box
                       sx={{
                         display: "flex",
@@ -165,6 +163,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             title="下取車両"
                             vehicle={estimate.vehicles?.find((v:any)=>v.is_trade_in)}
                           />
+                          <CreditSection payment={estimate.payments?.[0]} />
                         </>
                       )}
 
@@ -302,7 +301,7 @@ function SummaryRow({ label, value }: any) {
         justifyContent: "space-between",
         borderBottom: "1px solid #000",
         px: 1,
-        py: "5px",
+        py: "3px",
         fontSize: "11px",
       }}
     >
@@ -342,7 +341,7 @@ function VehicleSection({ title, vehicle }: any) {
         sx={{
           borderBottom: "1px solid #000",
           px: 1,
-          py: "3px",
+          py: "1px",
           fontWeight: "bold",
           fontSize: "12px",
         }}
@@ -354,7 +353,7 @@ function VehicleSection({ title, vehicle }: any) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: "11px",
+          fontSize: "10px",
         }}
       >
         <tbody>
@@ -382,16 +381,18 @@ function VehicleSection({ title, vehicle }: any) {
 
 function vehicleRows(vehicle: any) {
   const fields = [
-    { label: "メーカー", value: vehicle?.manufacturer_detail?.name },
     { label: "車両名", value: vehicle?.vehicle_name },
-    { label: "年式", value: vehicle?.model_year },
-    { label: "区分", value: vehicle?.new_car_type === "new" ? "新車" : "中古車" },
+    { label: "メーカー", value: vehicle?.manufacturer_detail?.name },
     { label: "排気量", value: vehicle?.displacement },
+    { label: "新中車", value: vehicle?.new_car_type === "new" ? "新車" : "中古車" },
+    { label: "登録地", value: vehicle?.registrations?.[0]?.registration_area ?? "" },
     { label: "色", value: vehicle?.color_name },
+    { label: "登録番号", value: vehicle?.registrations?.[0]?.registration_no ?? "" },
+    { label: "色記号", value: vehicle?.color_code },
+    { label: "型認定", value: vehicle?.registrations?.[0]?.certification_no ?? "" },
     { label: "型式", value: vehicle?.model_code },
+    { label: "車検満了", value: vehicle?.registrations?.[0]?.inspection_expiration ?? "" },
     { label: "車台番号", value: vehicle?.chassis_no },
-    { label: "エンジン型式", value: vehicle?.engine_type },
-    { label: "カラーコード", value: vehicle?.color_code },
   ];
 
   const rows = [];
@@ -426,3 +427,55 @@ const rightCellStyle: React.CSSProperties = {
   padding: "3px 8px",
   width: "50%",
 };
+
+function CreditSection({ payment }: any) {
+  const isCredit = payment?.payment_method === "クレジット";
+  const v = (val: any) => (isCredit && val ? val : "");
+
+  return (
+    <Box sx={{ border: "1px solid #000", mb: 2 }}>
+      <Box
+        sx={{
+          borderBottom: "1px solid #000",
+          px: 1,
+          py: "1px",
+          fontWeight: "bold",
+          fontSize: "12px",
+        }}
+      >
+        クレジット
+      </Box>
+
+      <table style={{ width: "100%", fontSize: "10px" }}>
+        <tbody>
+          <tr>
+            <td style={leftCellStyle}>
+              <VehicleCell label="会社名" value={v(payment?.credit_company)} />
+            </td>
+            <td style={rightCellStyle}>
+              <VehicleCell label="回数" value={v(payment?.credit_installments)} />
+            </td>
+          </tr>
+
+          <tr>
+            <td style={leftCellStyle}>
+              <VehicleCell label="初回支払額" value={v(payment?.credit_first_payment)} />
+            </td>
+            <td style={rightCellStyle}>
+              <VehicleCell label="2回目以降" value={v(payment?.credit_second_payment)} />
+            </td>
+          </tr>
+
+          <tr>
+            <td style={leftCellStyle}>
+              <VehicleCell label="ボーナス支払" value={v(payment?.credit_bonus_payment)} />
+            </td>
+            <td style={rightCellStyle}>
+              <VehicleCell label="支払開始月" value={v(payment?.credit_start_month)} />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </Box>
+  );
+}
