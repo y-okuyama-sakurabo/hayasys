@@ -60,9 +60,21 @@ const initialState: EstimateState = {
     shop: null,
     party_id: null,
     new_party: null,
-    payment_method: "現金",
     vehicle_mode: "sale",
     estimate_date: dayjs().format("YYYY-MM-DD"),
+    settlements: {
+      trade_in: 0,
+      cash: 0,
+      card: 0,
+      credit: 0,
+      advance: 0,
+    },
+    credit_company: "",
+    credit_installments: null,
+    credit_first_payment: null,
+    credit_second_payment: null,
+    credit_bonus_payment: null,
+    credit_start_month: "",
   },
   vehicle: null,
   items: [],
@@ -88,7 +100,7 @@ function reducer(state: EstimateState, action: any): EstimateState {
         ...estimate,
         schedule: estimate.schedule
           ? {
-              id: estimate.schedule.id, // ←これ追加🔥🔥🔥
+              id: estimate.schedule.id,
               start_at: estimate.schedule.start_at,
               date: dayjs(estimate.schedule.start_at).format("YYYY-MM-DD"),
               time: dayjs(estimate.schedule.start_at).format("HH:mm"),
@@ -235,8 +247,6 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           payload: {
             basic: {
               shop: estimate.shop?.id ?? null,
-
-              // 🔥 顧客（FK正規化）
               party_id: estimate.party?.id ?? null,
               new_party: estimate.party
                 ? {
@@ -328,6 +338,22 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         (i: any) => i.item_type === "discount"
       );
 
+      const settlementsObj = (estimate.settlements || []).reduce(
+        (acc: any, s: any) => {
+          acc[s.settlement_type] = Number(s.amount);
+          return acc;
+        },
+        {
+          trade_in: 0,
+          cash: 0,
+          card: 0,
+          credit: 0,
+          advance: 0,
+        }
+      );
+
+      const payment = estimate.payments?.[0];
+
       dispatch({
         type: "INIT_FROM_API",
         payload: {
@@ -337,7 +363,15 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             estimate_no: estimate.estimate_no,
             shop: estimate.shop?.id ?? null,
 
-            // 🔥 顧客ここ重要
+            settlements: settlementsObj,
+
+            credit_company: payment?.credit_company || "",
+            credit_installments: payment?.credit_installments || null,
+            credit_first_payment: payment?.credit_first_payment || null,
+            credit_second_payment: payment?.credit_second_payment || null,
+            credit_bonus_payment: payment?.credit_bonus_payment || null,
+            credit_start_month: payment?.credit_start_month || "",
+
             party_id: estimate.party?.id ?? null,
             new_party: estimate.party
               ? {
@@ -357,6 +391,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           items: (estimate.items ?? []).map((item: any) => ({
             ...item,
             staff_id: item.staff?.id ?? item.staff_id ?? null,
+            unit: item.unit?.id ?? item.unit ?? null,
           })),
 
           global_discount: discountItem?.discount ?? 0,
@@ -403,6 +438,27 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
       let id = estimateId;
 
+      const settlementsPayload = Object.entries(
+        state.basic.settlements || {}
+      )
+        .filter(([_, value]) => Number(value) > 0)
+        .map(([key, value]) => ({
+          settlement_type: key,
+          amount: Number(value),
+        }));
+
+      const paymentPayload =
+        Number(state.basic.settlements?.credit || 0) > 0
+          ? {
+              credit_company: state.basic.credit_company || "",
+              credit_installments: state.basic.credit_installments || null,
+              credit_first_payment: state.basic.credit_first_payment || null,
+              credit_second_payment: state.basic.credit_second_payment || null,
+              credit_bonus_payment: state.basic.credit_bonus_payment || null,
+              credit_start_month: state.basic.credit_start_month || "",
+            }
+          : null;
+
       const headerPayload = {
         estimate_no: state.basic.estimate_no,
         shop: state.basic.shop,
@@ -410,11 +466,8 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         vehicle_mode: state.basic.vehicle_mode,
         estimate_date: state.basic.estimate_date,
         new_party: state.basic.new_party,
-        payments: [
-          {
-            payment_method: state.basic.payment_method,
-          },
-        ],
+        settlements: settlementsPayload,
+        payment: paymentPayload,
       };
 
       if (mode === "create") {
@@ -482,6 +535,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           discount: state.vehicle.discount ?? 0,
           category_id: state.vehicle.category_id ?? null,
           manufacturer: state.vehicle.manufacturer ?? null,
+          unit: state.vehicle.unit ?? null,
         });
       }
 
@@ -497,6 +551,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           category_id: null,
           manufacturer: null,
           staff_id: null,
+          unit: null,
         });
       }
 
@@ -505,6 +560,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           ...item,
           staff: item.staff_id ?? null,
           category_id: item.category_id ?? item.category?.id ?? null,
+          unit: item.unit ?? null,
         };
 
         if (item.item_type === "vehicle") {
@@ -597,7 +653,12 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         )}
 
         {currentStep === "payment" && (
-          <EstimatePaymentForm basic={state.basic} dispatch={dispatch} />
+          <EstimatePaymentForm
+            basic={state.basic}
+            items={state.items}
+            global_discount={state.global_discount}
+            dispatch={dispatch}
+          />
         )}
       </Paper>
 

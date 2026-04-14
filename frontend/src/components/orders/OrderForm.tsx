@@ -217,6 +217,19 @@ export default function OrderForm({ mode, orderId }: Props) {
             { estimate_id: Number(fromEstimate) }
           );
           const data = res.data;
+          const settlementsObj = (data.settlements || []).reduce(
+            (acc: any, s: any) => {
+              acc[s.settlement_type] = Number(s.amount);
+              return acc;
+            },
+            {
+              trade_in: 0,
+              cash: 0,
+              card: 0,
+              credit: 0,
+              advance: 0,
+            }
+          );
           const discountItem = data.items?.find(
             (item: any) => item.item_type === "discount"
           );
@@ -232,8 +245,13 @@ export default function OrderForm({ mode, orderId }: Props) {
                 created_by_id: user.id,
                 vehicle_mode: data.vehicle_mode ?? "sale",
                 order_date: dayjs().format("YYYY-MM-DD"),
-                payment_method:
-                  data.payments?.[0]?.payment_method ?? "現金",
+                settlements: settlementsObj,
+                credit_company: data.payment?.credit_company || "",
+                credit_installments: data.payment?.credit_installments || null,
+                credit_first_payment: data.payment?.credit_first_payment || null,
+                credit_second_payment: data.payment?.credit_second_payment || null,
+                credit_bonus_payment: data.payment?.credit_bonus_payment || null,
+                credit_start_month: data.payment?.credit_start_month || "",
                 estimate: data.estimate_id ?? null,
               },
               
@@ -241,9 +259,9 @@ export default function OrderForm({ mode, orderId }: Props) {
                 ...item,
                 staff_id: item.staff ?? null,
 
-                // 🔥 これ追加
                 manufacturer: item.manufacturer ?? null,
                 labor_cost: item.labor_cost ?? 0,
+                unit: item.unit?.id ?? item.unit ?? null, 
               })),
               global_discount: discountItem?.discount ?? 0,
               vehicle: data.target_vehicle
@@ -282,6 +300,22 @@ export default function OrderForm({ mode, orderId }: Props) {
           (item: any) => item.item_type === "discount"
         );
 
+        const settlementsObj = (order.settlements || []).reduce(
+          (acc: any, s: any) => {
+            acc[s.settlement_type] = Number(s.amount);
+            return acc;
+          },
+          {
+            trade_in: 0,
+            cash: 0,
+            card: 0,
+            credit: 0,
+            advance: 0,
+          }
+        );
+
+        const payment = order.payment;
+
         dispatch({
           type: "INIT_FROM_API",
           payload: {
@@ -313,13 +347,20 @@ export default function OrderForm({ mode, orderId }: Props) {
               created_by_id: order.created_by?.id ?? null,
               vehicle_mode: order.vehicle_mode ?? "none",
               order_date: order.order_date,
-              payment_method:
-                order.payments?.[0]?.payment_method ?? "現金",
+              settlements: settlementsObj,
+
+              credit_company: payment?.credit_company || "",
+              credit_installments: payment?.credit_installments || null,
+              credit_first_payment: payment?.credit_first_payment || null,
+              credit_second_payment: payment?.credit_second_payment || null,
+              credit_bonus_payment: payment?.credit_bonus_payment || null,
+              credit_start_month: payment?.credit_start_month || "",
             },
 
             items: (order.items ?? []).map((item: any) => ({
               ...item,
               staff_id: item.staff?.id ?? item.staff_id ?? null,
+              unit: item.unit?.id ?? item.unit ?? null,
             })),
             global_discount: discountItem?.discount ?? 0,
             schedule: order.schedule
@@ -396,6 +437,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           quantity: 1,
           unit_price: state.vehicle.unit_price ?? 0,
           discount: state.vehicle.discount ?? 0,
+          unit: state.vehicle.unit ?? null,
           category_id:
             state.vehicle.category_id ??
             state.vehicle.category?.id ??
@@ -415,12 +457,35 @@ export default function OrderForm({ mode, orderId }: Props) {
           unit_price: 0,
           discount: state.global_discount,
           labor_cost: 0,
+          unit: null,
           tax_type: "taxable",
           category_id: null,
           manufacturer: null,
           staff_id: null,
         });
       }
+
+      const creditAmount = Number(state.basic.settlements?.credit || 0);
+
+      const settlementsPayload = Object.entries(state.basic.settlements || {})
+        .filter(([_, v]) => Number(v) > 0)
+        .map(([k, v]) => ({
+          settlement_type: k,
+          amount: Number(v),
+        }));
+
+      const paymentPayload =
+        creditAmount > 0
+          ? {
+              credit_company: state.basic.credit_company || null,
+              credit_installments: state.basic.credit_installments || null,
+              credit_first_payment: state.basic.credit_first_payment || null,
+              credit_second_payment: state.basic.credit_second_payment || null,
+              credit_bonus_payment: state.basic.credit_bonus_payment || null,
+              credit_start_month:
+                state.basic.credit_start_month || null,
+            }
+          : null;
 
       const payload = {
         shop: state.basic.shop,
@@ -441,6 +506,8 @@ export default function OrderForm({ mode, orderId }: Props) {
           discount: item.discount,
           sale_type: item.sale_type,
           labor_cost: item.labor_cost ?? 0,
+
+          unit: item.unit ?? null,
 
           staff:
             typeof item.staff === "object"
@@ -463,11 +530,8 @@ export default function OrderForm({ mode, orderId }: Props) {
                   : state.vehicle.manufacturer ?? null,
             }
           : null,
-        payments: [
-          {
-            payment_method: state.basic.payment_method,
-          },
-        ],
+        settlements: settlementsPayload,
+        payment: paymentPayload,
       };
 
       // 類似チェック
@@ -599,6 +663,8 @@ export default function OrderForm({ mode, orderId }: Props) {
         {currentStep === "payment" && (
           <EstimatePaymentForm
             basic={state.basic}
+            items={state.items}
+            global_discount={state.global_discount}
             dispatch={dispatch}
           />
         )}

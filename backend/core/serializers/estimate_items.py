@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Sum
 from decimal import Decimal, ROUND_HALF_UP
 from rest_framework import serializers
-from core.models import EstimateItem, Product, Category, Manufacturer
+from core.models import EstimateItem, Product, Category, Manufacturer, Unit
 from core.serializers.categories import CategorySerializer
 from core.serializers.manufacturers import ManufacturerSerializer
 from django.contrib.auth import get_user_model
@@ -22,6 +22,12 @@ class EstimateItemSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
         allow_null=True,
+    )
+
+    unit = serializers.PrimaryKeyRelatedField(
+        queryset=Unit.objects.all(),
+        required=False,
+        allow_null=True
     )
 
     # =========================
@@ -89,6 +95,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
             "tax_type",
             "sale_type",
             "subtotal",
+            "unit",
             "staff",
             "staff_id",
             "staff_input",

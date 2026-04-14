@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
+from core.models.unit import Unit
 
 class EstimateParty(models.Model):
     """
@@ -126,6 +127,13 @@ class EstimateItem(models.Model):
         choices=ITEM_TYPE_CHOICES,
         default="accessory",
         db_index=True,
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="estimate_items"
     )
     estimate = models.ForeignKey(
         "core.Estimate",

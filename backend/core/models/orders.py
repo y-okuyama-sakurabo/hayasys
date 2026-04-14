@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models.payments import Payment
+from core.models.unit import Unit
 from decimal import Decimal
 
 class OrderStatus(models.TextChoices):
@@ -110,6 +111,13 @@ class OrderItem(models.Model):
         choices=ITEM_TYPE_CHOICES,
         default="accessory",
         db_index=True,
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items"
     )
     order = models.ForeignKey(
         Order,

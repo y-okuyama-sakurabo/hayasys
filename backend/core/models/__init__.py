@@ -21,4 +21,6 @@ from .audit_log import AuditLog
 from .categories import Category, Product, Manufacturer, ManufacturerGroup
 from .estimate_vehicle_registration import EstimateVehicleRegistration
 from .order_vehicle_registration import OrderVehicleRegistration
-from .order_settlement import OrderSettlement
+from .settlements import Settlement
+from .unit import Unit
+from .insurance import Insurance

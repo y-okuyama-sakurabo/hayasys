@@ -11,6 +11,7 @@ from core.models import (
     Payment,
     CustomerVehicle,
     Schedule,
+    Settlement,
 )
 from core.models.masters import Gender, CustomerClass, Region
 from core.models import EstimateVehicleRegistration
@@ -19,6 +20,7 @@ from core.serializers.estimate_items import EstimateItemSerializer
 from core.serializers.estimate_vehicles import EstimateVehicleSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.masters import ShopSerializer
+from core.serializers.settlement import SettlementSerializer
 
 User = get_user_model()
 
@@ -83,8 +85,8 @@ class EstimateSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
     )
-
-    payments = PaymentSerializer(many=True, required=False)
+    settlements = SettlementSerializer(many=True, required=False)
+    payment = PaymentSerializer(required=False, allow_null=True)
 
     created_by = CreatedBySerializer(read_only=True)
 
@@ -107,17 +109,42 @@ class EstimateSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
     # =========================================
+    # settlements
+    # =========================================
+    def _create_settlements(self, estimate, settlements_data):
+        ct = ContentType.objects.get_for_model(Estimate)
+
+        for s in settlements_data:
+            Settlement.objects.create(
+                content_type=ct,
+                object_id=estimate.id,
+                settlement_type=s["settlement_type"],
+                amount=s["amount"],
+            )
+
+    # =========================================
     # payments
     # =========================================
-    def _create_payments(self, estimate, payments_data):
-        estimate_ct = ContentType.objects.get_for_model(Estimate)
+    def _upsert_payment(self, estimate, payment_data, settlements_data):
+        ct = ContentType.objects.get_for_model(Estimate)
 
-        for p in payments_data:
-            Payment.objects.create(
-                content_type=estimate_ct,
+        credit_amount = sum(
+            int(s["amount"])
+            for s in settlements_data
+            if s["settlement_type"] == "credit"
+        )
+
+        if credit_amount > 0:
+            Payment.objects.update_or_create(
+                content_type=ct,
                 object_id=estimate.id,
-                **p,
+                defaults=payment_data or {},
             )
+        else:
+            Payment.objects.filter(
+                content_type=ct,
+                object_id=estimate.id,
+            ).delete()
 
     # =========================================
     # vehicle UPSERT
@@ -213,7 +240,8 @@ class EstimateSerializer(serializers.ModelSerializer):
         new_party_data = validated_data.pop("new_party", None)
         items_data = validated_data.pop("items", [])
         vehicles_data = validated_data.pop("vehicles_payload", [])
-        payments_data = validated_data.pop("payments", [])
+        settlements_data = validated_data.pop("settlements", [])
+        payment_data = validated_data.pop("payment", None)
         schedule_data = validated_data.pop("schedule", None)
 
         if new_party_data and not validated_data.get("party"):
@@ -228,7 +256,8 @@ class EstimateSerializer(serializers.ModelSerializer):
             EstimateItem.objects.create(estimate=estimate, **item)
 
         self._upsert_vehicle(estimate, vehicles_data)
-        self._create_payments(estimate, payments_data)
+        self._create_settlements(estimate, settlements_data)
+        self._upsert_payment(estimate, payment_data, settlements_data)
 
         return estimate
 
@@ -239,7 +268,8 @@ class EstimateSerializer(serializers.ModelSerializer):
 
         items_data = validated_data.pop("items", None)
         vehicles_data = validated_data.pop("vehicles_payload", None)
-        payments_data = validated_data.pop("payments", None)
+        settlements_data = validated_data.pop("settlements", None)
+        payment_data = validated_data.pop("payment", None)
 
         new_party_data = validated_data.pop("new_party", None)
         party = validated_data.pop("party", None)
@@ -275,14 +305,65 @@ class EstimateSerializer(serializers.ModelSerializer):
         if vehicles_data is not None:
             self._upsert_vehicle(instance, vehicles_data)
 
-        if payments_data is not None:
-            Payment.objects.filter(
-                content_type=ContentType.objects.get_for_model(Estimate),
+        if settlements_data is not None:
+            ct = ContentType.objects.get_for_model(Estimate)
+
+            Settlement.objects.filter(
+                content_type=ct,
                 object_id=instance.id,
             ).delete()
-            self._create_payments(instance, payments_data)
+
+            self._create_settlements(instance, settlements_data)
+
+        if payment_data is not None or settlements_data is not None:
+            self._upsert_payment(
+                instance,
+                payment_data,
+                settlements_data or []
+            )
 
         return instance
+    
+    def validate(self, data):
+        settlements = self.initial_data.get("settlements", [])
+
+        # 合計チェック
+        total = sum(int(s.get("amount", 0)) for s in settlements)
+        grand_total = self.initial_data.get("grand_total")
+
+        if grand_total is not None:
+            grand_total = int(grand_total)
+
+            if settlements and total != grand_total:
+                raise serializers.ValidationError({
+                    "settlements": "支払い合計が総額と一致しません"
+                })
+
+        # クレジットチェック
+        credit_amount = sum(
+            int(s.get("amount", 0))
+            for s in settlements
+            if s.get("settlement_type") == "credit"
+        )
+
+        payment_data = self.initial_data.get("payment")
+
+        if credit_amount > 0 and not payment_data:
+            raise serializers.ValidationError({
+                "payment": "クレジット情報を入力してください"
+            })
+        
+        credit_count = sum(
+            1 for s in settlements
+            if s.get("settlement_type") == "credit"
+        )
+
+        if credit_count > 1:
+            raise serializers.ValidationError({
+                "settlements": "クレジットは1件のみです"
+            })
+
+        return data
 
 class EstimateDetailSerializer(serializers.ModelSerializer):
     party = EstimatePartySerializer(read_only=True)
@@ -294,6 +375,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
         source="estimate_vehicles",
     )
     payments = serializers.SerializerMethodField()
+    settlements = serializers.SerializerMethodField()
     shop = ShopSerializer(read_only=True)
     created_by = CreatedBySerializer(read_only=True)
 
@@ -308,6 +390,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "items",
             "vehicles",
             "payments",
+            "settlements",
             "created_by",
             "schedule",
             "estimate_date",
@@ -321,6 +404,16 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             object_id=obj.id,
         ).order_by("id")
         return PaymentSerializer(qs, many=True).data
+    
+    def get_settlements(self, obj):
+        ct = ContentType.objects.get_for_model(Estimate)
+
+        qs = Settlement.objects.filter(
+            content_type=ct,
+            object_id=obj.id,
+        )
+
+        return SettlementSerializer(qs, many=True).data
     
     def get_schedule(self, obj):
         s = Schedule.objects.filter(estimate=obj).first()

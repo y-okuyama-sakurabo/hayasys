@@ -12,6 +12,7 @@ from core.models import (
     Payment,
     Schedule,
     Estimate,
+    Settlement,
 )
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer, Category
@@ -21,7 +22,7 @@ from core.serializers.order_items import OrderItemSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.customers import CustomerWriteSerializer
 from core.serializers.order_vehicles import OrderVehicleSerializer
-from core.serializers.order_settlements import OrderSettlementSerializer
+from core.serializers.settlement import SettlementSerializer
 
 
 User = get_user_model()
@@ -39,7 +40,6 @@ class OrderSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-    settlements = OrderSettlementSerializer(many=True, required=False)
 
     estimate = serializers.PrimaryKeyRelatedField(
         queryset=Estimate.objects.all(),
@@ -59,7 +59,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     items = OrderItemSerializer(many=True, required=False)
     schedule = serializers.JSONField(write_only=True, required=False, allow_null=True)
-    payments = PaymentSerializer(many=True, required=False)
+    settlements = SettlementSerializer(many=True, required=False)
     schedule = serializers.SerializerMethodField()
 
     target_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
@@ -138,15 +138,42 @@ class OrderSerializer(serializers.ModelSerializer):
             "description": s.description,
         }
 
-    def _create_payments(self, order, payments_data):
-        order_ct = ContentType.objects.get_for_model(Order)
+    def _create_settlements(self, order, settlements_data):
+        ct = ContentType.objects.get_for_model(Order)
 
-        for p in payments_data:
-            Payment.objects.create(
-                content_type=order_ct,
+        for s in settlements_data:
+            Settlement.objects.create(
+                content_type=ct,
                 object_id=order.id,
-                **p,
+                settlement_type=s["settlement_type"],
+                amount=s["amount"],
             )
+
+    def _upsert_payment(self, order, payment_data, settlements_data):
+        ct = ContentType.objects.get_for_model(Order)
+
+        credit_amount = sum(
+            int(s["amount"])
+            for s in settlements_data
+            if s["settlement_type"] == "credit"
+        )
+
+        if credit_amount > 0:
+            if not payment_data:
+                raise serializers.ValidationError({
+                    "payment": "クレジット情報が必要です"
+                })
+
+            Payment.objects.update_or_create(
+                content_type=ct,
+                object_id=order.id,
+                defaults=payment_data,
+            )
+        else:
+            Payment.objects.filter(
+                content_type=ct,
+                object_id=order.id,
+            ).delete()
 
     def _normalize_vehicle_data(self, raw_vehicle):
         if not raw_vehicle:
@@ -177,10 +204,6 @@ class OrderSerializer(serializers.ModelSerializer):
             ).first()
 
         return vehicle_data
-
-    # =========================================
-    # 🔥 ここが超重要（修正版）
-    # =========================================
 
     def _clean_vehicle_data(self, vehicle_data):
         if not vehicle_data:
@@ -284,7 +307,6 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         new_customer_data = validated_data.pop("new_customer", None)
         items_data = validated_data.pop("items", [])
-        payments_data = validated_data.pop("payments", [])
 
         raw_target_vehicle = validated_data.pop("target_vehicle", None)
         raw_trade_in_vehicle = validated_data.pop("trade_in_vehicle", None)
@@ -318,6 +340,7 @@ class OrderSerializer(serializers.ModelSerializer):
         schedule_data = validated_data.pop("schedule", None)
         estimate = validated_data.get("estimate")
         settlements_data = validated_data.pop("settlements", [])
+        payment_data = validated_data.pop("payment", None)
 
         order = Order.objects.create(**validated_data)
 
@@ -345,11 +368,9 @@ class OrderSerializer(serializers.ModelSerializer):
             item.pop("saveAsProduct", None)
             OrderItem.objects.create(order=order, **item)
 
-        for s in settlements_data:
-            OrderSettlement.objects.create(order=order, **s)
-            
+        self._create_settlements(order, settlements_data)
+        self._upsert_payment(order, payment_data, settlements_data)
         self._recalculate_order(order) 
-        self._create_payments(order, payments_data)
         self._upsert_target_vehicle(order, raw_target_vehicle)
         self._replace_trade_in_vehicle(order, raw_trade_in_vehicle)
 
@@ -364,12 +385,12 @@ class OrderSerializer(serializers.ModelSerializer):
         new_customer_data = validated_data.pop("new_customer", None)
         customer = validated_data.pop("customer", None)
         items_data = validated_data.pop("items", None)
-        payments_data = validated_data.pop("payments", None)
 
         raw_target_vehicle = validated_data.pop("target_vehicle", None)
         raw_trade_in_vehicle = validated_data.pop("trade_in_vehicle", None)
 
         settlements_data = validated_data.pop("settlements", None)
+        payment_data = validated_data.pop("payment", None)
 
         # 顧客更新
         if customer:
@@ -439,21 +460,18 @@ class OrderSerializer(serializers.ModelSerializer):
                     delivery_method=schedule_data.get("delivery_method", ""),
                     description=schedule_data.get("description", ""),
                 )
-
-        # 支払い
-        if payments_data is not None:
-            order_ct = ContentType.objects.get_for_model(Order)
-            Payment.objects.filter(
-                content_type=order_ct,
-                object_id=instance.id,
-            ).delete()
-            self._create_payments(instance, payments_data)
         
         if settlements_data is not None:
-            instance.settlements.all().delete()
+            ct = ContentType.objects.get_for_model(Order)
 
-            for s in settlements_data:
-                OrderSettlement.objects.create(order=instance, **s)
+            Settlement.objects.filter(
+                content_type=ct,
+                object_id=instance.id,
+            ).delete()
+
+            self._create_settlements(instance, settlements_data)
+
+            self._upsert_payment(instance, payment_data, settlements_data)
 
         # 車両
         self._upsert_target_vehicle(instance, raw_target_vehicle)
@@ -490,3 +508,42 @@ class OrderSerializer(serializers.ModelSerializer):
             "tax_total",
             "grand_total",
         ])
+
+    def validate(self, data):
+        settlements = self.initial_data.get("settlements", [])
+
+        total = sum(int(s.get("amount", 0)) for s in settlements)
+        grand_total = self.initial_data.get("grand_total")
+
+        if grand_total is not None:
+            grand_total = int(grand_total)
+
+            if settlements and total != grand_total:
+                raise serializers.ValidationError({
+                    "settlements": "支払い合計が総額と一致しません"
+                })
+
+        credit_count = sum(
+            1 for s in settlements
+            if s.get("settlement_type") == "credit"
+        )
+
+        if credit_count > 1:
+            raise serializers.ValidationError({
+                "settlements": "クレジットは1件のみです"
+            })
+
+        credit_amount = sum(
+            int(s.get("amount", 0))
+            for s in settlements
+            if s.get("settlement_type") == "credit"
+        )
+
+        payment_data = self.initial_data.get("payment")
+
+        if credit_amount > 0 and not payment_data:
+            raise serializers.ValidationError({
+                "payment": "クレジット情報を入力してください"
+            })
+
+        return data

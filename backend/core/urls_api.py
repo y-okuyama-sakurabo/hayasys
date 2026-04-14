@@ -15,6 +15,7 @@ from core.views.masters.colors import ColorListView
 from core.views.masters.manufacturers import ManufacturerListView
 from core.views.masters.vehiclecategories import VehicleCategoryListView
 from core.views.masters.registration_locations import RegistrationLocationListView
+from core.views.masters.unit import UnitListAPIView
 
 # === Customers ===
 from core.views.customers.views import (
@@ -190,6 +191,7 @@ urlpatterns = [
     path("masters/manufacturers/", ManufacturerListView.as_view()),
     path("masters/vehiclecategories/", VehicleCategoryListView.as_view()),
     path("masters/registration_locations/", RegistrationLocationListView.as_view()),
+    path("masters/units/", UnitListAPIView.as_view()),
 
     # =========================
     # Customers

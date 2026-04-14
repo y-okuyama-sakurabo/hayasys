@@ -21,6 +21,7 @@ from core.models import (
     Customer,
     Payment,
     Schedule,
+    Settlement,
 )
 from core.models.base import Shop
 from core.serializers.order_detail import OrderDetailSerializer
@@ -508,25 +509,37 @@ class PrepareOrderFromEstimateAPIView(APIView):
 
         # ===== 支払い（見積の Payment → orderの payments 形式へ）=====
         estimate_ct = ContentType.objects.get_for_model(Estimate)
-        payments = Payment.objects.filter(
+        payment = Payment.objects.filter(
             content_type=estimate_ct,
             object_id=estimate.id
-        ).order_by("id")
+        ).first()
 
-        payments_payload = []
-        for p in payments:
-            row = {"payment_method": p.payment_method}
+        payment_payload = None
 
-            if p.payment_method == "クレジット":
-                row.update({
-                    "credit_company": p.credit_company,
-                    "credit_first_payment": p.credit_first_payment,
-                    "credit_second_payment": p.credit_second_payment,
-                    "credit_bonus_payment": p.credit_bonus_payment,
-                    "credit_installments": p.credit_installments,
-                    "credit_start_month": p.credit_start_month,
-                })
-            payments_payload.append(row)
+        if payment:
+            payment_payload = {
+                "credit_company": payment.credit_company,
+                "credit_first_payment": payment.credit_first_payment,
+                "credit_second_payment": payment.credit_second_payment,
+                "credit_bonus_payment": payment.credit_bonus_payment,
+                "credit_installments": payment.credit_installments,
+                "credit_start_month": payment.credit_start_month,
+            }
+        
+        estimate_ct = ContentType.objects.get_for_model(Estimate)
+
+        settlements = Settlement.objects.filter(
+            content_type=estimate_ct,
+            object_id=estimate.id
+        )
+
+        settlements_payload = [
+            {
+                "settlement_type": s.settlement_type,
+                "amount": s.amount,
+            }
+            for s in settlements
+        ]
 
         # ===== items（OrderFormの buildItemPayload が期待する形に寄せる）=====
         items_payload = []
@@ -544,6 +557,8 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "staff": item.staff.id if item.staff else None,
                 "labor_cost": item.labor_cost,
                 "manufacturer": item.manufacturer.id if item.manufacturer else None,
+
+                "unit": item.unit.id if item.unit else None,
             })
         
         # ===============================
@@ -570,7 +585,8 @@ class PrepareOrderFromEstimateAPIView(APIView):
             "target_vehicle": target_vehicle,
             "trade_in_vehicle": trade_in_vehicle,
 
-            "payments": payments_payload,
+            "settlements": settlements_payload,
+            "payment": payment_payload,
 
             "totals": {
                 "subtotal": estimate.subtotal,

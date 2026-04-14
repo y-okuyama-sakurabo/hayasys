@@ -26,6 +26,8 @@ type Props = {
   dispatch: React.Dispatch<any>;
 };
 
+
+
 const STEP_CONFIG = {
   accessory: {
     title: "その他（用品・作業など）",
@@ -84,6 +86,14 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   const [staffs, setStaffs] = useState<any[]>([]);
   const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [categoryMap, setCategoryMap] = useState<Record<number, any>>({});
+  const [units, setUnits] = useState<any[]>([]);
+
+  useEffect(() => {
+    apiClient
+      .get("/masters/units/")
+      .then((res) => setUnits(res.data?.results || res.data || []))
+      .catch(() => setUnits([]));
+  }, []);
 
   /* ===============================
      🔥 indexズレ対策（最重要）
@@ -243,6 +253,29 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                           )
                         }
                       />
+                    </Grid>
+
+                    <Grid size={{ xs: 4, md: 1 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="単位"
+                        value={item?.unit ?? ""}
+                        onChange={(e) =>
+                          handleChange(
+                            originalIndex,
+                            "unit",
+                            e.target.value === "" ? null : Number(e.target.value)
+                          )
+                        }
+                      >
+                        <MenuItem value="">未選択</MenuItem>
+                        {units.map((u) => (
+                          <MenuItem key={u.id} value={u.id}>
+                            {u.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </Grid>
 
                     <Grid size={{ xs: 4, md: 2 }}>
@@ -457,6 +490,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
               quantity: 1,
               ...newItem,
               item_type: config.itemType,
+              unit: newItem.unit ?? null,
             },
           });
         }}
