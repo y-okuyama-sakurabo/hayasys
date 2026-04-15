@@ -13,6 +13,7 @@ from core.models import (
     Schedule,
     Estimate,
     Settlement,
+    Insurance,
 )
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Manufacturer, Category
@@ -23,6 +24,7 @@ from core.serializers.payment import PaymentSerializer
 from core.serializers.customers import CustomerWriteSerializer
 from core.serializers.order_vehicles import OrderVehicleSerializer
 from core.serializers.settlement import SettlementSerializer
+from core.serializers.insurance import InsuranceSerializer 
 
 
 User = get_user_model()
@@ -61,6 +63,12 @@ class OrderSerializer(serializers.ModelSerializer):
     schedule = serializers.JSONField(write_only=True, required=False, allow_null=True)
     settlements = SettlementSerializer(many=True, required=False)
     schedule = serializers.SerializerMethodField()
+
+    # 読み取り
+    insurance = InsuranceSerializer(read_only=True)
+
+    # 書き込み
+    insurance_payload = serializers.DictField(write_only=True, required=False)
 
     target_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
     trade_in_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
@@ -338,11 +346,20 @@ class OrderSerializer(serializers.ModelSerializer):
         )
 
         schedule_data = validated_data.pop("schedule", None)
+        insurance_data = validated_data.pop("insurance_payload", None)
         estimate = validated_data.get("estimate")
         settlements_data = validated_data.pop("settlements", [])
         payment_data = validated_data.pop("payment", None)
 
         order = Order.objects.create(**validated_data)
+
+        if insurance_data is not None:
+            Insurance.objects.filter(order=order).delete()
+
+            Insurance.objects.create(
+                order=order,
+                **insurance_data
+            )
 
         
         if estimate:
@@ -391,6 +408,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         settlements_data = validated_data.pop("settlements", None)
         payment_data = validated_data.pop("payment", None)
+        insurance_data = validated_data.pop("insurance_payload", None)
 
         # 顧客更新
         if customer:
@@ -476,6 +494,14 @@ class OrderSerializer(serializers.ModelSerializer):
         # 車両
         self._upsert_target_vehicle(instance, raw_target_vehicle)
         self._replace_trade_in_vehicle(instance, raw_trade_in_vehicle)
+
+        if insurance_data is not None:
+            Insurance.objects.filter(order=instance).delete()
+
+            Insurance.objects.create(
+                order=instance,
+                **insurance_data
+            )
 
         return instance
     

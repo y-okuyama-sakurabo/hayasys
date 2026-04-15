@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 type Props = {
   vehicle: any | null;
   schedule: any;
+  insurance: any;
   dispatch: React.Dispatch<any>;
   partyId: number | null;
   vehicleMode: "sale" | "maintenance" | "none";
@@ -26,6 +27,7 @@ type Props = {
 export default function VehicleStep({
   vehicle,
   schedule,
+  insurance,
   dispatch,
   partyId,
   vehicleMode,
@@ -193,6 +195,15 @@ export default function VehicleStep({
       type: "SET_VEHICLE",
       payload: {
         ...currentVehicle,
+        [field]: value,
+      },
+    });
+  };
+  const updateInsurance = (field: string, value: any) => {
+    dispatch({
+      type: "SET_INSURANCE",
+      payload: {
+        ...insurance,
         [field]: value,
       },
     });
@@ -515,14 +526,75 @@ export default function VehicleStep({
                 }}
               />
             </Grid>
-          </>
-        )}
-                    <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 2 }} />
               <Typography fontWeight="bold">
-                金額
+                任意保険
               </Typography>
             </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="保険会社"
+                fullWidth
+                value={insurance?.company_name || ""}
+                onChange={(e) => updateInsurance("company_name", e.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="対人"
+                fullWidth
+                value={insurance?.bodily_injury || ""}
+                onChange={(e) => updateInsurance("bodily_injury", e.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="対物"
+                fullWidth
+                value={insurance?.property_damage || ""}
+                onChange={(e) => updateInsurance("property_damage", e.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="搭乗者"
+                fullWidth
+                value={insurance?.passenger || ""}
+                onChange={(e) => updateInsurance("passenger", e.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="車両"
+                fullWidth
+                value={insurance?.vehicle || ""}
+                onChange={(e) => updateInsurance("vehicle", e.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                label="オプション"
+                fullWidth
+                multiline
+                value={insurance?.option || ""}
+                onChange={(e) => updateInsurance("option", e.target.value)}
+              />
+            </Grid>
+          </>
+        )}
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 2 }} />
+          <Typography fontWeight="bold">
+            金額
+          </Typography>
+        </Grid>
         {vehicleMode === "sale" && (
           <Grid size={{ xs: 12 }}>
             <TextField

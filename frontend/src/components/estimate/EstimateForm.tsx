@@ -49,8 +49,10 @@ type EstimateState = {
   vehicle: any | null;
   items: any[];
   schedule: any;
+  insurance: any;
   deletedItemIds: number[];
   global_discount: number;
+  memo: string;
 };
 
 const initialState: EstimateState = {
@@ -87,8 +89,17 @@ const initialState: EstimateState = {
     delivery_shop: null,
     description: "",
   },
+  insurance: {
+    company_name: "",
+    bodily_injury: "",
+    property_damage: "",
+    passenger: "",
+    vehicle: "",
+    option: "",
+  },
   deletedItemIds: [],
   global_discount: 0,
+  memo: "",
 };
 
 function reducer(state: EstimateState, action: any): EstimateState {
@@ -156,6 +167,18 @@ function reducer(state: EstimateState, action: any): EstimateState {
           ...state.schedule,
           ...action.payload,
         },
+      };
+
+    case "SET_INSURANCE":
+      return {
+        ...state,
+        insurance: action.payload,
+      };
+
+    case "SET_MEMO":  
+      return {
+        ...state,
+        memo: action.payload,
       };
 
     default:
@@ -277,6 +300,8 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             items: estimate.items ?? [],
 
             global_discount: discountItem?.discount ?? 0,
+
+            memo: estimate.memo || "",
 
             schedule: estimate.schedule
               ? {
@@ -467,7 +492,9 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         estimate_date: state.basic.estimate_date,
         new_party: state.basic.new_party,
         settlements: settlementsPayload,
+        memo: state.memo,
         payment: paymentPayload,
+        insurance_payload: state.insurance,
       };
 
       if (mode === "create") {
@@ -634,6 +661,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           <VehicleStep
             vehicle={state.vehicle}
             schedule={state.schedule}
+            insurance={state.insurance}
             dispatch={dispatch}
             partyId={state.basic.party_id}
             vehicleMode={state.basic.vehicle_mode}
@@ -684,6 +712,31 @@ export default function EstimateForm({ mode, estimateId }: Props) {
             dispatch({
               type: "SET_GLOBAL_DISCOUNT",
               payload: e.target.value === "" ? 0 : Number(e.target.value),
+            })
+          }
+        />
+      </Paper>
+
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff",
+        }}
+      >
+        <Typography fontWeight="bold" mb={2}>
+          メモ
+        </Typography>
+
+        <TextField
+          multiline
+          rows={4}
+          fullWidth
+          value={state.memo || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_MEMO",
+              payload: e.target.value,
             })
           }
         />

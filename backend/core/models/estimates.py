@@ -107,6 +107,7 @@ class Estimate(models.Model):
         default=Decimal("0"),
     )
     payments = GenericRelation(Payment, related_query_name="estimate")
+    memo = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

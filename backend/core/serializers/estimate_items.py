@@ -5,6 +5,7 @@ from rest_framework import serializers
 from core.models import EstimateItem, Product, Category, Manufacturer, Unit
 from core.serializers.categories import CategorySerializer
 from core.serializers.manufacturers import ManufacturerSerializer
+from core.serializers.unit import UnitSerializer
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -29,6 +30,8 @@ class EstimateItemSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    unit_detail = UnitSerializer(read_only=True, source="unit")
 
     # =========================
     # Manufacturer
@@ -96,6 +99,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
             "sale_type",
             "subtotal",
             "unit",
+            "unit_detail",
             "staff",
             "staff_id",
             "staff_input",

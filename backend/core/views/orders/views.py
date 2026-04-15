@@ -495,7 +495,15 @@ class PrepareOrderFromEstimateAPIView(APIView):
                         "first_registration_date": r.first_registration_date,
                     }
                     for r in v.registrations.all()
-                ]
+                ],
+                "insurance": {
+                    "company_name": estimate.insurance.company_name,
+                    "bodily_injury": estimate.insurance.bodily_injury,
+                    "property_damage": estimate.insurance.property_damage,
+                    "passenger": estimate.insurance.passenger,
+                    "vehicle": estimate.insurance.vehicle,
+                    "option": estimate.insurance.option,
+                } if hasattr(estimate, "insurance") and estimate.insurance else None,
             }
 
             if v.is_trade_in:
@@ -562,7 +570,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
             })
         
         # ===============================
-        # 🔥 スケジュール取得（ここ追加）
+        # スケジュール取得（ここ追加）
         # ===============================
         schedule = Schedule.objects.filter(
             estimate_id=estimate.id

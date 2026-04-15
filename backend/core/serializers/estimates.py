@@ -12,6 +12,7 @@ from core.models import (
     CustomerVehicle,
     Schedule,
     Settlement,
+    Insurance,
 )
 from core.models.masters import Gender, CustomerClass, Region
 from core.models import EstimateVehicleRegistration
@@ -21,6 +22,7 @@ from core.serializers.estimate_vehicles import EstimateVehicleSerializer
 from core.serializers.payment import PaymentSerializer
 from core.serializers.masters import ShopSerializer
 from core.serializers.settlement import SettlementSerializer
+from core.serializers.insurance import InsuranceSerializer
 
 User = get_user_model()
 
@@ -87,6 +89,12 @@ class EstimateSerializer(serializers.ModelSerializer):
     )
     settlements = SettlementSerializer(many=True, required=False)
     payment = PaymentSerializer(required=False, allow_null=True)
+
+    # 読み取り
+    insurance = InsuranceSerializer(read_only=True)
+
+    # 書き込み用
+    insurance_payload = serializers.DictField(write_only=True, required=False)
 
     created_by = CreatedBySerializer(read_only=True)
 
@@ -243,13 +251,24 @@ class EstimateSerializer(serializers.ModelSerializer):
         settlements_data = validated_data.pop("settlements", [])
         payment_data = validated_data.pop("payment", None)
         schedule_data = validated_data.pop("schedule", None)
+        insurance_data = validated_data.pop("insurance_payload", None)
 
         if new_party_data and not validated_data.get("party"):
             validated_data["party"] = EstimateParty.objects.create(
                 **new_party_data
             )
 
+
+
         estimate = Estimate.objects.create(**validated_data)
+
+        if insurance_data is not None:
+            Insurance.objects.filter(estimate=estimate).delete()
+
+            Insurance.objects.create(
+                estimate=estimate,
+                **insurance_data
+            )
 
         for item in items_data:
             item.pop("saveAsProduct", None)
@@ -274,6 +293,7 @@ class EstimateSerializer(serializers.ModelSerializer):
         new_party_data = validated_data.pop("new_party", None)
         party = validated_data.pop("party", None)
         schedule_data = validated_data.pop("schedule", None)
+        insurance_data = validated_data.pop("insurance_payload", None)
 
         if party:
             instance.party = party
@@ -320,6 +340,14 @@ class EstimateSerializer(serializers.ModelSerializer):
                 instance,
                 payment_data,
                 settlements_data or []
+            )
+
+        if insurance_data is not None:
+            Insurance.objects.filter(estimate=instance).delete()
+
+            Insurance.objects.create(
+                estimate=instance,
+                **insurance_data
             )
 
         return instance
@@ -376,6 +404,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
     )
     payments = serializers.SerializerMethodField()
     settlements = serializers.SerializerMethodField()
+    insurance = InsuranceSerializer(read_only=True)
     shop = ShopSerializer(read_only=True)
     created_by = CreatedBySerializer(read_only=True)
 
@@ -390,9 +419,11 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "items",
             "vehicles",
             "payments",
+            "insurance",
             "settlements",
             "created_by",
             "schedule",
+            "memo", 
             "estimate_date",
             "created_at",
             "updated_at",

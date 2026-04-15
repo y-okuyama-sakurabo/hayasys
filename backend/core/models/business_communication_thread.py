@@ -8,7 +8,9 @@ class BusinessCommunicationThread(models.Model):
 
     customer = models.ForeignKey(
         "core.Customer",
-        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         related_name="communication_threads",
         verbose_name="顧客",
     )

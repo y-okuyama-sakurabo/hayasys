@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from core.models import OrderItem, Category, Product
 from core.models.categories import Manufacturer
 from core.serializers.products import ProductSerializer
+from core.serializers.unit import UnitSerializer
 from core.models.unit import Unit
 
 User = get_user_model()
@@ -26,6 +27,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    unit_detail = UnitSerializer(read_only=True, source="unit")
 
     # ==================================================
     # Category（read / write 分離）
@@ -116,6 +119,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "labor_cost",
 
             "unit",
+            "unit_detail",
 
             # UI flag
             "saveAsProduct",

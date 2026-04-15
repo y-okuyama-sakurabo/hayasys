@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 
-from core.models import Order, Payment, Schedule
+from core.models import Order, Payment, Schedule, Settlement, Insurance
 from core.serializers.order_items import OrderItemSerializer
 from core.serializers.order_vehicles import OrderVehicleSerializer
 from core.serializers.payment import PaymentSerializer
@@ -9,6 +9,8 @@ from core.serializers.orders import CreatedBySerializer
 from core.serializers.masters import ShopSerializer
 from core.serializers.customers import CustomerDetailSerializer
 from core.serializers.estimates import EstimateSerializer
+from core.serializers.settlement import SettlementSerializer
+from core.serializers.insurance import InsuranceSerializer
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
@@ -23,6 +25,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     estimate = EstimateSerializer(read_only=True)
     schedule = serializers.SerializerMethodField()
     estimate = EstimateSerializer(read_only=True)
+    insurance = InsuranceSerializer(read_only=True)
+    settlements = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -53,6 +57,10 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "payments",
 
             "schedule",
+
+            "insurance",
+            "settlements",
+            "memo",  
 
             "estimate",
 
@@ -85,3 +93,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "delivery_shop_name": s.delivery_shop.name if s.delivery_shop else None,
             "description": s.description,
         }
+    
+    def get_settlements(self, obj):
+        ct = ContentType.objects.get_for_model(Order)
+
+        qs = Settlement.objects.filter(
+            content_type=ct,
+            object_id=obj.id,
+        )
+
+        return SettlementSerializer(qs, many=True).data

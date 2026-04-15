@@ -19,6 +19,7 @@ import {
   List,
   ListItemButton,
   ListItemText,
+  TextField,
 } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
@@ -55,6 +56,8 @@ type OrderState = {
   vehicle: any | null;
   items: any[];
   global_discount: number;
+  insurance: any;
+  memo: string;
 
   schedule?: any; 
 };
@@ -82,6 +85,15 @@ const initialState: OrderState = {
     description: "",
   },
   global_discount: 0,
+  insurance: {
+    company_name: "",
+    bodily_injury: "",
+    property_damage: "",
+    passenger: "",
+    vehicle: "",
+    option: "",
+  },
+  memo: "",
 };
 
 function reducer(state: OrderState, action: any): OrderState {
@@ -149,6 +161,18 @@ function reducer(state: OrderState, action: any): OrderState {
           ...state.schedule,
           ...action.payload,
         },
+      };
+
+    case "SET_INSURANCE":
+      return {
+        ...state,
+        insurance: action.payload,
+      };
+
+    case "SET_MEMO":
+      return {
+        ...state,
+        memo: action.payload,
       };
 
     default:
@@ -264,6 +288,8 @@ export default function OrderForm({ mode, orderId }: Props) {
                 unit: item.unit?.id ?? item.unit ?? null, 
               })),
               global_discount: discountItem?.discount ?? 0,
+              insurance: data.insurance || initialState.insurance,
+              memo: data.memo || "",
               vehicle: data.target_vehicle
                 ? {
                     ...data.target_vehicle,
@@ -363,6 +389,8 @@ export default function OrderForm({ mode, orderId }: Props) {
               unit: item.unit?.id ?? item.unit ?? null,
             })),
             global_discount: discountItem?.discount ?? 0,
+            insurance: order.insurance || initialState.insurance,
+            memo: order.memo || "",
             schedule: order.schedule
               ? {
                   id: order.schedule.id,
@@ -531,7 +559,9 @@ export default function OrderForm({ mode, orderId }: Props) {
             }
           : null,
         settlements: settlementsPayload,
+        insurance_payload: state.insurance,
         payment: paymentPayload,
+        memo: state.memo, 
       };
 
       // 類似チェック
@@ -633,6 +663,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           <VehicleStep
             vehicle={state.vehicle}
             schedule={state.schedule}
+            insurance={state.insurance}
             dispatch={dispatch}
             partyId={state.basic.customer_id}
             vehicleMode={state.basic.vehicle_mode}
@@ -678,7 +709,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         }}
       >
         <Typography fontWeight="bold" mb={2}>
-          全体調整
+          全体値引き
         </Typography>
 
         <input
@@ -691,6 +722,31 @@ export default function OrderForm({ mode, orderId }: Props) {
             })
           }
           style={{ width: "100%", padding: 8 }}
+        />
+      </Paper>
+
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff",
+        }}
+      >
+        <Typography fontWeight="bold" mb={2}>
+          メモ
+        </Typography>
+
+        <TextField
+          multiline
+          rows={4}
+          fullWidth
+          value={state.memo || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_MEMO",
+              payload: e.target.value,
+            })
+          }
         />
       </Paper>
 

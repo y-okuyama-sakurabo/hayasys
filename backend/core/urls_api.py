@@ -17,6 +17,9 @@ from core.views.masters.vehiclecategories import VehicleCategoryListView
 from core.views.masters.registration_locations import RegistrationLocationListView
 from core.views.masters.unit import UnitListAPIView
 
+# === Dashboard ===
+from core.views.dashboard.views import DashboardAPIView
+
 # === Customers ===
 from core.views.customers.views import (
     CustomerListCreateView,
@@ -192,6 +195,11 @@ urlpatterns = [
     path("masters/vehiclecategories/", VehicleCategoryListView.as_view()),
     path("masters/registration_locations/", RegistrationLocationListView.as_view()),
     path("masters/units/", UnitListAPIView.as_view()),
+
+    # =========================
+    # Dashboard
+    # =========================
+    path("dashboard/", DashboardAPIView.as_view()),
 
     # =========================
     # Customers

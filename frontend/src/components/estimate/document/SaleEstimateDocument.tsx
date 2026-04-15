@@ -60,6 +60,22 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
     ?.filter((i: any) => i.item_type !== "vehicle")
     .reduce((s: number, i: any) => s + calcLine(i).subtotal, 0);
 
+  const SETTLEMENT_TYPES = [
+    { key: "trade_in", label: "下取車" },
+    { key: "cash", label: "現金" },
+    { key: "card", label: "カード・クーポン" },
+    { key: "credit", label: "クレジット" },
+    { key: "advance", label: "前受金" },
+  ];  
+
+  const settlementMap = (estimate.settlements || []).reduce(
+    (acc: any, s: any) => {
+      acc[s.settlement_type] = Number(s.amount);
+      return acc;
+    },
+    {}
+  );
+
   return (
     <>
       {itemChunks.map((items, pageIndex) => {
@@ -73,7 +89,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
               minHeight: "297mm",
               boxSizing: "border-box",
               background: "#ffffff",
-              fontSize: "12px",
+              fontSize: "10px",
               padding: "30px 40px",
               pageBreakAfter: "always",
               "&:last-of-type": { pageBreakAfter: "auto" },
@@ -99,33 +115,55 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                   </Box>
 
                   <Box sx={{ border: "1px solid #000" }}>
-                    <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "5px", fontWeight: "bold" }}>
+                    {/* お買い上げ内容 */}
+                    <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "2px", fontWeight: "bold" }}>
                       お買い上げ内容
                     </Box>
 
-                    {estimate.vehicle_mode === "sale" && (
                     <SummaryRow label="ご商談車両" value={format(vehicleAmount)} />
-                    )}
                     <SummaryRow label="用品＆パーツ" value={format(otherAmount)} />
                     <SummaryRow label="課税費用" value={format(taxableTotal)} />
                     <SummaryRow label="消費税" value={format(tax)} />
                     <SummaryRow label="非課税費用" value={format(nonTaxableTotal)} />
+
                     <Box
                       sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        px: 1,
-                        py: 1,
+                        display: "grid",
+                        gridTemplateColumns: "1fr 120px",
                         fontWeight: "bold",
-                        fontSize: "14px",
+                        fontSize: "12px",
+                      
                       }}
                     >
-                      <span>お支払合計額</span>
-                      <span style={{ fontSize: "16px" }}>
+                      <Box sx={{ px: 1, py: 1 }}>
+                        お支払合計額
+                      </Box>
+
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 1,
+                          textAlign: "right",
+                          borderLeft: "1px solid #000",
+                        }}
+                      >
                         {format(total)}
-                      </span>
+                      </Box>
                     </Box>
+                  </Box>
+                  <Box sx={{ border: "1px solid #000", mt: 2 }}>
+                    {/* タイトル */}
+                    <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "3px", fontWeight: "bold" }}>
+                      ご決済内訳
+                    </Box>
+
+                    {SETTLEMENT_TYPES.map((t) => (
+                      <SummaryRow
+                        key={t.key}
+                        label={t.label}
+                        value={format(settlementMap[t.key] || 0)}
+                      />
+                    ))}
                   </Box>
                 </Grid>
 
@@ -163,7 +201,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             title="下取車両"
                             vehicle={estimate.vehicles?.find((v:any)=>v.is_trade_in)}
                           />
-                          <CreditSection payment={estimate.payments?.[0]} />
+                          <CreditSection estimate={estimate} />
                         </>
                       )}
 
@@ -186,6 +224,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                   <tr>
                     <Th>商品名</Th>
                     <Th>数　量</Th>
+                    <Th>単　位</Th>
                     <Th>単　価</Th>
                     <Th>工　賃</Th>
                     <Th>金　額</Th>
@@ -200,6 +239,9 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                       <tr key={i}>
                         <Td>{item.name}</Td>
                         <Td align="right">{item.quantity}</Td>
+                        <Td align="right">
+                          {item.unit_detail?.name || ""}
+                        </Td>
                         <Td align="right">{format(item.unit_price)}</Td>
                         <Td align="right">{format(item.labor_cost)}</Td>
                         <Td align="right">{format(line.subtotal)}</Td>
@@ -214,10 +256,46 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
+                      <Td>&nbsp;</Td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </Box>
+
+            {/* ===== 納車予定 & 任意保険（別BOX） ===== */}
+            <Box sx={{ display: "flex", gap: 2, mt: 2, alignItems: "flex-start" }}>
+              
+              {/* ===== 納車予定 ===== */}
+              <Box sx={{ border: "1px solid #000", width: "50%" }}>
+                <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "3px", fontWeight: "bold" }}>
+                  納車予定
+                </Box>
+
+                <Box sx={{ p: 1, fontSize: "10px", lineHeight: 1.6 }}>
+                  <div>日付：{estimate.schedule?.start_at?.slice(0, 10) || ""}</div>
+                  <div>方法：{estimate.schedule?.delivery_method || ""}</div>
+                  <div>店舗：{estimate.schedule?.delivery_shop_name || ""}</div>
+                  <div>備考：{estimate.schedule?.description || ""}</div>
+                </Box>
+              </Box>
+
+              {/* ===== 任意保険 ===== */}
+              <Box sx={{ border: "1px solid #000", width: "50%" }}>
+                <Box sx={{ borderBottom: "1px solid #000", px: 1, py: "3px", fontWeight: "bold" }}>
+                  任意保険
+                </Box>
+
+                <Box sx={{ p: 1, fontSize: "10px", lineHeight: 1.6 }}>
+                  <div>会社名：{estimate.insurance?.company_name || ""}</div>
+                  <div>対人：{estimate.insurance?.bodily_injury || ""}</div>
+                  <div>対物：{estimate.insurance?.property_damage || ""}</div>
+                  <div>搭乗者：{estimate.insurance?.passenger || ""}</div>
+                  <div>車両：{estimate.insurance?.vehicle || ""}</div>
+                  <div>OP：{estimate.insurance?.option || ""}</div>
+                </Box>
+              </Box>
+
             </Box>
 
             <Footer estimate={estimate} />
@@ -241,16 +319,23 @@ function Footer({ estimate }: any) {
     minHeight: "110px",
   }}
 >
-  <Box
-    sx={{
-      width: "50%",
-      borderRight: "1px solid #000",
-      p: 1.5,
-      fontSize: "13px",
-    }}
-  >
+<Box
+  sx={{
+    width: "50%",
+    borderRight: "1px solid #000",
+    p: 1.5,
+    fontSize: "13px",
+    whiteSpace: "pre-wrap",
+  }}
+>
+  <Box sx={{ fontWeight: "bold", mb: 1 }}>
     メモ
   </Box>
+
+  <Box>
+    {estimate.memo || ""}
+  </Box>
+</Box>
 
   <Box
     sx={{
@@ -297,16 +382,28 @@ function SummaryRow({ label, value }: any) {
   return (
     <Box
       sx={{
-        display: "flex",
-        justifyContent: "space-between",
+        display: "grid",
+        gridTemplateColumns: "1fr 120px", // ← 左右固定
         borderBottom: "1px solid #000",
-        px: 1,
-        py: "3px",
-        fontSize: "11px",
+        fontSize: "10px",
       }}
     >
-      <span>{label}</span>
-      <span>{value}</span>
+      {/* 左：項目 */}
+      <Box sx={{ px: 1, py: "3px" }}>
+        {label}
+      </Box>
+
+      {/* 右：金額（縦線） */}
+      <Box
+        sx={{
+          px: 1,
+          py: "3px",
+          textAlign: "right",
+          borderLeft: "1px solid #000", // ← これ！！
+        }}
+      >
+        {value}
+      </Box>
     </Box>
   );
 }
@@ -343,7 +440,7 @@ function VehicleSection({ title, vehicle }: any) {
           px: 1,
           py: "1px",
           fontWeight: "bold",
-          fontSize: "12px",
+          fontSize: "10px",
         }}
       >
         {title}
@@ -428,9 +525,16 @@ const rightCellStyle: React.CSSProperties = {
   width: "50%",
 };
 
-function CreditSection({ payment }: any) {
-  const isCredit = payment?.payment_method === "クレジット";
-  const v = (val: any) => (isCredit && val ? val : "");
+function CreditSection({ estimate }: any) {
+  const hasCredit = estimate?.settlements?.some(
+    (s: any) => s.settlement_type === "credit"
+  );
+
+  const payment = estimate?.payments?.[0];
+
+  const v = (val: any) => (hasCredit && val ? val : "");
+
+  if (!hasCredit) return null;
 
   return (
     <Box sx={{ border: "1px solid #000", mb: 2 }}>
@@ -440,7 +544,7 @@ function CreditSection({ payment }: any) {
           px: 1,
           py: "1px",
           fontWeight: "bold",
-          fontSize: "12px",
+          fontSize: "10px",
         }}
       >
         クレジット
@@ -478,4 +582,21 @@ function CreditSection({ payment }: any) {
       </table>
     </Box>
   );
+}
+
+function getSettlementLabel(type: string) {
+  switch (type) {
+    case "trade_in":
+      return "下取車";
+    case "cash":
+      return "現金";
+    case "card":
+      return "カード・クーポン";
+    case "credit":
+      return "クレジット";
+    case "advance":
+      return "前受金";
+    default:
+      return type;
+  }
 }

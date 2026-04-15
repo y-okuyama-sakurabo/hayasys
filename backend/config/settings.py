@@ -67,7 +67,7 @@ DATABASES = {
 LANGUAGE_CODE = "ja"
 TIME_ZONE = "Asia/Tokyo"
 USE_I18N = True
-USE_TZ = False   # ← 東京時間で保存したいなら False（お好みで True でもOK）
+USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
