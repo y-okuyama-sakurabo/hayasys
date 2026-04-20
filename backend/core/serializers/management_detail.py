@@ -154,3 +154,10 @@ class ManagementDetailSerializer(serializers.ModelSerializer):
 
         last = pm.records.order_by("-payment_date", "-id").first()
         return last.payment_date if last else None
+
+class ManagementMonthlySummarySerializer(serializers.Serializer):
+    month = serializers.DateField()
+
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    paid_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    unpaid_amount = serializers.DecimalField(max_digits=12, decimal_places=2)

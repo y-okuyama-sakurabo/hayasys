@@ -7,21 +7,25 @@ TYPE_MAP = {
     "車両": "vehicle",
     "商品": "item",
     "その他": "other",
-    "保険": "insurance",
-    "諸費用": "expense",
+    "費用": "expense",  # ← CSVに合わせる
 }
 
 
 class Command(BaseCommand):
-    help = "Import Categories from CSV (with category_type support)"
+    help = "Import Categories (allow same name multiple by type)"
 
     def add_arguments(self, parser):
         parser.add_argument("csv_file", type=str)
+        parser.add_argument("--reset", action="store_true")
 
     def handle(self, *args, **options):
         file_path = options["csv_file"]
+        reset = options["reset"]
 
         created = 0
+
+        if reset:
+            Category.objects.all().delete()
 
         with open(file_path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
@@ -29,8 +33,22 @@ class Command(BaseCommand):
             for row in reader:
                 parent = None
 
-                category_type = TYPE_MAP.get(row.get("type"))
+                # =========================
+                # type / tax_type
+                # =========================
+                raw_type = (row.get("type") or "").strip()
+                category_type = TYPE_MAP.get(raw_type)
 
+                raw_tax_type = (row.get("tax_type") or "").strip()
+
+                if category_type == "expense":
+                    tax_type = raw_tax_type or "taxable"
+                else:
+                    tax_type = None
+
+                # =========================
+                # 階層
+                # =========================
                 levels = [
                     row.get("L1"),
                     row.get("L2"),
@@ -39,41 +57,43 @@ class Command(BaseCommand):
                 ]
 
                 for index, level in enumerate(levels):
+                    level = (level or "").strip()
                     if not level:
                         continue
 
-                    # L1のみ category_type をセット
-                    if index == 0:
-                        obj, _ = Category.objects.get_or_create(
-                            name=level,
-                            parent=None,
-                            defaults={"category_type": category_type},
-                        )
+                    query = {
+                        "name": level,
+                        "parent": parent,
+                    }
 
-                        # 既存L1でtype未設定なら更新
-                        if obj.category_type != category_type:
-                            obj.category_type = category_type
-                            obj.save()
-                    else:
-                        obj, _ = Category.objects.get_or_create(
+                    # L1のみ type / tax_type を持たせる
+                    if index == 0:
+                        query["category_type"] = category_type
+                        query["tax_type"] = tax_type
+
+                    obj = Category.objects.filter(**query).first()
+
+                    if not obj:
+                        obj = Category.objects.create(
                             name=level,
                             parent=parent,
+                            category_type=category_type if index == 0 else None,
+                            tax_type=tax_type if index == 0 else None,
                         )
+                        created += 1
 
                     parent = obj
 
-                # 最下層に manufacturer_group を紐付け
-                if parent and row.get("manufacturer_group"):
-                    group = ManufacturerGroup.objects.filter(
-                        code=row["manufacturer_group"]
-                    ).first()
-
+                # =========================
+                # manufacturer_group
+                # =========================
+                mg_code = (row.get("manufacturer_group") or "").strip()
+                if parent and mg_code:
+                    group = ManufacturerGroup.objects.filter(code=mg_code).first()
                     if group:
                         parent.manufacturer_group = group
                         parent.save()
 
-                created += 1
-
         self.stdout.write(
-            self.style.SUCCESS(f"Category Import Complete. Processed: {created}")
+            self.style.SUCCESS(f"Category Import Complete. Created: {created}")
         )

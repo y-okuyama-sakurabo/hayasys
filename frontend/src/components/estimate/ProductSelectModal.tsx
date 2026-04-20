@@ -26,6 +26,7 @@ import apiClient from "@/lib/apiClient";
 
 type Props = {
   open: boolean;
+  categoryUrl: string;
   onClose: () => void;
   onSelect: (item: any) => void;
   itemType: "accessory" | "fee" | "insurance";

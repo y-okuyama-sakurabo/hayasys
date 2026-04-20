@@ -27,7 +27,7 @@ class Category(models.Model):
     CATEGORY_TYPE_CHOICES = [
         ("vehicle", "車両"),
         ("item", "商品"),
-        ("expense", "諸費用"),
+        ("expense", "費用"),
         ("insurance", "保険"),
         ("other", "その他"),
     ]
@@ -48,6 +48,19 @@ class Category(models.Model):
         null=True,
         blank=True,
         help_text="最上位カテゴリのみ設定"
+    )
+
+    TAX_TYPE_CHOICES = [
+        ("taxable", "課税"),
+        ("non_taxable", "非課税"),
+    ]
+
+    tax_type = models.CharField(
+        max_length=20,
+        choices=TAX_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        db_index=True,
     )
 
     # 🔥 直付け方式
@@ -144,10 +157,12 @@ class Product(models.Model):
 
     def save(self, *args, **kwargs):
         self.name_search = normalize_japanese(self.name)
-        super().save(*args, **kwargs)
 
+        if self.category and self.category.tax_type:
+            if not self.tax_type:
+                self.tax_type = self.category.tax_type
 
-
+                super().save(*args, **kwargs)
 
 # ============================================
 # メーカー

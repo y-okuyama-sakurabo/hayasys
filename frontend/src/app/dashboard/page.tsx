@@ -41,9 +41,7 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight="bold" mb={3}>
-        ダッシュボード
-      </Typography>
+
 
       <Grid container spacing={3}>
         {/* =========================

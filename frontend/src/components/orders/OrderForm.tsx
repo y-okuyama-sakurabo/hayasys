@@ -28,8 +28,8 @@ import BasicInfoForm from "../estimate/BasicInfoForm";
 import VehicleStep from "../estimate/VehicleStep";
 import OtherStep from "../estimate/OtherStep";
 import EstimatePaymentForm from "../estimate/EstimatePaymentForm";
-import ExpenseStep from "../estimate/ExpenseStep";
-import InsuranceStep from "../estimate/InsuranceStep";
+import ExpenseStep from "../estimate/TaxableExpenseStep";
+import InsuranceStep from "../estimate/NonTaxableExpenseStep";
 
 const BASE_STEPS = [
   { key: "basic", label: "基本情報" },

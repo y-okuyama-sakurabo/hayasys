@@ -20,16 +20,16 @@ import dayjs from "dayjs";
 import BasicInfoForm from "./BasicInfoForm";
 import VehicleStep from "./VehicleStep";
 import OtherStep from "./OtherStep";
-import ExpenseStep from "./ExpenseStep";
-import InsuranceStep from "./InsuranceStep";
+import TaxableExpenseStep from "./TaxableExpenseStep";
+import NonTaxableExpenseStep from "./NonTaxableExpenseStep";
 import EstimatePaymentForm from "./EstimatePaymentForm";
 
 const BASE_STEPS = [
   { key: "basic", label: "基本情報" },
   { key: "vehicle", label: "車両" },
   { key: "items", label: "その他" },
-  { key: "expenses", label: "諸費用" },
-  { key: "insurance", label: "保険" },
+  { key: "taxable_expense", label: "課税費用" },
+  { key: "non_taxable_expense", label: "非課税費用" },
   { key: "payment", label: "支払い" },
 ] as const;
 
@@ -672,12 +672,12 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           <OtherStep items={state.items} dispatch={dispatch} />
         )}
 
-        {currentStep === "expenses" && (
-          <ExpenseStep items={state.items} dispatch={dispatch} />
+        {currentStep === "taxable_expense" && (
+          <TaxableExpenseStep items={state.items} dispatch={dispatch} />
         )}
 
-        {currentStep === "insurance" && (
-          <InsuranceStep items={state.items} dispatch={dispatch} />
+        {currentStep === "non_taxable_expense" && (
+          <NonTaxableExpenseStep items={state.items} dispatch={dispatch} />
         )}
 
         {currentStep === "payment" && (

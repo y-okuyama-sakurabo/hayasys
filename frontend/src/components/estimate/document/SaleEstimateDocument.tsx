@@ -234,6 +234,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                 <tbody>
                   {items.map((item: any, i: number) => {
                     const line = calcLine(item);
+                    const unitWithTax = Math.round(line.total / Number(item.quantity ?? 1));
 
                     return (
                       <tr key={i}>
@@ -242,9 +243,9 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                         <Td align="right">
                           {item.unit_detail?.name || ""}
                         </Td>
-                        <Td align="right">{format(item.unit_price)}</Td>
+                        <Td align="right">{format(unitWithTax)}</Td>
                         <Td align="right">{format(item.labor_cost)}</Td>
-                        <Td align="right">{format(line.subtotal)}</Td>
+                        <Td align="right">{format(line.total)}</Td>
                       </tr>
                     );
                   })}

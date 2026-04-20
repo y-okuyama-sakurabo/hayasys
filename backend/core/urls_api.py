@@ -142,6 +142,7 @@ from core.views.deliveries.delivery_item_cancel import (
 # === Payment Management ===
 from core.views.management.management_detail_view import (
     ManagementOrderDetailAPIView,
+    ManagementMonthlySummaryAPIView
 )
 from core.views.payments.payment_management_views import (
     PaymentManagementDetailAPIView,
@@ -297,6 +298,11 @@ urlpatterns = [
     path(
         "management/orders/<int:order_id>/",
         ManagementOrderDetailAPIView.as_view(),
+    ),
+
+    path(
+        "management/orders/monthly/",
+        ManagementMonthlySummaryAPIView.as_view(),
     ),
 
     # Payment management

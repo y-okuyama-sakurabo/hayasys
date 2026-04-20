@@ -155,9 +155,13 @@ class CategoryTreeAPIView(generics.ListAPIView):
         qs = Category.objects.filter(parent__isnull=True)
 
         category_types = self.request.query_params.getlist("type")
+        tax_type = self.request.query_params.get("tax_type")  # ←追加
 
         if category_types:
             qs = qs.filter(category_type__in=category_types)
+
+        if tax_type:  # ←追加
+            qs = qs.filter(tax_type=tax_type)
 
         return (
             qs.prefetch_related(

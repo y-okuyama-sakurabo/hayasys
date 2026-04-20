@@ -21,7 +21,8 @@ import ProductSelectModal from "./ProductSelectModal";
 type ItemType = "accessory" | "fee" | "insurance";
 
 type Props = {
-  type: ItemType;
+  type: keyof typeof STEP_CONFIG;
+  taxType?: string;
   items: any[];
   dispatch: React.Dispatch<any>;
 };
@@ -35,24 +36,31 @@ const STEP_CONFIG = {
     categoryUrl: "/categories/tree/?type=item&type=other",
     nameLabel: "商品名",
     itemType: "accessory",
+    taxType: "taxable",
     showLaborCost: true,
     taxable: true,
   },
-  fee: {
-    title: "諸費用",
-    addButtonLabel: "諸費用を追加",
-    categoryUrl: "/categories/tree/?type=expense",
+
+  // 👇 課税費用
+  taxable_fee: {
+    title: "課税費用",
+    addButtonLabel: "課税費用を追加",
+    categoryUrl: "/categories/tree/?type=expense&tax_type=taxable",
     nameLabel: "項目名",
     itemType: "fee",
+    taxType: "taxable", // ←これ追加
     showLaborCost: false,
     taxable: true,
   },
-  insurance: {
-    title: "保険",
-    addButtonLabel: "保険を追加",
-    categoryUrl: "/categories/tree/?type=insurance",
-    nameLabel: "商品名",
-    itemType: "insurance",
+
+  // 👇 非課税費用
+  non_taxable_fee: {
+    title: "非課税費用",
+    addButtonLabel: "非課税費用を追加",
+    categoryUrl: "/categories/tree/?type=expense&tax_type=non_taxable",
+    nameLabel: "項目名",
+    itemType: "fee",
+    taxType: "non_taxable", // ←これ追加
     showLaborCost: false,
     taxable: false,
   },
@@ -60,16 +68,22 @@ const STEP_CONFIG = {
 
 
 
-function calcLine(item: any, options: { taxable: boolean; showLaborCost: boolean }) {
-  const qty = Math.round(Number(item?.quantity ?? 1));
-  const unit = Math.round(Number(item?.unit_price ?? 0));
-  const labor = options.showLaborCost
-    ? Math.round(Number(item?.labor_cost ?? 0))
-    : 0;
-  const discount = Math.round(Number(item?.discount ?? 0));
+function calcLine(item: any) {
+  const qty = Number(item.quantity ?? 1);
+  const unit = Number(item.unit_price ?? 0);
+  const labor = Number(item.labor_cost ?? 0);
+  const discount = Number(item.discount ?? 0);
 
-  const subtotal = Math.max(0, Math.round(qty * unit + labor - discount));
-  const tax = options.taxable ? Math.floor(subtotal * 0.1) : 0;
+  const subtotal = Math.max(0, qty * unit + labor - discount);
+
+  const taxType =
+    item.tax_type ??
+    item.category?.tax_type ??
+    "taxable";
+
+  const tax = taxType === "taxable"
+    ? Math.floor(subtotal * 0.1)
+    : 0;
 
   return {
     subtotal,
@@ -101,8 +115,18 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   const filteredItems = useMemo(() => {
     return items
       .map((item, originalIndex) => ({ item, originalIndex }))
-      .filter((x) => x.item?.item_type === config.itemType);
-  }, [items, config.itemType]);
+      .filter((x) => {
+        // ① item_typeで絞る
+        if (x.item?.item_type !== config.itemType) return false;
+
+        // ② tax_typeで絞る（ここが今回の本命）
+        if (config.taxType) {
+          return x.item?.tax_type === config.taxType;
+        }
+
+        return true;
+      });
+  }, [items, config.itemType, config.taxType]);
 
   useEffect(() => {
     apiClient
@@ -160,10 +184,8 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   const totals = useMemo(() => {
     return filteredItems.reduce(
       (acc, { item }) => {
-        const line = calcLine(item, {
-          taxable: config.taxable,
-          showLaborCost: config.showLaborCost,
-        });
+        const line = calcLine(item);
+
         acc.subtotal += line.subtotal;
         acc.tax += line.tax;
         acc.total += line.total;
@@ -171,7 +193,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
       },
       { subtotal: 0, tax: 0, total: 0 }
     );
-  }, [filteredItems, config.taxable, config.showLaborCost]);
+  }, [filteredItems]);
 
   const handleRemove = (index: number) => {
     dispatch({ type: "REMOVE_ITEM", index });
@@ -207,10 +229,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
         )}
 
         {filteredItems.map(({ item, originalIndex }) => {
-          const line = calcLine(item, {
-            taxable: config.taxable,
-            showLaborCost: config.showLaborCost,
-          });
+          const line = calcLine(item);
 
           const categoryId = item?.category_id ?? item?.category?.id ?? null;
 
@@ -477,6 +496,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
 
       <ProductSelectModal
         open={modalOpen}
+        categoryUrl={config.categoryUrl}
         onClose={() => setModalOpen(false)}
         itemType={config.itemType}
         onSelect={(newItem) => {
