@@ -98,12 +98,6 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        """
-        🔥 重要ポイント：
-        - nested serializerでは instance が来ない
-        - initial_data から id / estimate を拾う
-        - 自分自身 & 同一見積は除外する
-        """
 
         chassis_no = data.get("chassis_no")
 

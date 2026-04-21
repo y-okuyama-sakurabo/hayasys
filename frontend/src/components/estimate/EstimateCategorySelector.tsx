@@ -24,10 +24,12 @@ export default function EstimateCategorySelector({
   value,
   onChange,
   categoryTypes,
+  taxType,
 }: {
   value?: number | null;
   onChange: (selectedCategoryId: number | null) => void;
   categoryTypes?: string[];
+  taxType?: "taxable" | "non_taxable";
 }) {
   const [rootCategories, setRootCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -55,6 +57,10 @@ export default function EstimateCategorySelector({
           categoryTypes.forEach((t) => params.append("type", t));
         }
 
+        if (taxType) {
+          params.append("tax_type", taxType);
+        }
+
         const url =
           params.toString().length > 0
             ? `/categories/tree/?${params.toString()}`
@@ -72,7 +78,7 @@ export default function EstimateCategorySelector({
     };
 
     fetch();
-  }, [categoryTypes]);
+  }, [categoryTypes, taxType]);
 
   /* =============================
      id からチェーン復元

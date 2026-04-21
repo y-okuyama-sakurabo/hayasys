@@ -26,10 +26,10 @@ import apiClient from "@/lib/apiClient";
 
 type Props = {
   open: boolean;
-  categoryUrl: string;
   onClose: () => void;
   onSelect: (item: any) => void;
   itemType: "accessory" | "fee" | "insurance";
+  taxType?: "taxable" | "non_taxable";
 };
 
 export default function ProductSelectModal({
@@ -37,6 +37,7 @@ export default function ProductSelectModal({
   onClose,
   onSelect,
   itemType,
+  taxType,
 }: Props) {
 
   console.log("modal itemType:", itemType);
@@ -314,6 +315,7 @@ export default function ProductSelectModal({
               value={categoryId2}
               onChange={(id) => setCategoryId2(id)}
               categoryTypes={categoryTypes}
+              taxType={taxType}
             />
 
             <Stack spacing={2} mt={2}>
@@ -438,6 +440,7 @@ export default function ProductSelectModal({
               value={categoryId1}
               onChange={(id) => setCategoryId1(id)}
               categoryTypes={categoryTypes}
+              taxType={taxType}
             />
 
             {loadingProducts ? (

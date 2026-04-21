@@ -160,8 +160,13 @@ class CategoryTreeAPIView(generics.ListAPIView):
         if category_types:
             qs = qs.filter(category_type__in=category_types)
 
-        if tax_type:  # ←追加
-            qs = qs.filter(tax_type=tax_type)
+        if tax_type:
+            if tax_type == "taxable":
+                qs = qs.filter(
+                    Q(tax_type="taxable") | Q(tax_type__isnull=True)
+                )
+            else:
+                qs = qs.filter(tax_type="non_taxable")
 
         return (
             qs.prefetch_related(

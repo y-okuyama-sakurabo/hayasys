@@ -496,9 +496,10 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
 
       <ProductSelectModal
         open={modalOpen}
-        categoryUrl={config.categoryUrl}
+        
         onClose={() => setModalOpen(false)}
         itemType={config.itemType}
+        taxType={config.taxable ? "taxable" : "non_taxable"}
         onSelect={(newItem) => {
           dispatch({
             type: "ADD_ITEM",
