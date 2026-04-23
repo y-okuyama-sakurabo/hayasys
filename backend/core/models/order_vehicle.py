@@ -28,7 +28,7 @@ class OrderVehicle(models.Model):
     vehicle_name = models.CharField(max_length=100, blank=True)
     displacement = models.IntegerField(null=True, blank=True)
     model_year = models.CharField(max_length=10, blank=True)
-    new_car_type = models.CharField(max_length=20, blank=True)
+    sale_type = models.CharField(max_length=30, null=True, blank=True)
     manufacturer = models.ForeignKey(
         "core.Manufacturer",
         on_delete=models.PROTECT,

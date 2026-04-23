@@ -1,11 +1,10 @@
 FROM node:20-bullseye
 WORKDIR /usr/src/app
 
-# 👇 frontend配下を指定
-COPY frontend/package*.json ./
+COPY package*.json ./
 RUN npm ci
 
-COPY frontend/ .
+COPY . .
 RUN npm run build
 
 EXPOSE 3000

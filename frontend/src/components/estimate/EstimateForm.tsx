@@ -47,6 +47,7 @@ type EstimateState = {
   };
   basic: any;
   vehicle: any | null;
+  tradeInVehicle: any | null;
   items: any[];
   schedule: any;
   insurance: any;
@@ -54,6 +55,8 @@ type EstimateState = {
   global_discount: number;
   memo: string;
 };
+
+const today = dayjs();
 
 const initialState: EstimateState = {
   meta: { mode: "create" },
@@ -64,6 +67,7 @@ const initialState: EstimateState = {
     new_party: null,
     vehicle_mode: "sale",
     estimate_date: dayjs().format("YYYY-MM-DD"),
+    valid_until: today.add(1, "month").format("YYYY-MM-DD"),
     settlements: {
       trade_in: 0,
       cash: 0,
@@ -79,6 +83,7 @@ const initialState: EstimateState = {
     credit_start_month: "",
   },
   vehicle: null,
+  tradeInVehicle: null,
   items: [],
   schedule: {
     id: null,
@@ -127,6 +132,9 @@ function reducer(state: EstimateState, action: any): EstimateState {
 
     case "SET_VEHICLE":
       return { ...state, vehicle: action.payload };
+    
+    case "SET_TRADE_IN_VEHICLE":
+      return { ...state, tradeInVehicle: action.payload };
 
     case "SET_ITEMS":
       return { ...state, items: action.payload };
@@ -531,18 +539,46 @@ export default function EstimateForm({ mode, estimateId }: Props) {
          車両保存
       ========================= */
 
-      if (state.vehicle && state.basic.vehicle_mode !== "none") {
-        await apiClient.patch(`/estimates/${id}/`, {
-          vehicles_payload: [
-            {
-              ...state.vehicle,
-              category_id:
-                state.vehicle.category_id ??
-                state.vehicle.category?.id ??
-                null,
-            },
-          ],
+      if (state.basic.vehicle_mode !== "none") {
+        const vehiclesPayload = [
+          state.vehicle
+            ? {
+                ...state.vehicle,
+                is_trade_in: false,
+                category_id:
+                  state.vehicle.category_id ??
+                  state.vehicle.category?.id ??
+                  null,
+              }
+            : null,
+
+          state.tradeInVehicle
+            ? {
+                ...state.tradeInVehicle,
+                is_trade_in: true,
+                category_id:
+                  state.tradeInVehicle.category_id ??
+                  state.tradeInVehicle.category?.id ??
+                  null,
+              }
+            : null,
+        ].filter((v) => {
+          if (!v) return false;
+
+          return (
+            v.category_id ||
+            v.vehicle_name ||
+            v.chassis_no ||
+            v.model_code ||
+            v.registrations?.[0]?.registration_no
+          );
         });
+
+        if (vehiclesPayload.length > 0) {
+          await apiClient.patch(`/estimates/${id}/`, {
+            vehicles_payload: vehiclesPayload,
+          });
+        }
       }
 
       /* =========================
@@ -563,6 +599,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           category_id: state.vehicle.category_id ?? null,
           manufacturer: state.vehicle.manufacturer ?? null,
           unit: state.vehicle.unit ?? null,
+          sale_type: state.vehicle.sale_type ?? null,
         });
       }
 
@@ -660,6 +697,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         {currentStep === "vehicle" && (
           <VehicleStep
             vehicle={state.vehicle}
+            tradeInVehicle={state.tradeInVehicle}
             schedule={state.schedule}
             insurance={state.insurance}
             dispatch={dispatch}

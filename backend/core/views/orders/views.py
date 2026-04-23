@@ -476,7 +476,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 "vehicle_name": v.vehicle_name,
                 "displacement": v.displacement,
                 "model_year": v.model_year,
-                "new_car_type": v.new_car_type,
+                "sale_type": v.sale_type,
                 "manufacturer": v.manufacturer.id if v.manufacturer else None,
                 "color": v.color.id if getattr(v, "color", None) else None,
                 "color_name": v.color_name,
@@ -496,14 +496,7 @@ class PrepareOrderFromEstimateAPIView(APIView):
                     }
                     for r in v.registrations.all()
                 ],
-                "insurance": {
-                    "company_name": estimate.insurance.company_name,
-                    "bodily_injury": estimate.insurance.bodily_injury,
-                    "property_damage": estimate.insurance.property_damage,
-                    "passenger": estimate.insurance.passenger,
-                    "vehicle": estimate.insurance.vehicle,
-                    "option": estimate.insurance.option,
-                } if hasattr(estimate, "insurance") and estimate.insurance else None,
+                
             }
 
             if v.is_trade_in:
@@ -579,19 +572,21 @@ class PrepareOrderFromEstimateAPIView(APIView):
         # ===== 返却（OrderForm state.basic にそのまま入れられる形）=====
         data = {
             "estimate_id": estimate.id,
-
-            # ★ 店舗も返す（これが抜けてた）
             "shop": estimate.shop.id if estimate.shop else None,
-
             "vehicle_mode": estimate.vehicle_mode,
-
-            # ★ OrderForm basic にそのまま入れる
             "customer_id": customer_id,
             "new_customer": new_customer,
-
             "items": items_payload,
             "target_vehicle": target_vehicle,
             "trade_in_vehicle": trade_in_vehicle,
+            "insurance": {
+                "company_name": estimate.insurance.company_name,
+                "bodily_injury": estimate.insurance.bodily_injury,
+                "property_damage": estimate.insurance.property_damage,
+                "passenger": estimate.insurance.passenger,
+                "vehicle": estimate.insurance.vehicle,
+                "option": estimate.insurance.option,
+            } if hasattr(estimate, "insurance") and estimate.insurance else None,
 
             "settlements": settlements_payload,
             "payment": payment_payload,

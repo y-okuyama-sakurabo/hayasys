@@ -11,6 +11,7 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  TextField,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -84,6 +85,24 @@ export default function BasicInfoForm({
       type: "SET_BASIC",
       payload: {
         vehicle_mode: value,
+      },
+    });
+  };
+
+  const handleEstimateDateChange = (value: string) => {
+    dispatch({
+      type: "SET_BASIC",
+      payload: {
+        estimate_date: value,
+      },
+    });
+  };
+
+  const handleValidUntilChange = (value: string) => {
+    dispatch({
+      type: "SET_BASIC",
+      payload: {
+        valid_until: value,
       },
     });
   };

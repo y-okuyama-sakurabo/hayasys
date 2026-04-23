@@ -13,7 +13,7 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import apiClient from "@/lib/apiClient";
-import { OrderDocument } from "@/components/orders/OrderDocument";
+import { SaleOrderDocument } from "@/components/orders/document/SaleOrderDocument";
 import { useReactToPrint } from "react-to-print";
 
 export default function OrderDetailPage() {
@@ -96,7 +96,7 @@ export default function OrderDetailPage() {
             backgroundColor: "#fff",
           }}
         >
-          <OrderDocument order={order} />
+          <SaleOrderDocument order={order} />
         </Paper>
       </div>
     </Box>

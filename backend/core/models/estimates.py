@@ -108,6 +108,7 @@ class Estimate(models.Model):
     )
     payments = GenericRelation(Payment, related_query_name="estimate")
     memo = models.TextField(blank=True, null=True)
+    valid_until = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -181,18 +182,7 @@ class EstimateItem(models.Model):
     )
 
     subtotal = models.DecimalField("小計", max_digits=12, decimal_places=2, default=0)
-    SALE_TYPE_CHOICES = [
-        ("new", "新車"),
-        ("used", "中古車"),
-        ("rental_up", "レンタルアップ"),
-        ("consignment", "委託販売"),
-    ]
-    sale_type = models.CharField(
-        max_length=20,
-        choices=SALE_TYPE_CHOICES,
-        null=True,
-        blank=True,
-    )
+    sale_type = models.CharField(max_length=30, null=True, blank=True)
     manufacturer = models.ForeignKey(
         "core.Manufacturer",
         on_delete=models.SET_NULL,

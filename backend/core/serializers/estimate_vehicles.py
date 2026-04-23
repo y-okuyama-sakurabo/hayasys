@@ -77,7 +77,7 @@ class EstimateVehicleSerializer(serializers.ModelSerializer):
             "vehicle_name",
             "displacement",
             "model_year",
-            "new_car_type",
+            "sale_type",
             "manufacturer",
             "manufacturer_detail",
             "color",

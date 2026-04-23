@@ -3,9 +3,8 @@
 import React from "react";
 import { Box, Typography, Grid } from "@mui/material";
 
-export function SaleEstimateDocument({ estimate }: { estimate: any }) {
+export function SaleOrderDocument({ order }: { order: any }) {
   const ITEMS_PER_PAGE = 6;
-  const vehicle = estimate.vehicles?.[0];
 
   const format = (v: any) =>
     v == null || isNaN(Number(v)) ? "" : `¥${Number(v).toLocaleString()}`;
@@ -38,11 +37,11 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
     return chunks;
   }
 
-  const normalItems = (estimate.items || []).filter(
+  const normalItems = (order.items || []).filter(
     (item: any) => !(item.item_type === "fee" && item.tax_type === "non_taxable")
   );
 
-  const nonTaxFeeItems = (estimate.items || []).filter(
+  const nonTaxFeeItems = (order.items || []).filter(
     (item: any) => item.item_type === "fee" && item.tax_type === "non_taxable"
   );
   const nonTaxEmptyRows = Math.max(0, 5 - nonTaxFeeItems.length);
@@ -50,7 +49,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   const itemChunks = chunkItems(normalItems, ITEMS_PER_PAGE);
   if (itemChunks.length === 0) itemChunks.push([]);
 
-  const summary = (estimate.items || []).reduce(
+  const summary = (order.items || []).reduce(
     (acc: any, item: any) => {
       const line = calcLine(item);
       const taxType = item.tax_type ?? "taxable";
@@ -100,7 +99,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
     { key: "advance", label: "前受金" },
   ];  
 
-  const settlementMap = (estimate.settlements || []).reduce(
+  const settlementMap = (order.settlements || []).reduce(
     (acc: any, s: any) => {
       acc[s.settlement_type] = Number(s.amount);
       return acc;
@@ -132,18 +131,18 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
               <Grid container sx={{ mt: 2 }}>
                 <Grid size={{ xs: 6 }} sx={{ pr: 1 }}>
                   <Box sx={{ mb: 2, mt: 0, pl: 2 }}>
-                    <Typography>〒{estimate.party?.postal_code}</Typography>
-                    <Typography>{estimate.party?.address}</Typography>
+                    <Typography>〒{order.party?.postal_code}</Typography>
+                    <Typography>{order.party?.address}</Typography>
                     <Typography sx={{ mt: 1, fontSize: "10px" }}>
-                      {estimate.party?.kana}
+                      {order.party?.kana}
                     </Typography>
                     <Typography sx={{ fontSize: "18px", fontWeight: "bold" }}>
-                      {estimate.party?.name} 様
+                      {order.party?.name} 様
                     </Typography>
                     <Typography sx={{ mt: 1 }}>
                       TEL：
-                      {estimate.party?.phone ||
-                        estimate.party?.mobile_phone}
+                      {order.party?.phone ||
+                        order.party?.mobile_phone}
                     </Typography>
                   </Box>
 
@@ -239,7 +238,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                     sx={{
                       display: "flex",
                       justifyContent: "flex-end",
-                      alignItems: "center",
+                      alignItems: "flex-start",
                       gap: 3,
                       mb: 2,
                     }}
@@ -252,52 +251,48 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                         lineHeight: 1.4,
                       }}
                     >
-                      お見積書
+                      受注書
                     </Typography>
 
                     <Box sx={{ textAlign: "right", fontSize: "10px" }}>
                       <Typography sx={{ fontSize: "10px" }}>
-                        伝票No：{estimate.estimate_no}
+                        伝票No：{order.order_no || order.estimate_no}
                       </Typography>
                       <Typography sx={{ fontSize: "10px" }}>
-                        見積日：
-                        {estimate.estimate_date
-                          ? estimate.estimate_date
-                          : estimate.created_at?.slice(0, 10)}
-                      </Typography>
-                      <Typography sx={{ fontSize: "10px" }}>
-                        有効期限：
-                        {estimate.valid_until || ""}
+                        受注日：
+                        {order.order_date
+                          ? order.order_date
+                          : order.created_at?.slice(0, 10)}
                       </Typography>
                     </Box>
                   </Box>
 
-                  {estimate.vehicle_mode !== "none" && (
+                  {order.vehicle_mode !== "none" && (
                     <>
-                      {estimate.vehicle_mode === "sale" && (
+                      {order.vehicle_mode === "sale" && (
                         <>
                           <VerticalSection label="商談車両">
                             <VehicleSection
-                              vehicle={estimate.vehicles?.find((v: any) => !v.is_trade_in)}
+                              vehicle={order.vehicles?.find((v: any) => !v.is_trade_in)}
                             />
                           </VerticalSection>
 
                           <VerticalSection label="下取車両">
                             <VehicleSection
-                              vehicle={estimate.vehicles?.find((v: any) => v.is_trade_in)}
+                              vehicle={order.vehicles?.find((v: any) => v.is_trade_in)}
                             />
                           </VerticalSection>
 
                           <VerticalSection label="クレジット">
-                            <CreditSection estimate={estimate} />
+                            <CreditSection estimate={order} />
                           </VerticalSection>
                         </>
                       )}
 
-                      {estimate.vehicle_mode === "maintenance" && (
+                      {order.vehicle_mode === "maintenance" && (
                         <VerticalSection label="対象車両">
                           <VehicleSection
-                            vehicle={estimate.vehicles?.[0]}
+                            vehicle={order.vehicles?.[0]}
                           />
                         </VerticalSection>
                       )}
@@ -483,7 +478,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.schedule?.start_at?.slice(0, 10) || ""}
+                          {order.schedule?.start_at?.slice(0, 10) || ""}
                         </td>
                       </tr>
                       <tr>
@@ -503,7 +498,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.schedule?.delivery_method || ""}
+                          {order.schedule?.delivery_method || ""}
                         </td>
                       </tr>
                       <tr>
@@ -523,7 +518,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.schedule?.delivery_shop_name || ""}
+                          {order.schedule?.delivery_shop_name || ""}
                         </td>
                       </tr>
                       <tr>
@@ -537,7 +532,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                           備考
                         </td>
                         <td style={{ padding: "4px 8px" }}>
-                          {estimate.schedule?.description || ""}
+                          {order.schedule?.description || ""}
                         </td>
                       </tr>
                     </tbody>
@@ -591,7 +586,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.insurance?.company_name || ""}
+                          {order.insurance?.company_name || ""}
                         </td>
                       </tr>
                       <tr>
@@ -611,7 +606,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.insurance?.bodily_injury || ""}
+                          {order.insurance?.bodily_injury || ""}
                         </td>
                       </tr>
                       <tr>
@@ -631,7 +626,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.insurance?.property_damage || ""}
+                          {order.insurance?.property_damage || ""}
                         </td>
                       </tr>
                       <tr>
@@ -651,7 +646,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.insurance?.passenger || ""}
+                          {order.insurance?.passenger || ""}
                         </td>
                       </tr>
                       <tr>
@@ -671,7 +666,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             padding: "4px 8px",
                           }}
                         >
-                          {estimate.insurance?.vehicle || ""}
+                          {order.insurance?.vehicle || ""}
                         </td>
                       </tr>
                       <tr>
@@ -685,7 +680,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                           ｵﾌﾟｼｮﾝ
                         </td>
                         <td style={{ padding: "4px 8px" }}>
-                          {estimate.insurance?.option || ""}
+                          {order.insurance?.option || ""}
                         </td>
                       </tr>
                     </tbody>
@@ -694,7 +689,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
               </Box>
             </Box>
 
-            <Footer estimate={estimate} />
+            <Footer order={order} />
           </Box>
         );
       })}
@@ -702,77 +697,73 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   );
 }
 
-/* ===== 既存補助関数 ===== */
+/* ===== 既存補助関数 (order版) ===== */
 
-function Footer({ estimate }: any) {
+function Footer({ order }: any) {
   return (
-<Box
-  sx={{
-    border: "1px solid #000",
-    mt: 3,
-    display: "flex",
-    fontSize: "12px",
-    minHeight: "110px",
-  }}
->
-<Box
-  sx={{
-    width: "50%",
-    borderRight: "1px solid #000",
-    p: 1.5,
-    fontSize: "13px",
-    whiteSpace: "pre-wrap",
-  }}
->
-  <Box sx={{ fontWeight: "bold", mb: 1 }}>
-    メモ
-  </Box>
-
-  <Box>
-    {estimate.memo || ""}
-  </Box>
-</Box>
-
-  <Box
-    sx={{
-      width: "50%",
-      p: 1,
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-    }}
-  >
-    <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
-      <div>{estimate.shop?.location || ""}</div>
-      <div>営業：{estimate.shop?.opening_hours || ""}</div>
-      <div>登録番号：T7370001009807</div>
-    </Box>
-
     <Box
       sx={{
-        textAlign: "left",
-        fontSize: "18px",
-        fontWeight: "bold",
-        letterSpacing: "1px",
+        border: "1px solid #000",
+        mt: 3,
+        display: "flex",
+        fontSize: "12px",
+        minHeight: "110px",
       }}
     >
-      (株) 早坂サイクル商会 {estimate.shop?.name}
-    </Box>
+      <Box
+        sx={{
+          width: "50%",
+          borderRight: "1px solid #000",
+          p: 1.5,
+          fontSize: "13px",
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        <Box sx={{ fontWeight: "bold", mb: 1 }}>メモ</Box>
+        <Box>{order.memo || ""}</Box>
+      </Box>
 
-    <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
-      <div>
-        TEL {estimate.shop?.phone || ""}　
-        Fax {estimate.shop?.fax || ""}
-      </div>
-      <div>
-        担当：{estimate.shop?.name || ""}　
-        {estimate.created_by?.display_name || ""}
-      </div>
+      <Box
+        sx={{
+          width: "50%",
+          p: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
+        <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
+          <div>{order.shop?.location || ""}</div>
+          <div>営業：{order.shop?.opening_hours || ""}</div>
+          <div>登録番号：T7370001009807</div>
+        </Box>
+
+        <Box
+          sx={{
+            textAlign: "left",
+            fontSize: "18px",
+            fontWeight: "bold",
+            letterSpacing: "1px",
+          }}
+        >
+          (株) 早坂サイクル商会 {order.shop?.name}
+        </Box>
+
+        <Box sx={{ fontSize: "13px", lineHeight: 1.4 }}>
+          <div>
+            TEL {order.shop?.phone || ""}　
+            Fax {order.shop?.fax || ""}
+          </div>
+          <div>
+            担当：{order.shop?.name || ""}　
+            {order.created_by?.display_name || ""}
+          </div>
+        </Box>
+      </Box>
     </Box>
-  </Box>
-</Box>
   );
 }
+
 
 function SummaryRow({
   label,

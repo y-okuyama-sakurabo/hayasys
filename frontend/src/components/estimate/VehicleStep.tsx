@@ -17,6 +17,7 @@ import dayjs from "dayjs";
 
 type Props = {
   vehicle: any | null;
+  tradeInVehicle: any | null;
   schedule: any;
   insurance: any;
   dispatch: React.Dispatch<any>;
@@ -26,6 +27,7 @@ type Props = {
 
 export default function VehicleStep({
   vehicle,
+  tradeInVehicle,
   schedule,
   insurance,
   dispatch,
@@ -33,7 +35,7 @@ export default function VehicleStep({
   vehicleMode,
 }: Props) {
   const currentVehicle = vehicle ?? {
-    id: null, // 🔥追加（超重要）
+    id: null,
     category_id: null,
     vehicle_name: "",
     manufacturer: null,
@@ -45,10 +47,31 @@ export default function VehicleStep({
     color: null,
     color_name: "",
     color_code: "",
-    new_car_type: "new",
+    sale_type: "",
     unit_price: 0,
     discount: 0,
     source_customer_vehicle: null,
+  };
+
+  const currentTradeInVehicle = tradeInVehicle ?? {
+    id: null,
+    is_trade_in: true,
+    category_id: null,
+    vehicle_name: "",
+    manufacturer: null,
+    model_year: "",
+    chassis_no: "",
+    displacement: null,
+    engine_type: "",
+    model_code: "",
+    color: null,
+    color_name: "",
+    color_code: "",
+    sale_type: "",
+    unit_price: 0,
+    discount: 0,
+    source_customer_vehicle: null,
+    registrations: [{}],
   };
 
   const [manufacturers, setManufacturers] = useState<any[]>([]);
@@ -199,6 +222,17 @@ export default function VehicleStep({
       },
     });
   };
+
+  const updateTradeInVehicle = (field: string, value: any) => {
+    dispatch({
+      type: "SET_TRADE_IN_VEHICLE",
+      payload: {
+        ...currentTradeInVehicle,
+        [field]: value,
+      },
+    });
+  };
+
   const updateInsurance = (field: string, value: any) => {
     dispatch({
       type: "SET_INSURANCE",
@@ -293,7 +327,7 @@ export default function VehicleStep({
 
             <Divider sx={{ mb: 3 }} />
           </>
-        )}
+      )}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -340,11 +374,14 @@ export default function VehicleStep({
             select
             label="区分"
             fullWidth
-            value={currentVehicle.new_car_type}
-            onChange={(e) => updateVehicle("new_car_type", e.target.value)}
+            value={currentVehicle.sale_type || ""}
+            onChange={(e) => updateVehicle("sale_type", e.target.value)}
           >
+            <MenuItem value="">未選択</MenuItem>
             <MenuItem value="new">新車</MenuItem>
-            <MenuItem value="used">中古</MenuItem>
+            <MenuItem value="used">中古車</MenuItem>
+            <MenuItem value="rental_up">レンタルアップ</MenuItem>
+            <MenuItem value="consignment">委託販売</MenuItem>
           </TextField>
         </Grid>
 
@@ -725,6 +762,232 @@ export default function VehicleStep({
             })
           }
         />
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 2 }} />
+          <Typography fontWeight="bold">下取車両</Typography>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            select
+            label="メーカー"
+            fullWidth
+            value={currentTradeInVehicle.manufacturer ?? ""}
+            onChange={(e) =>
+              updateTradeInVehicle(
+                "manufacturer",
+                e.target.value === "" ? null : Number(e.target.value)
+              )
+            }
+          >
+            <MenuItem value="">未選択</MenuItem>
+            {manufacturers.map((m) => (
+              <MenuItem key={m.id} value={m.id}>
+                {m.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <TextField
+            label="車両名"
+            fullWidth
+            value={currentTradeInVehicle.vehicle_name}
+            onChange={(e) => updateTradeInVehicle("vehicle_name", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            select
+            label="区分"
+            fullWidth
+            value={currentTradeInVehicle.sale_type || ""}
+            onChange={(e) => updateTradeInVehicle("sale_type", e.target.value)}
+          >
+            <MenuItem value="">未選択</MenuItem>
+            <MenuItem value="new">新車</MenuItem>
+            <MenuItem value="used">中古車</MenuItem>
+            <MenuItem value="rental_up">レンタルアップ</MenuItem>
+            <MenuItem value="consignment">委託販売</MenuItem>
+          </TextField>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="年式"
+            fullWidth
+            value={currentTradeInVehicle.model_year}
+            onChange={(e) => updateTradeInVehicle("model_year", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="排気量"
+            type="number"
+            fullWidth
+            value={currentTradeInVehicle.displacement ?? ""}
+            onChange={(e) =>
+              updateTradeInVehicle(
+                "displacement",
+                e.target.value === "" ? null : Number(e.target.value)
+              )
+            }
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="型式"
+            fullWidth
+            value={currentTradeInVehicle.model_code}
+            onChange={(e) => updateTradeInVehicle("model_code", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="エンジン形式"
+            fullWidth
+            value={currentTradeInVehicle.engine_type}
+            onChange={(e) => updateTradeInVehicle("engine_type", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="車台番号"
+            fullWidth
+            value={currentTradeInVehicle.chassis_no}
+            onChange={(e) => updateTradeInVehicle("chassis_no", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            select
+            label="カラー"
+            fullWidth
+            value={
+              currentTradeInVehicle.color ??
+              colors.find((c) => c.name === currentTradeInVehicle.color_name)?.id ??
+              ""
+            }
+            onChange={(e) =>
+              updateTradeInVehicle(
+                "color",
+                e.target.value === "" ? null : Number(e.target.value)
+              )
+            }
+          >
+            <MenuItem value="">未選択</MenuItem>
+            {colors.map((c) => (
+              <MenuItem key={c.id} value={c.id}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField
+            label="カラー名"
+            fullWidth
+            value={currentTradeInVehicle.color_name}
+            onChange={(e) => updateTradeInVehicle("color_name", e.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField
+            label="カラーコード"
+            fullWidth
+            value={currentTradeInVehicle.color_code}
+            onChange={(e) => updateTradeInVehicle("color_code", e.target.value)}
+          />
+        </Grid>
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 2 }} />
+          <Typography fontWeight="bold">
+            下取車両 登録情報
+          </Typography>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            label="登録地域"
+            fullWidth
+            value={currentTradeInVehicle.registrations?.[0]?.registration_area || ""}
+            onChange={(e) => {
+              const reg = currentTradeInVehicle.registrations?.[0] || {};
+              updateTradeInVehicle("registrations", [
+                { ...reg, registration_area: e.target.value },
+              ]);
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            label="ナンバー"
+            fullWidth
+            value={currentTradeInVehicle.registrations?.[0]?.registration_no || ""}
+            onChange={(e) => {
+              const reg = currentTradeInVehicle.registrations?.[0] || {};
+              updateTradeInVehicle("registrations", [
+                { ...reg, registration_no: e.target.value },
+              ]);
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            label="型認番号"
+            fullWidth
+            value={currentTradeInVehicle.registrations?.[0]?.certification_no || ""}
+            onChange={(e) => {
+              const reg = currentTradeInVehicle.registrations?.[0] || {};
+              updateTradeInVehicle("registrations", [
+                { ...reg, certification_no: e.target.value },
+              ]);
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="初年度登録"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            value={currentTradeInVehicle.registrations?.[0]?.first_registration_date || ""}
+            onChange={(e) => {
+              const reg = currentTradeInVehicle.registrations?.[0] || {};
+              updateTradeInVehicle("registrations", [
+                { ...reg, first_registration_date: e.target.value },
+              ]);
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            label="車検満了日"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            value={currentTradeInVehicle.registrations?.[0]?.inspection_expiration || ""}
+            onChange={(e) => {
+              const reg = currentTradeInVehicle.registrations?.[0] || {};
+              updateTradeInVehicle("registrations", [
+                { ...reg, inspection_expiration: e.target.value },
+              ]);
+            }}
+          />
+        </Grid>
     </>
+    
   );
 }

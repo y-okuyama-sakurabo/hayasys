@@ -23,6 +23,9 @@ from core.serializers.payment import PaymentSerializer
 from core.serializers.masters import ShopSerializer
 from core.serializers.settlement import SettlementSerializer
 from core.serializers.insurance import InsuranceSerializer
+from datetime import timedelta
+from django.utils.dateparse import parse_date
+from dateutil.relativedelta import relativedelta
 
 User = get_user_model()
 
@@ -158,24 +161,30 @@ class EstimateSerializer(serializers.ModelSerializer):
     # vehicle UPSERT
     # =========================================
     def _upsert_vehicle(self, estimate, vehicles_data):
-
         if not vehicles_data:
             estimate.estimate_vehicles.all().delete()
             return
 
-        data = vehicles_data[0]
+        existing_map = {
+            v.is_trade_in: v
+            for v in estimate.estimate_vehicles.all()
+        }
 
-        source_cv = data.get("source_customer_vehicle")
-        if isinstance(source_cv, CustomerVehicle):
-            source_cv_id = source_cv.id
-        else:
-            source_cv_id = source_cv
+        seen_trade_flags = set()
 
-        vehicle = estimate.estimate_vehicles.filter(is_trade_in=False).first()
+        for data in vehicles_data:
+            is_trade_in = bool(data.get("is_trade_in", False))
+            seen_trade_flags.add(is_trade_in)
 
-        if vehicle:
-            # UPDATE
-            for key, value in {
+            source_cv = data.get("source_customer_vehicle")
+            if isinstance(source_cv, CustomerVehicle):
+                source_cv_id = source_cv.id
+            else:
+                source_cv_id = source_cv
+
+            vehicle = existing_map.get(is_trade_in)
+
+            common_fields = {
                 "category_id": data.get("category_id"),
                 "vehicle_name": data.get("vehicle_name", ""),
                 "manufacturer_id": data.get("manufacturer"),
@@ -187,49 +196,23 @@ class EstimateSerializer(serializers.ModelSerializer):
                 "color_code": data.get("color_code", ""),
                 "displacement": data.get("displacement"),
                 "engine_type": data.get("engine_type", ""),
-                "new_car_type": data.get("new_car_type", ""),
-            }.items():
-                setattr(vehicle, key, value)
+                "sale_type": data.get("sale_type", ""),
+                "source_customer_vehicle_id": source_cv_id,
+            }
 
-            vehicle.source_customer_vehicle_id = source_cv_id
-            vehicle.save()
-
-            registrations = data.get("registrations", [])
-
-            if registrations is not None:
+            if vehicle:
+                for key, value in common_fields.items():
+                    setattr(vehicle, key, value)
+                vehicle.save()
                 vehicle.registrations.all().delete()
+            else:
+                vehicle = EstimateVehicle.objects.create(
+                    estimate=estimate,
+                    is_trade_in=is_trade_in,
+                    **common_fields,
+                )
 
-                for reg in registrations:
-                    EstimateVehicleRegistration.objects.create(
-                        vehicle=vehicle,
-                        registration_area=reg.get("registration_area"),
-                        registration_no=reg.get("registration_no"),
-                        certification_no=reg.get("certification_no"),
-                        inspection_expiration=reg.get("inspection_expiration"),
-                        first_registration_date=reg.get("first_registration_date"),
-                    )
-
-        else:
-            # CREATE
-            vehicle = EstimateVehicle.objects.create(
-                estimate=estimate,
-                is_trade_in=False,
-                source_customer_vehicle_id=source_cv_id,
-                category_id=data.get("category_id"),
-                vehicle_name=data.get("vehicle_name", ""),
-                manufacturer_id=data.get("manufacturer"),
-                model_year=data.get("model_year", ""),
-                model_code=data.get("model_code", ""),
-                chassis_no=data.get("chassis_no", ""),
-                color_id=data.get("color"),
-                color_name=data.get("color_name", ""),
-                color_code=data.get("color_code", ""),
-                displacement=data.get("displacement"),
-                engine_type=data.get("engine_type", ""),
-                new_car_type=data.get("new_car_type", ""),
-            )
-
-            registrations = data.get("registrations", [])
+            registrations = data.get("registrations", []) or []
 
             for reg in registrations:
                 EstimateVehicleRegistration.objects.create(
@@ -240,6 +223,10 @@ class EstimateSerializer(serializers.ModelSerializer):
                     inspection_expiration=reg.get("inspection_expiration"),
                     first_registration_date=reg.get("first_registration_date"),
                 )
+
+        for trade_flag, vehicle in existing_map.items():
+            if trade_flag not in seen_trade_flags:
+                vehicle.delete()
 
     # =========================================
     # CREATE
@@ -258,7 +245,10 @@ class EstimateSerializer(serializers.ModelSerializer):
                 **new_party_data
             )
 
-
+        if not validated_data.get("valid_until"):
+            estimate_date = validated_data.get("estimate_date")
+            if estimate_date:
+                validated_data["valid_until"] = estimate_date + relativedelta(months=1)
 
         estimate = Estimate.objects.create(**validated_data)
 
@@ -425,6 +415,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "schedule",
             "memo", 
             "estimate_date",
+            "valid_until",
             "created_at",
             "updated_at",
         ]

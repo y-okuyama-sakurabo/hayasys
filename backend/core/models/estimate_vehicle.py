@@ -36,9 +36,10 @@ class EstimateVehicle(models.Model):
     displacement = models.IntegerField(null=True, blank=True)
     model_year = models.CharField(max_length=10, blank=True)
 
-    new_car_type = models.CharField(
+    sale_type = models.CharField(
         max_length=20,
-        blank=True
+        blank=True,
+        null=True,
     )
 
     manufacturer = models.ForeignKey(

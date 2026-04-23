@@ -386,6 +386,29 @@ export default function PartySelector({
               slotProps={{ textField: { fullWidth: true } }}
             />
           </Grid>
+          {!isOrder && (
+            <Grid size={{ xs: 12, md: 4 }}>
+              <DatePicker
+                label="見積有効期限"
+                value={
+                  basic?.valid_until
+                    ? dayjs(basic.valid_until)
+                    : dayjs().add(1, "month")
+                }
+                onChange={(newDate) =>
+                  dispatch({
+                    type: "SET_BASIC",
+                    payload: {
+                      valid_until:
+                        newDate?.format("YYYY-MM-DD") ||
+                        dayjs().add(1, "month").format("YYYY-MM-DD"),
+                    },
+                  })
+                }
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </Grid>
+          )}
         </Grid>
       </Box>
     </LocalizationProvider>

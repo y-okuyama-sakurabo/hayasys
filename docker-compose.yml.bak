@@ -32,11 +32,10 @@ services:
       "
     depends_on:
       - db
-    # 👇 本番では外さないとダメ
-    # ports:
-    #   - "8000:8000"
-    #volumes:
-     # - ./backend:/app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:

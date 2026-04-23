@@ -285,28 +285,49 @@ class OrderSerializer(serializers.ModelSerializer):
 
         return vehicle
     
-
-
     def _replace_trade_in_vehicle(self, order, raw_vehicle):
-        order.order_vehicles.filter(is_trade_in=True).delete()
+        existing = order.order_vehicles.filter(is_trade_in=True).first()
 
         if not raw_vehicle:
+            if existing:
+                existing.delete()
             return None
 
         trade_vehicle_data = self._normalize_vehicle_data(raw_vehicle)
         trade_vehicle_data = self._clean_vehicle_data(trade_vehicle_data)
 
         if not trade_vehicle_data:
+            if existing:
+                existing.delete()
             return None
 
-        trade_vehicle_data.pop("category", None)
-        trade_vehicle_data.pop("category_id", None)
+        if existing:
+            for attr, value in trade_vehicle_data.items():
+                setattr(existing, attr, value)
+            existing.is_trade_in = True
+            existing.save()
+            existing.registrations.all().delete()
+            vehicle = existing
+        else:
+            vehicle = OrderVehicle.objects.create(
+                order=order,
+                is_trade_in=True,
+                **trade_vehicle_data,
+            )
 
-        return OrderVehicle.objects.create(
-            order=order,
-            is_trade_in=True,
-            **trade_vehicle_data,
-        )
+        regs = raw_vehicle.get("registrations", []) if raw_vehicle else []
+
+        for reg in regs:
+            OrderVehicleRegistration.objects.create(
+                vehicle=vehicle,
+                registration_area=reg.get("registration_area"),
+                registration_no=reg.get("registration_no"),
+                certification_no=reg.get("certification_no"),
+                inspection_expiration=reg.get("inspection_expiration"),
+                first_registration_date=reg.get("first_registration_date"),
+            )
+
+        return vehicle
 
     # =========================================
     # CREATE

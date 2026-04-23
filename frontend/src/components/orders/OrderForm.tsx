@@ -54,6 +54,7 @@ type OrderState = {
   };
   basic: any;
   vehicle: any | null;
+  tradeInVehicle: any | null;
   items: any[];
   global_discount: number;
   insurance: any;
@@ -75,6 +76,7 @@ const initialState: OrderState = {
     payment_method: "現金",
   },
   vehicle: null,
+  tradeInVehicle: null,
   items: [],
   schedule: {
     id: null,
@@ -120,6 +122,12 @@ function reducer(state: OrderState, action: any): OrderState {
       return {
         ...state,
         vehicle: action.payload,
+      };
+
+    case "SET_TRADE_IN_VEHICLE":
+      return {
+        ...state,
+        tradeInVehicle: action.payload,
       };
 
     case "SET_ITEMS":
@@ -296,6 +304,13 @@ export default function OrderForm({ mode, orderId }: Props) {
                     discount: data.target_vehicle.discount ?? 0,
                   }
                 : null,
+              
+              tradeInVehicle: data.trade_in_vehicle
+                ? {
+                    ...data.trade_in_vehicle,
+                    discount: data.trade_in_vehicle.discount ?? 0,
+                  }
+                : null,
               schedule: data.schedule,
             },
           });
@@ -424,7 +439,7 @@ export default function OrderForm({ mode, orderId }: Props) {
                 color_name: v.color_name ?? "",
                 color_code: v.color_code ?? "",
 
-                new_car_type: v.new_car_type ?? "new",
+                  sale_type: v.sale_type ?? "",
 
                 // 🔥 ここ重要（itemsから取る）
                 unit_price:
@@ -433,6 +448,45 @@ export default function OrderForm({ mode, orderId }: Props) {
                   order.items?.find((i: any) => i.item_type === "vehicle")?.discount ?? 0,
 
                 source_customer_vehicle: null,
+              };
+            })(),
+            tradeInVehicle: (() => {
+              const v = order.vehicles?.find((x: any) => x.is_trade_in);
+              if (!v) return null;
+
+              return {
+                id: v.id ?? null,
+
+                category_id:
+                  typeof v.category === "object"
+                    ? v.category.id
+                    : v.category ?? null,
+
+                manufacturer:
+                  typeof v.manufacturer === "object"
+                    ? v.manufacturer.id
+                    : v.manufacturer ?? null,
+
+                vehicle_name: v.vehicle_name ?? "",
+                model_year: v.model_year ?? "",
+                chassis_no: v.chassis_no ?? "",
+                displacement: v.displacement ?? null,
+                engine_type: v.engine_type ?? "",
+                model_code: v.model_code ?? "",
+
+                color:
+                  typeof v.color === "object"
+                    ? v.color.id
+                    : v.color ?? null,
+                color_name: v.color_name ?? "",
+                color_code: v.color_code ?? "",
+
+                sale_type: v.sale_type ?? "",
+                source_customer_vehicle: v.source_customer_vehicle ?? null,
+                registrations: v.registrations ?? [],
+
+                unit_price: 0,
+                discount: 0,
               };
             })(),
           },
@@ -466,6 +520,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           unit_price: state.vehicle.unit_price ?? 0,
           discount: state.vehicle.discount ?? 0,
           unit: state.vehicle.unit ?? null,
+          sale_type: state.vehicle.sale_type ?? null,
           category_id:
             state.vehicle.category_id ??
             state.vehicle.category?.id ??
@@ -662,6 +717,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         {currentStep === "vehicle" && (
           <VehicleStep
             vehicle={state.vehicle}
+            tradeInVehicle={state.tradeInVehicle}
             schedule={state.schedule}
             insurance={state.insurance}
             dispatch={dispatch}

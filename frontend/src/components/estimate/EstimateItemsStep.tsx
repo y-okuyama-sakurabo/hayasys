@@ -68,6 +68,8 @@ const STEP_CONFIG = {
 
 
 
+
+
 function calcLine(item: any) {
   const qty = Number(item.quantity ?? 1);
   const unit = Number(item.unit_price ?? 0);
@@ -207,6 +209,26 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
     });
   };
 
+  const VEHICLE_SALE_TYPES = [
+    { value: "new", label: "新車" },
+    { value: "used", label: "中古車" },
+    { value: "rental_up", label: "レンタルアップ" },
+    { value: "consignment", label: "委託販売" },
+  ];
+
+  const OTHER_SALE_TYPES = [
+    { value: "new", label: "新車" },
+    { value: "used", label: "中古車" },
+    { value: "group_store", label: "グループ専売店購入" },
+    { value: "other_store", label: "他社購入" },
+  ];
+
+  function getSaleTypeOptions(item: any) {
+    if (item.item_type === "vehicle") return VEHICLE_SALE_TYPES;
+    if (item.item_type === "accessory") return OTHER_SALE_TYPES;
+    return [];
+  }
+
   return (
     <>
       <Typography variant="h6" fontWeight="bold" mb={2}>
@@ -230,8 +252,8 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
 
         {filteredItems.map(({ item, originalIndex }) => {
           const line = calcLine(item);
-
           const categoryId = item?.category_id ?? item?.category?.id ?? null;
+          const saleTypeOptions = getSaleTypeOptions(item);
 
           return (
             <Grid size={{ xs: 12 }} key={item.id ?? originalIndex}>
@@ -257,6 +279,31 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
                         }
                       />
                     </Grid>
+
+                    {saleTypeOptions.length > 0 && (
+                      <Grid size={{ xs: 12, md: 2 }}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="区分"
+                          value={item?.sale_type || ""}
+                          onChange={(e) =>
+                            handleChange(
+                              originalIndex,
+                              "sale_type",
+                              e.target.value === "" ? null : e.target.value
+                            )
+                          }
+                        >
+                          <MenuItem value="">未選択</MenuItem>
+                          {saleTypeOptions.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    )}
 
                     <Grid size={{ xs: 4, md: 1 }}>
                       <TextField
@@ -507,6 +554,7 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
               discount: 0,
               labor_cost: 0,
               staff_id: null,
+              sale_type: null,
               tax_type: config.taxable ? "taxable" : "non_taxable",
               quantity: 1,
               ...newItem,
