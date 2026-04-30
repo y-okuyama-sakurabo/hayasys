@@ -3,6 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Sum
+from core.services.order_finalize import create_customer_vehicle_from_order
 
 from core.models import (
     Order,
@@ -411,6 +412,8 @@ class OrderSerializer(serializers.ModelSerializer):
         self._recalculate_order(order) 
         self._upsert_target_vehicle(order, raw_target_vehicle)
         self._replace_trade_in_vehicle(order, raw_trade_in_vehicle)
+
+        create_customer_vehicle_from_order(order)
 
         return order
 

@@ -24,6 +24,7 @@ from core.views.dashboard.views import DashboardAPIView
 from core.views.customers.views import (
     CustomerListCreateView,
     CustomerRetrieveUpdateDestroyView,
+    CustomerCSVExportAPIView,
 )
 from core.views.customers.images import (
     CustomerImageListCreateView,
@@ -212,7 +213,11 @@ urlpatterns = [
     path("customers/<int:customer_id>/memos/", CustomerMemoListCreateView.as_view()),
     path("customers/<int:customer_id>/memos/<int:pk>/", CustomerMemoRetrieveUpdateDestroyView.as_view()),
     path("customers/similar/", SimilarCustomerAPIView.as_view()),
-
+    path(
+        "customers/export-csv/",
+        CustomerCSVExportAPIView.as_view(),
+        name="customers-export-csv",
+    ),
     # =========================
     # Customer Vehicles
     # =========================

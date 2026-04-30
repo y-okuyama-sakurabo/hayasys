@@ -108,6 +108,11 @@ class Estimate(models.Model):
     )
     payments = GenericRelation(Payment, related_query_name="estimate")
     memo = models.TextField(blank=True, null=True)
+    internal_memo = models.TextField(
+        "内部メモ",
+        blank=True,
+        default=""
+    )
     valid_until = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

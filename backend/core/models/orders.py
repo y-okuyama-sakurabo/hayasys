@@ -79,6 +79,11 @@ class Order(models.Model):
     )
     payments = GenericRelation(Payment, related_query_name="order")
     memo = models.TextField(blank=True, null=True)
+    internal_memo = models.TextField(
+        "内部メモ",
+        blank=True,
+        default=""
+    )
 
     # 作成者（スタッフ）
     created_by = models.ForeignKey(

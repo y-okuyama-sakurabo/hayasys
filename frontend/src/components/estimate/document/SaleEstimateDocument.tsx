@@ -39,15 +39,28 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   }
 
   const normalItems = (estimate.items || []).filter(
-    (item: any) => !(item.item_type === "fee" && item.tax_type === "non_taxable")
+    (item: any) => item.item_type !== "fee"
+  );
+
+  const taxableFeeItems = (estimate.items || []).filter(
+    (item: any) => item.item_type === "fee" && item.tax_type !== "non_taxable"
   );
 
   const nonTaxFeeItems = (estimate.items || []).filter(
     (item: any) => item.item_type === "fee" && item.tax_type === "non_taxable"
   );
-  const nonTaxEmptyRows = Math.max(0, 5 - nonTaxFeeItems.length);
+
+  const feeTableRowCount = Math.max(
+    5,
+    taxableFeeItems.length,
+    nonTaxFeeItems.length
+  );
+
+  const taxableFeeRows = Array.from({ length: feeTableRowCount }, (_, i) => taxableFeeItems[i] || null);
+  const nonTaxFeeRows = Array.from({ length: feeTableRowCount }, (_, i) => nonTaxFeeItems[i] || null);
 
   const itemChunks = chunkItems(normalItems, ITEMS_PER_PAGE);
+
   if (itemChunks.length === 0) itemChunks.push([]);
 
   const summary = (estimate.items || []).reduce(
@@ -317,6 +330,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                     <Th>単　位</Th>
                     <Th>単　価</Th>
                     <Th>工　賃</Th>
+                    <Th>値　引</Th>
                     <Th>金　額</Th>
                   </tr>
                 </thead>
@@ -335,6 +349,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                         </Td>
                         <Td align="right">{format(unitWithTax)}</Td>
                         <Td align="right">{format(item.labor_cost)}</Td>
+                        <Td align="right">-{format(item.discount)}</Td>
                         <Td align="right">{format(line.total)}</Td>
                       </tr>
                     );
@@ -348,10 +363,12 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
                       <Td>&nbsp;</Td>
+                      <Td>&nbsp;</Td>
                     </tr>
                   ))}
 
                   <tr>
+                    <Td>&nbsp;</Td>
                     <Td>&nbsp;</Td>
                     <Td>&nbsp;</Td>
                     <Td>&nbsp;</Td>
@@ -368,64 +385,119 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
             </Box>
 
             
-            {pageIndex === itemChunks.length - 1 && (
-              <Box sx={{  mt: 1 }}>
-                <Box
-                  sx={{
-                    px: 1,
-                    py: "3px",
-                    fontWeight: "bold",
-                    fontSize: "10px",
-                  }}
-                >
-                  非課税費用明細
-                </Box>
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={2}>
+                {/* 課税費用 */}
+                <Grid size={{ xs: 6 }}>
+                  <Box sx={{ border: "1px solid #000" }}>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 110px",
+                        borderBottom: "1px solid #000",
+                        fontWeight: "bold",
+                        backgroundColor: "#f7f7f7",
+                      }}
+                    >
+                      <Box sx={{ px: 1, py: 0.5, borderRight: "1px solid #000" }}>
+                        課税費用
+                      </Box>
+                      <Box sx={{ px: 1, py: 0.5, textAlign: "right" }}>
+                        金額
+                      </Box>
+                    </Box>
 
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      <Th>商品名</Th>
-                      <Th>数　量</Th>
-                      <Th>単　位</Th>
-                      <Th>単　価</Th>
-                      <Th>工　賃</Th>
-                      <Th>金　額</Th>
-                    </tr>
-                  </thead>
+                    {taxableFeeRows.map((item, index) => (
+                      <Box
+                        key={`taxable-fee-${index}`}
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 110px",
+                          minHeight: "24px",
+                          borderBottom: index === feeTableRowCount - 1 ? "none" : "1px solid #000",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            borderRight: "1px solid #000",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          {item?.name || ""}
+                        </Box>
 
-                  <tbody>
-                    {nonTaxFeeItems.map((item: any, i: number) => {
-                      const line = calcLine(item);
-                      const unitWithTax = Math.round(
-                        line.total / Number(item.quantity ?? 1)
-                      );
-
-                      return (
-                        <tr key={`non-tax-${i}`}>
-                          <Td>{item.name}</Td>
-                          <Td align="right">{item.quantity}</Td>
-                          <Td align="right">{item.unit_detail?.name || ""}</Td>
-                          <Td align="right">{format(unitWithTax)}</Td>
-                          <Td align="right">{format(item.labor_cost)}</Td>
-                          <Td align="right">{format(line.total)}</Td>
-                        </tr>
-                      );
-                    })}
-
-                    {Array.from({ length: nonTaxEmptyRows }).map((_, i) => (
-                      <tr key={`non-tax-empty-${i}`}>
-                        <Td>&nbsp;</Td>
-                        <Td>&nbsp;</Td>
-                        <Td>&nbsp;</Td>
-                        <Td>&nbsp;</Td>
-                        <Td>&nbsp;</Td>
-                        <Td>&nbsp;</Td>
-                      </tr>
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            textAlign: "right",
+                          }}
+                        >
+                          {item ? format(calcLine(item).total) : ""}
+                        </Box>
+                      </Box>
                     ))}
-                  </tbody>
-                </table>
-              </Box>
-            )}
+                  </Box>
+                </Grid>
+
+                {/* 非課税費用 */}
+                <Grid size={{ xs: 6 }}>
+                  <Box sx={{ border: "1px solid #000" }}>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 110px",
+                        borderBottom: "1px solid #000",
+                        fontWeight: "bold",
+                        backgroundColor: "#f7f7f7",
+                      }}
+                    >
+                      <Box sx={{ px: 1, py: 0.5, borderRight: "1px solid #000" }}>
+                        非課税費用
+                      </Box>
+                      <Box sx={{ px: 1, py: 0.5, textAlign: "right" }}>
+                        金額
+                      </Box>
+                    </Box>
+
+                    {nonTaxFeeRows.map((item, index) => (
+                      <Box
+                        key={`non-tax-fee-${index}`}
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 110px",
+                          minHeight: "24px",
+                          borderBottom: index === feeTableRowCount - 1 ? "none" : "1px solid #000",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            borderRight: "1px solid #000",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          {item?.name || ""}
+                        </Box>
+
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            textAlign: "right",
+                          }}
+                        >
+                          {item ? format(calcLine(item).total) : ""}
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
 
             {/* ===== 納車予定 & 任意保険（別BOX） ===== */}
             <Box

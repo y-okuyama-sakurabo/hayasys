@@ -107,21 +107,23 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
             raise serializers.ValidationError({"detail": str(e)})
 
     def _generate_next_estimate_no(self):
-        today_str = date.today().strftime("%Y%m%d")
+        year_prefix = date.today().strftime("%y")  # 2026 -> 26
+
         last_number = (
             Estimate.objects
-            .filter(estimate_no__startswith=today_str)
+            .filter(estimate_no__startswith=year_prefix)
             .annotate(
                 number_part=Cast(
-                    Substr("estimate_no", len(today_str) + 2, 10),
+                    Substr("estimate_no", 3, 5),
                     IntegerField(),
                 )
             )
             .aggregate(max_number=Max("number_part"))
             .get("max_number")
         )
+
         next_number = (last_number or 0) + 1
-        return f"{today_str}-{next_number}"
+        return f"{year_prefix}{next_number:05d}"
 
 
 # ==================================================
@@ -193,24 +195,24 @@ class EstimateNextNoAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        today_str = date.today().strftime("%Y%m%d")
-        last_estimate = (
+        year_prefix = date.today().strftime("%y")
+
+        last_number = (
             Estimate.objects
-            .filter(estimate_no__startswith=today_str)
-            .aggregate(Max("estimate_no"))
-            .get("estimate_no__max")
+            .filter(estimate_no__startswith=year_prefix)
+            .annotate(
+                number_part=Cast(
+                    Substr("estimate_no", 3, 5),
+                    IntegerField(),
+                )
+            )
+            .aggregate(max_number=Max("number_part"))
+            .get("max_number")
         )
 
-        if last_estimate:
-            try:
-                last_number = int(last_estimate.split("-")[1])
-            except (IndexError, ValueError):
-                last_number = 0
-            next_number = last_number + 1
-        else:
-            next_number = 1
+        next_number = (last_number or 0) + 1
 
-        return Response({"next_estimate_no": f"{today_str}-{next_number}"})
+        return Response({"next_estimate_no": f"{year_prefix}{next_number:05d}"})
 
 
 # ==================================================

@@ -99,6 +99,30 @@ export default function OrderDetailPage() {
           <SaleOrderDocument order={order} />
         </Paper>
       </div>
+            {order.internal_memo && (
+        <Paper
+          sx={{
+            mb: 3,
+            p: 2,
+            backgroundColor: "#fff7e6",
+            border: "1px solid #f0c36d",
+          }}
+        >
+          <Typography fontWeight="bold" mb={1}>
+            内部メモ（お客様には表示されません）
+          </Typography>
+
+          <Typography
+            sx={{
+              whiteSpace: "pre-wrap",
+              fontSize: "14px",
+              color: "text.primary",
+            }}
+          >
+            {order.internal_memo}
+          </Typography>
+        </Paper>
+      )}
     </Box>
   );
 }

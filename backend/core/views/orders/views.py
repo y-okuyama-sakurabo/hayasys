@@ -32,20 +32,23 @@ from core.serializers.orders import OrderSerializer
 # 共通：次の受注番号を生成
 # ====================================================
 def generate_next_order_no(shop):
-    today_str = date.today().strftime("%Y%m%d")
+    year_prefix = date.today().strftime("%y")  # 2026 -> 26
 
     last_number = (
         Order.objects
-        .filter(order_no__startswith=today_str)
+        .filter(order_no__startswith=year_prefix)
         .annotate(
-            number_part=Cast(Substr("order_no", len(today_str) + 2, 10), IntegerField())
+            number_part=Cast(
+                Substr("order_no", 3, 5),
+                IntegerField(),
+            )
         )
         .aggregate(max_number=Max("number_part"))
         .get("max_number")
     )
 
     next_number = (last_number or 0) + 1
-    return f"{today_str}-{next_number}"
+    return f"{year_prefix}{next_number:05d}"
 
 
 # ======================================

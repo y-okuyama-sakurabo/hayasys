@@ -36,6 +36,7 @@ export default function EstimateCategorySelector({
   const [laborCost, setLaborCost] = useState<number | "">("");
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
   const [manufacturers, setManufacturers] = useState<any[]>([]);
+  const [searchText, setSearchText] = useState("");
   
 
   /* =============================
@@ -44,7 +45,7 @@ export default function EstimateCategorySelector({
   useEffect(() => {
     const fetch = async () => {
       try {
-        const key = categoryTypes?.join(",") || "all";
+        const key = `${categoryTypes?.join(",") || "all"}_${taxType || "all"}`;
 
         if (categoryCache[key]) {
           setRootCategories(categoryCache[key]);
@@ -138,6 +139,49 @@ export default function EstimateCategorySelector({
     !cat?.children || cat.children.length === 0;
 
   /* =============================
+    カテゴリ検索用：ツリーを平坦化
+  ============================= */
+  const flattenCategories = (
+    nodes: Category[],
+    parentPath: string[] = []
+  ): { id: number; name: string; path: string; node: Category }[] => {
+    return nodes.flatMap((node) => {
+      const currentPath = [...parentPath, node.name];
+
+      return [
+        {
+          id: node.id,
+          name: node.name,
+          path: currentPath.join(" / "),
+          node,
+        },
+        ...(node.children?.length
+          ? flattenCategories(node.children, currentPath)
+          : []),
+      ];
+    });
+  };
+
+  const flatCategories = useMemo(() => {
+    return flattenCategories(rootCategories);
+  }, [rootCategories]);
+
+  const searchResults = useMemo(() => {
+    const keyword = searchText.trim();
+
+    if (!keyword) return [];
+
+    return flatCategories
+      .filter((c) => c.path.includes(keyword))
+      .slice(0, 20);
+  }, [flatCategories, searchText]);
+
+  const handleSearchSelect = (categoryId: number) => {
+    onChange(categoryId);
+    setSearchText("");
+  };
+
+  /* =============================
      深さごとの選択肢
   ============================= */
   const depthOptions = useMemo(() => {
@@ -228,6 +272,50 @@ export default function EstimateCategorySelector({
           リセット
         </Button>
       </Stack>
+
+      <Box mb={1.5}>
+        <TextField
+          fullWidth
+          size="small"
+          label="カテゴリ検索"
+          placeholder="カテゴリ名で検索"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+
+        {searchResults.length > 0 && (
+          <Box
+            sx={{
+              mt: 1,
+              border: "1px solid #ddd",
+              borderRadius: 1,
+              maxHeight: 240,
+              overflowY: "auto",
+              backgroundColor: "#fff",
+            }}
+          >
+            {searchResults.map((category) => (
+              <Box
+                key={category.id}
+                onClick={() => handleSearchSelect(category.id)}
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  cursor: "pointer",
+                  borderBottom: "1px solid #eee",
+                  "&:hover": {
+                    backgroundColor: "#f5f5f5",
+                  },
+                }}
+              >
+                <Typography fontSize="13px">
+                  {category.path}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
 
       <TextField
         select

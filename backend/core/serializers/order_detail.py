@@ -60,7 +60,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
             "insurance",
             "settlements",
-            "memo",  
+            "memo",
+            "internal_memo",
 
             "estimate",
 

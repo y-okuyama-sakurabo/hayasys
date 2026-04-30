@@ -54,6 +54,7 @@ type EstimateState = {
   deletedItemIds: number[];
   global_discount: number;
   memo: string;
+  internal_memo: string;
 };
 
 const today = dayjs();
@@ -105,6 +106,7 @@ const initialState: EstimateState = {
   deletedItemIds: [],
   global_discount: 0,
   memo: "",
+  internal_memo: "",
 };
 
 function reducer(state: EstimateState, action: any): EstimateState {
@@ -187,6 +189,12 @@ function reducer(state: EstimateState, action: any): EstimateState {
       return {
         ...state,
         memo: action.payload,
+      };
+
+    case "SET_INTERNAL_MEMO":
+      return {
+        ...state,
+        internal_memo: action.payload,
       };
 
     default:
@@ -311,6 +319,8 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
             memo: estimate.memo || "",
 
+            internal_memo: estimate.internal_memo || "",
+
             schedule: estimate.schedule
               ? {
                   start_at: estimate.schedule.start_at,
@@ -429,6 +439,9 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
           global_discount: discountItem?.discount ?? 0,
 
+          memo: estimate.memo || "",
+          internal_memo: estimate.internal_memo || "",
+
           schedule: estimate.schedule
             ? {
                 id: estimate.schedule.id,
@@ -501,6 +514,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         new_party: state.basic.new_party,
         settlements: settlementsPayload,
         memo: state.memo,
+        internal_memo: state.internal_memo,
         payment: paymentPayload,
         insurance_payload: state.insurance,
       };
@@ -600,6 +614,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           manufacturer: state.vehicle.manufacturer ?? null,
           unit: state.vehicle.unit ?? null,
           sale_type: state.vehicle.sale_type ?? null,
+          tax_type: "taxable",
         });
       }
 
@@ -763,7 +778,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         }}
       >
         <Typography fontWeight="bold" mb={2}>
-          メモ
+          商談メモ（見積書に印字されます）
         </Typography>
 
         <TextField
@@ -774,6 +789,35 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           onChange={(e) =>
             dispatch({
               type: "SET_MEMO",
+              payload: e.target.value,
+            })
+          }
+        />
+      </Paper>
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff7e6",
+          border: "1px solid #f0c36d",
+        }}
+      >
+        <Typography fontWeight="bold" mb={1}>
+          内部メモ（お客様には表示されません）
+        </Typography>
+
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          社内共有用のメモです。見積書には印字されません。
+        </Typography>
+
+        <TextField
+          multiline
+          rows={4}
+          fullWidth
+          value={state.internal_memo || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_INTERNAL_MEMO",
               payload: e.target.value,
             })
           }

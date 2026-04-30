@@ -59,6 +59,7 @@ type OrderState = {
   global_discount: number;
   insurance: any;
   memo: string;
+  internal_memo: string;
 
   schedule?: any; 
 };
@@ -96,6 +97,7 @@ const initialState: OrderState = {
     option: "",
   },
   memo: "",
+  internal_memo: "",
 };
 
 function reducer(state: OrderState, action: any): OrderState {
@@ -181,6 +183,12 @@ function reducer(state: OrderState, action: any): OrderState {
       return {
         ...state,
         memo: action.payload,
+      };
+
+    case "SET_INTERNAL_MEMO":
+      return {
+        ...state,
+        internal_memo: action.payload,
       };
 
     default:
@@ -298,6 +306,7 @@ export default function OrderForm({ mode, orderId }: Props) {
               global_discount: discountItem?.discount ?? 0,
               insurance: data.insurance || initialState.insurance,
               memo: data.memo || "",
+              internal_memo: data.internal_memo || "",
               vehicle: data.target_vehicle
                 ? {
                     ...data.target_vehicle,
@@ -406,6 +415,7 @@ export default function OrderForm({ mode, orderId }: Props) {
             global_discount: discountItem?.discount ?? 0,
             insurance: order.insurance || initialState.insurance,
             memo: order.memo || "",
+            internal_memo: order.internal_memo || "",
             schedule: order.schedule
               ? {
                   id: order.schedule.id,
@@ -617,6 +627,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         insurance_payload: state.insurance,
         payment: paymentPayload,
         memo: state.memo, 
+        internal_memo: state.internal_memo,
       };
 
       // 類似チェック
@@ -789,7 +800,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         }}
       >
         <Typography fontWeight="bold" mb={2}>
-          メモ
+          商談メモ（受注書に印字されます。）
         </Typography>
 
         <TextField
@@ -800,6 +811,35 @@ export default function OrderForm({ mode, orderId }: Props) {
           onChange={(e) =>
             dispatch({
               type: "SET_MEMO",
+              payload: e.target.value,
+            })
+          }
+        />
+      </Paper>
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          background: "#fff7e6",
+          border: "1px solid #f0c36d",
+        }}
+      >
+        <Typography fontWeight="bold" mb={1}>
+          内部メモ（お客様には表示されません）
+        </Typography>
+
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          社内共有用のメモです。書類には印字されません。
+        </Typography>
+
+        <TextField
+          multiline
+          rows={4}
+          fullWidth
+          value={state.internal_memo || ""}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_INTERNAL_MEMO",
               payload: e.target.value,
             })
           }

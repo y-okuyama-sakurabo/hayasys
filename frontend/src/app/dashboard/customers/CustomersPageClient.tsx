@@ -24,6 +24,7 @@ import {
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useRouter, useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
@@ -47,18 +48,15 @@ export default function CustomerListPage() {
 
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
-  const pageSize = 20; // backend と合わせる
+  const pageSize = 20;
 
-  // ︙メニュー制御
   const [menuAnchor, setMenuAnchor] = useState<{
     [key: number]: HTMLElement | null;
   }>({});
 
-  // ✅ ここで search という名前を使わない（衝突回避）
   const searchQuery = searchParams.get("search") || "";
   const refreshKey = searchParams.get("_r") || "";
 
-  // ✅ 入力欄（URLと同期させる）
   const [searchInput, setSearchInput] = useState("");
 
   useEffect(() => {
@@ -118,6 +116,45 @@ export default function CustomerListPage() {
     setPage(1);
   };
 
+    // ============================
+  // CSV出力
+  // ============================
+  const handleExportCsv = async () => {
+    try {
+      const params = new URLSearchParams();
+
+      // 現在の検索条件をCSVにも反映
+      if (searchQuery) {
+        params.set("search", searchQuery);
+      }
+
+      const res = await apiClient.get(`/customers/export-csv/?${params.toString()}`, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([res.data], {
+        type: "text/csv;charset=shift_jis;",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+
+      link.href = url;
+      link.download = `customers_${today}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV出力失敗:", err);
+      alert("CSV出力に失敗しました。");
+    }
+  };
+
   if (loading)
     return (
       <Box display="flex" justifyContent="center" mt={10}>
@@ -140,12 +177,22 @@ export default function CustomerListPage() {
           顧客一覧
         </Typography>
 
-        <Button
-          variant="contained"
-          onClick={() => router.push(`/dashboard/customers/new?_r=${Date.now()}`)}
-        >
-          顧客を作成
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportCsv}
+          >
+            CSV出力
+          </Button>
+
+          <Button
+            variant="contained"
+            onClick={() => router.push(`/dashboard/customers/new?_r=${Date.now()}`)}
+          >
+            顧客を作成
+          </Button>
+        </Stack>
       </Box>
 
       {/* ✅ 検索バー */}

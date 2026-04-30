@@ -121,6 +121,33 @@ export default function EstimateDetailPage() {
           <SaleEstimateDocument estimate={estimate} />
         </Paper>
       </div>
+      {estimate.internal_memo && (
+        <Paper
+          sx={{
+            mb: 3,
+            mt: 5,
+            mx: "auto",
+            p: 2,
+            width: "210mm",
+            backgroundColor: "#e8f1fb",
+            border: "1px solid #d5d5d5",
+          }}
+        >
+          <Typography fontWeight="bold" mb={1}>
+            内部メモ（お客様には表示されません）
+          </Typography>
+
+          <Typography
+            sx={{
+              whiteSpace: "pre-wrap",
+              fontSize: "14px",
+              color: "text.primary",
+            }}
+          >
+            {estimate.internal_memo}
+          </Typography>
+        </Paper>
+      )}
     </Box>
   );
 }

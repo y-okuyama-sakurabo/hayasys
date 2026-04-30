@@ -131,18 +131,18 @@ export function SaleOrderDocument({ order }: { order: any }) {
               <Grid container sx={{ mt: 2 }}>
                 <Grid size={{ xs: 6 }} sx={{ pr: 1 }}>
                   <Box sx={{ mb: 2, mt: 0, pl: 2 }}>
-                    <Typography>〒{order.party?.postal_code}</Typography>
-                    <Typography>{order.party?.address}</Typography>
+                    <Typography>〒{order.customer?.postal_code}</Typography>
+                    <Typography>{order.customer?.address}</Typography>
                     <Typography sx={{ mt: 1, fontSize: "10px" }}>
-                      {order.party?.kana}
+                      {order.customer?.kana}
                     </Typography>
                     <Typography sx={{ fontSize: "18px", fontWeight: "bold" }}>
-                      {order.party?.name} 様
+                      {order.customer?.name} 様
                     </Typography>
                     <Typography sx={{ mt: 1 }}>
                       TEL：
-                      {order.party?.phone ||
-                        order.party?.mobile_phone}
+                      {order.customer?.phone ||
+                        order.customer?.mobile_phone}
                     </Typography>
                   </Box>
 

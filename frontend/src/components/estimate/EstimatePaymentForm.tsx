@@ -6,6 +6,7 @@ import {
   Grid,
   TextField,
 } from "@mui/material";
+import { calcLine } from "@/utils/calcLine";
 
 type Props = {
   basic: any;
@@ -46,10 +47,8 @@ export default function EstimatePaymentForm({
   const grandTotal = (() => {
     const itemsTotal = (items || []).reduce(
       (sum: number, item: any) => {
-        const price =
-          Number(item.unit_price || 0) * Number(item.quantity || 0);
-        const discount = Number(item.discount || 0);
-        return sum + price - discount;
+        const line = calcLine(item);
+        return sum + line.total;
       },
       0
     );

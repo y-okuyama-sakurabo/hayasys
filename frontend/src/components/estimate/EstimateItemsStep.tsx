@@ -184,18 +184,19 @@ export default function EstimateItemsStep({ type, items, dispatch }: Props) {
   };
 
   const totals = useMemo(() => {
-    return filteredItems.reduce(
-      (acc, { item }) => {
+    return items.reduce(
+      (acc, item) => {
         const line = calcLine(item);
 
         acc.subtotal += line.subtotal;
         acc.tax += line.tax;
         acc.total += line.total;
+
         return acc;
       },
       { subtotal: 0, tax: 0, total: 0 }
     );
-  }, [filteredItems]);
+  }, [items]);
 
   const handleRemove = (index: number) => {
     dispatch({ type: "REMOVE_ITEM", index });

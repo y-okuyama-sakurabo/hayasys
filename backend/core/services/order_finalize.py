@@ -69,8 +69,8 @@ def create_customer_vehicle_from_order(order):
         if not vehicle.model_year and ov.model_year:
             updates["model_year"] = ov.model_year
 
-        if not vehicle.new_car_type and ov.new_car_type:
-            updates["new_car_type"] = ov.new_car_type
+        if not vehicle.new_car_type and getattr(ov, "sale_type", None):
+            updates["new_car_type"] = ov.sale_type
 
         if vehicle.manufacturer_id is None and ov.manufacturer_id:
             updates["manufacturer_id"] = ov.manufacturer_id
@@ -98,7 +98,7 @@ def create_customer_vehicle_from_order(order):
             vehicle_name=ov.vehicle_name or "",
             displacement=ov.displacement,
             model_year=ov.model_year or "",
-            new_car_type=ov.new_car_type or "",
+            new_car_type=getattr(ov, "sale_type", None) or "",
             manufacturer=ov.manufacturer,
             model_code=ov.model_code or "",
             chassis_no=chassis_no,  # None or str

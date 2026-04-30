@@ -182,8 +182,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
     # --- 外部キーを名前付きで展開 ---
     manufacturer_name = serializers.CharField(source="manufacturer.name", read_only=True)
     category_name     = serializers.CharField(source="category.name", read_only=True)
-    color_label       = serializers.CharField(source="color.name", read_only=True)  # ←ここ変更
-    sale_type         = serializers.CharField(source="sale_type", read_only=True)
+    color_label       = serializers.CharField(source="color.name", read_only=True) 
 
     # --- 関連データ ---
     registrations = VehicleRegistrationReadSerializer(many=True, read_only=True)
@@ -199,7 +198,6 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             "vehicle_name",
             "displacement",
             "model_year",
-            "sale_type",
             "manufacturer_id",
             "manufacturer_name",
             "category_id",
