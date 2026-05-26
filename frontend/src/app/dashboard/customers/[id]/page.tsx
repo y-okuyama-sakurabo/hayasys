@@ -12,6 +12,7 @@ import CustomerMemos from "@/components/customers/CustomerMemos";
 import CustomerVehicles from "@/components/customers/CustomerVehicles";
 import CustomerSchedules from "@/components/customers/CustomerSchedules";
 import CustomerBusinessCommunicationTab from "@/components/customers/CustomerBusinessCommunicationTab";
+import CustomerTransactionHistory from "@/components/customers/CustomerTransactionHistory";
 
 type CustomerTab = "basic" | "vehicles" | "schedules" | "communications";
 
@@ -73,16 +74,16 @@ export default function CustomerDetailPage() {
 
       {tab === "basic" && (
         <>
-          {/* ✅ ここがポイント：更新後に再取得できるよう渡す */}
           <CustomerInfo customer={customer} onUpdated={fetchCustomer} />
           <CustomerImages customerId={customer.id} />
+          <CustomerTransactionHistory customerId={customer.id} />
           <CustomerMemos customerId={customer.id} />
         </>
       )}
 
       {tab === "vehicles" && <CustomerVehicles customerId={customer.id} />}
       {tab === "schedules" && <CustomerSchedules customerId={customer.id} />}
-      {tab === "communications" && <CustomerBusinessCommunicationTab customerId={customer.id} />}
+      {tab === "communications" && <CustomerBusinessCommunicationTab customerId={customer.id} customerName={customer.name} />}
     </Box>
   );
 }

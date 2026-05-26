@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Paper,
   Typography,
@@ -13,9 +14,25 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import EditIcon from "@mui/icons-material/Edit";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AddTaskIcon from "@mui/icons-material/AddTask";
+import SendIcon from "@mui/icons-material/Send";
 import apiClient from "@/lib/apiClient";
 import { SaleEstimateDocument } from "@/components/estimate/document/SaleEstimateDocument";
 import { useReactToPrint } from "react-to-print";
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "下書き",
+  issued: "提出済み",
+  ordered: "受注済み",
+};
+
+const STATUS_COLOR: Record<
+  string,
+  "default" | "info" | "success" | "warning"
+> = {
+  draft: "warning",
+  issued: "info",
+  ordered: "success",
+};
 
 export default function EstimateDetailPage() {
   const params = useParams();
@@ -24,31 +41,50 @@ export default function EstimateDetailPage() {
 
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
 
+  const fetchEstimate = async () => {
+    const res = await apiClient.get(`/estimates/${id}/`);
+    setEstimate(res.data);
+  };
+
   useEffect(() => {
     if (!id) return;
-
-    const fetchEstimate = async () => {
+    (async () => {
       try {
-        const res = await apiClient.get(`/estimates/${id}/`);
-        setEstimate(res.data);
+        await fetchEstimate();
       } catch (err) {
         console.error("詳細取得エラー:", err);
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchEstimate();
+    })();
   }, [id]);
 
-  // ✅ v3対応
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `estimate_${estimate?.estimate_no || id}`,
   });
+
+  const handleSubmit = async () => {
+    if (!estimate) return;
+    setSubmitting(true);
+    try {
+      const res = await apiClient.patch(`/estimates/${id}/status/`, {
+        status: "issued",
+      });
+      setEstimate((prev: any) => ({
+        ...prev,
+        status: res.data.status,
+      }));
+    } catch (err) {
+      console.error("提出エラー:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading)
     return (
@@ -66,13 +102,18 @@ export default function EstimateDetailPage() {
 
   return (
     <Box p={3}>
-      <Box display="flex" justifyContent="flex-end" gap={2} mb={3}>
+      <Box display="flex" justifyContent="flex-end" alignItems="center" gap={2} mb={3} flexWrap="wrap">
+        {/* ステータス表示 */}
+        <Chip
+          label={STATUS_LABEL[estimate.status] ?? estimate.status}
+          color={STATUS_COLOR[estimate.status] ?? "default"}
+          sx={{ fontWeight: "bold" }}
+        />
+
         <Button
           variant="outlined"
           startIcon={<EditIcon />}
-          onClick={() =>
-            router.push(`/dashboard/estimates/${id}/edit`)
-          }
+          onClick={() => router.push(`/dashboard/estimates/${id}/edit`)}
         >
           編集
         </Button>
@@ -95,15 +136,32 @@ export default function EstimateDetailPage() {
           複製して新規作成
         </Button>
 
-        <Button
-          variant="contained"
-          startIcon={<AddTaskIcon />}
-          onClick={() =>
-            router.push(`/dashboard/orders/new?from_estimate=${id}`)
-          }
-        >
-          受注作成
-        </Button>
+        {/* 見積提出ボタン：下書きの時のみ */}
+        {estimate.status === "draft" && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SendIcon />}
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            見積提出
+          </Button>
+        )}
+
+        {/* 受注作成：提出済みの時のみ（下書きでは不可） */}
+        {estimate.status === "issued" && (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<AddTaskIcon />}
+            onClick={() =>
+              router.push(`/dashboard/orders/new?from_estimate=${id}`)
+            }
+          >
+            受注作成
+          </Button>
+        )}
       </Box>
 
       {/* 印刷対象 */}

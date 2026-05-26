@@ -32,8 +32,8 @@ services:
       "
     depends_on:
       - db
-    ports:
-      - "8000:8000"
+    # ports:
+    #  - "8000:8000"
     volumes:
       - ./backend:/app
 
@@ -47,7 +47,6 @@ services:
       NEXT_PUBLIC_API_BASE_URL: "/api"
     depends_on:
       - backend
-    # 👇 本番では外す
     # ports:
     #   - "3000:3000"
 

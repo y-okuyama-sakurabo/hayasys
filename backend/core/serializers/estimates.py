@@ -139,13 +139,13 @@ class EstimateSerializer(serializers.ModelSerializer):
     def _upsert_payment(self, estimate, payment_data, settlements_data):
         ct = ContentType.objects.get_for_model(Estimate)
 
-        credit_amount = sum(
+        loan_amount = sum(
             int(s["amount"])
             for s in settlements_data
-            if s["settlement_type"] == "credit"
+            if s["settlement_type"] == "loan"
         )
 
-        if credit_amount > 0:
+        if loan_amount > 0:
             Payment.objects.update_or_create(
                 content_type=ct,
                 object_id=estimate.id,
@@ -357,28 +357,28 @@ class EstimateSerializer(serializers.ModelSerializer):
                     "settlements": "支払い合計が総額と一致しません"
                 })
 
-        # クレジットチェック
-        credit_amount = sum(
+        # ローンチェック
+        loan_amount = sum(
             int(s.get("amount", 0))
             for s in settlements
-            if s.get("settlement_type") == "credit"
+            if s.get("settlement_type") == "loan"
         )
 
         payment_data = self.initial_data.get("payment")
 
-        if credit_amount > 0 and not payment_data:
+        if loan_amount > 0 and not payment_data:
             raise serializers.ValidationError({
-                "payment": "クレジット情報を入力してください"
+                "payment": "ローン情報を入力してください"
             })
-        
-        credit_count = sum(
+
+        loan_count = sum(
             1 for s in settlements
-            if s.get("settlement_type") == "credit"
+            if s.get("settlement_type") == "loan"
         )
 
-        if credit_count > 1:
+        if loan_count > 1:
             raise serializers.ValidationError({
-                "settlements": "クレジットは1件のみです"
+                "settlements": "ローンは1件のみです"
             })
 
         return data
@@ -403,6 +403,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "estimate_no",
+            "status",
             "vehicle_mode",
             "party",
             "shop",
@@ -417,6 +418,11 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             "internal_memo",
             "estimate_date",
             "valid_until",
+            "subtotal",
+            "discount_total",
+            "tax_total",
+            "grand_total",
+            "final_adjustment",
             "created_at",
             "updated_at",
         ]

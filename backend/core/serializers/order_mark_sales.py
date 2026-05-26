@@ -11,26 +11,20 @@ class MarkSalesSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """
         売上計上ロジック：
-        - final_delivery_date と final_payment_date が揃っていないとエラー
-        - sales_date は「遅いほうの日付」で自動決定
+        - 納品が完了していないとエラー（入金状況は問わない）
+        - sales_date は納品完了日で自動決定
         - status を sales_completed に更新
         """
 
         final_delivery = instance.final_delivery_date
-        final_payment = instance.final_payment_date
 
         # --- チェック ---
         if not final_delivery:
             raise serializers.ValidationError({"detail": "納品が完了していません"})
 
-        if not final_payment:
-            raise serializers.ValidationError({"detail": "入金が完了していません"})
-
-        # --- 売上日 = 納品完了日 or 入金完了日の遅い方 ---
-        sales_date = max(final_delivery, final_payment)
-
-        instance.sales_date = sales_date
-        instance.status = "sales_completed"  # 必要であれば OrderStatus に追加しても良い
+        # --- 売上日 = 納品完了日 ---
+        instance.sales_date   = final_delivery
+        instance.status       = "sales_completed"
 
         instance.save(update_fields=["sales_date", "status"])
 

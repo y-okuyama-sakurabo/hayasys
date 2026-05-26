@@ -16,6 +16,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "item_type",
             "quantity",
             "unit_price",
             "delivery_status",
@@ -136,7 +137,7 @@ class ManagementDetailSerializer(serializers.ModelSerializer):
             return "paid"
 
         if paid <= 0:
-            return "unpaid"
+            return "pending"
         if paid < grand:
             return "partial"
         return "paid"

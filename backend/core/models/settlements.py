@@ -8,10 +8,12 @@ class Settlement(models.Model):
 
     SETTLEMENT_TYPE_CHOICES = [
         ("trade_in", "下取車"),
-        ("cash", "現金"),
-        ("card", "カード・クーポン"),
-        ("credit", "クレジット"),
-        ("advance", "前受金"),
+        ("cash",     "現金"),
+        ("card",     "カード"),
+        ("loan",     "ローン"),
+        ("qr",       "QR決済"),
+        ("coupon",   "商品券・クーポン"),
+        ("transfer", "振込"),
     ]
 
     # 汎用紐付け（Estimate / Order 両対応）

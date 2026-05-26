@@ -83,9 +83,8 @@ class CustomerVehicleCreateSerializer(serializers.ModelSerializer):
                     {"vehicle_id": "指定された車両が存在しません。"}
                 )
         else:
-            vehicle_serializer = VehicleWriteSerializer(data=vehicle_data)
-            vehicle_serializer.is_valid(raise_exception=True)
-            vehicle = vehicle_serializer.save()
+            # 既にバリデーション済みオブジェクトなので直接 create() を呼ぶ
+            vehicle = VehicleWriteSerializer().create(vehicle_data)
 
         # 二重登録ガード
         if CustomerVehicle.objects.filter(

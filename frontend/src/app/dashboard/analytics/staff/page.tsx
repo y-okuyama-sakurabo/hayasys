@@ -1,202 +1,341 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
+  Box, Paper, Typography, Stack, Chip, Grid,
+  FormControl, InputLabel, Select, MenuItem, TextField,
+  ToggleButton, ToggleButtonGroup, Divider, Button,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import WorkIcon      from "@mui/icons-material/Work";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, LabelList,
+  PieChart, Pie, Legend,
+} from "recharts";
 import apiClient from "@/lib/apiClient";
+import dayjs from "dayjs";
 
+// ========================
+// 定数
+// ========================
+const CHART_COLORS = [
+  "#4caf50", "#2196f3", "#ff9800", "#f44336",
+  "#9c27b0", "#00bcd4", "#795548", "#e91e63",
+];
+const fmt   = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
+const fmtK  = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(0)}万` : String(n);
+
+// ========================
+// KPIカード（個人詳細用）
+// ========================
+function KpiMini({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, textAlign: "center" }}>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.3 }}>{value}</Typography>
+      {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
+    </Paper>
+  );
+}
+
+// ========================
+// メイン
+// ========================
 export default function StaffAnalyticsPage() {
-  const [mode, setMode] = useState<"order" | "estimate">("order");
+  const today = dayjs();
+
+  // フィルター
+  const [mode,   setMode]   = useState<"order" | "estimate">("order");
   const [shopId, setShopId] = useState<number | "all">("all");
-  const [staffId, setStaffId] = useState<number | "all">("all");
+  const [start,  setStart]  = useState(today.startOf("month").format("YYYY-MM-DD"));
+  const [end,    setEnd]    = useState(today.format("YYYY-MM-DD"));
+  const [shops,  setShops]  = useState<any[]>([]);
 
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  // データ
+  const [data,          setData]          = useState<any[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
 
-  const [shops, setShops] = useState<any[]>([]);
-  const [staffs, setStaffs] = useState<any[]>([]);
+  // 棒グラフのメトリクス切替
+  const [metric, setMetric] = useState<"total" | "count">("total");
 
-  const [data, setData] = useState<any[]>([]);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  // -----------------------------
   // 初期ロード
-  // -----------------------------
   useEffect(() => {
-    const fetchInit = async () => {
-      const [shopRes, staffRes] = await Promise.all([
-        apiClient.get("/masters/shops/"),
-        apiClient.get("/masters/staffs/"),
-      ]);
-
-      setShops(shopRes.data.results || shopRes.data || []);
-      setStaffs(staffRes.data.results || staffRes.data || []);
-    };
-
-    fetchInit();
-
-    const today = new Date();
-    const first = new Date(today.getFullYear(), today.getMonth(), 1);
-    const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const formatDate = (d: Date) => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    };
-
-    setStart(formatDate(first));
-    setEnd(formatDate(last));
+    apiClient.get("/masters/shops/")
+      .then((r) => setShops(r.data.results || r.data || []))
+      .catch(console.error);
   }, []);
 
-  // -----------------------------
-  // データ取得
-  // -----------------------------
-  const fetchData = async () => {
-    const res = await apiClient.get("/analytics/product/", {
-      params: {
-        mode,
-        type: "staff_work",
-        start,
-        end,
-        shop_id: shopId,
-        staff_id: staffId,
-      },
-    });
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/analytics/product/", {
+        params: { mode, type: "staff_work", start, end, shop_id: shopId },
+      });
+      const d = res.data || [];
+      setData(d);
+      // 選択中スタッフが存在すれば最新データで更新
+      if (selectedStaff) {
+        const updated = d.find((s: any) => s.name === selectedStaff.name);
+        setSelectedStaff(updated ?? null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [mode, start, end, shopId]);
 
-    setData(res.data);
-  };
+  useEffect(() => { if (start && end) fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    if (!start || !end) return;
-    fetchData();
-  }, [mode, start, end, shopId, staffId]);
+  // 個人詳細の派生データ
+  const avgPrice    = selectedStaff && selectedStaff.count > 0
+    ? Math.round(selectedStaff.total / selectedStaff.count) : 0;
+  const breadth     = selectedStaff?.category_breadth ?? 0;
+  const itemTypes   = selectedStaff?.item_types  ?? [];
+  const monthly     = selectedStaff?.monthly     ?? [];
+  const categories  = selectedStaff?.categories  ?? [];
 
+  // グラフ用：棒グラフデータ（メトリクス切替）
+  const barData = [...data].sort((a, b) => b[metric] - a[metric]).slice(0, 15);
+
+  // ========================
+  // UI
+  // ========================
   return (
     <Box>
-      {/* =============================
-         フィルタ
-      ============================== */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box display="flex" gap={2} flexWrap="wrap">
+      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>作業分析</Typography>
 
-          <ToggleButtonGroup
-            value={mode}
-            exclusive
-            onChange={(_, v) => v && setMode(v)}
-          >
+      {/* ── フィルター ── */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setMode(v)}>
             <ToggleButton value="order">受注</ToggleButton>
             <ToggleButton value="estimate">見積</ToggleButton>
           </ToggleButtonGroup>
 
-          <FormControl size="small">
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>店舗</InputLabel>
-            <Select
-              value={shopId}
-              label="店舗"
-              onChange={(e) => setShopId(e.target.value as any)}
-            >
+            <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
               <MenuItem value="all">全店舗</MenuItem>
-              {shops.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name}
-                </MenuItem>
-              ))}
+              {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
             </Select>
           </FormControl>
 
-          <FormControl size="small">
-            <InputLabel>担当</InputLabel>
-            <Select
-              value={staffId}
-              label="担当"
-              onChange={(e) => setStaffId(e.target.value as any)}
-            >
-              <MenuItem value="all">全担当</MenuItem>
-              {staffs.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.display_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </Box>
+          <TextField label="開始日" type="date" size="small" value={start}
+            onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+          <TextField label="終了日" type="date" size="small" value={end}
+            onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+        </Stack>
       </Paper>
 
-      {/* =============================
-         ランキング
-      ============================== */}
-      <Paper sx={{ p: 2 }}>
-        {data.map((item, i) => (
-          <Box key={i} sx={{ borderBottom: "1px solid #eee", py: 1 }}>
-            
-            {/* 親 */}
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography fontWeight="bold">
-                {i + 1}. {item.name}
-              </Typography>
+      {/* ════════════════════════════════
+          全担当者比較
+      ════════════════════════════════ */}
+      {!selectedStaff && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" fontWeight="bold">全担当者比較</Typography>
+            <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v) => v && setMetric(v)}>
+              <ToggleButton value="total">金額</ToggleButton>
+              <ToggleButton value="count">件数</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
 
-              <Box display="flex" alignItems="center" gap={2}>
-                <Typography textAlign="right">
-                  ¥{Number(item.total).toLocaleString()}
-                  <br />
-                  <span style={{ fontSize: 12, color: "#666" }}>
-                    {item.count}件
-                  </span>
-                </Typography>
-
-                {/* ▼ボタン */}
-                <IconButton
-                  size="small"
-                  onClick={() =>
-                    setOpenIndex(openIndex === i ? null : i)
+          {data.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+              データがありません
+            </Typography>
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(200, barData.length * 44)}>
+              <BarChart
+                layout="vertical"
+                data={barData}
+                margin={{ left: 16, right: 80 }}
+                onClick={(state: any) => {
+                  if (state?.activePayload?.[0]) {
+                    const name = state.activePayload[0].payload.name;
+                    setSelectedStaff(data.find((s: any) => s.name === name) ?? null);
                   }
-                >
-                  {openIndex === i ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(v) => metric === "total" ? fmtK(v) : `${v}件`}
+                />
+                <YAxis
+                  type="category" dataKey="name" width={100} tick={{ fontSize: 12 }}
+                />
+                <Tooltip
+                  formatter={(v: any) => metric === "total" ? fmt(Number(v)) : `${v} 件`}
+                />
+                <Bar dataKey={metric} name={metric === "total" ? "売上金額" : "件数"} cursor="pointer" radius={[0, 4, 4, 0]}>
+                  {barData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                  <LabelList
+                    dataKey={metric}
+                    position="right"
+                    formatter={(v: any) => metric === "total" ? fmt(Number(v)) : `${v}件`}
+                    style={{ fontSize: 11, fill: "#444" }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+
+          {data.length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+              ※ バーをクリックすると個人詳細を表示します
+            </Typography>
+          )}
+        </Paper>
+      )}
+
+      {/* ════════════════════════════════
+          個人詳細
+      ════════════════════════════════ */}
+      {selectedStaff && (
+        <Box>
+          {/* ヘッダー */}
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              size="small"
+              variant="outlined"
+              onClick={() => setSelectedStaff(null)}
+            >
+              一覧に戻る
+            </Button>
+            <WorkIcon color="action" />
+            <Typography variant="h6" fontWeight="bold">{selectedStaff.name}</Typography>
+          </Stack>
+
+          {/* KPIカード */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <KpiMini label="担当件数" value={`${selectedStaff.count} 件`} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <KpiMini label="合計金額" value={fmt(selectedStaff.total)} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <KpiMini label="平均単価" value={fmt(avgPrice)} sub="/ 件" />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <KpiMini
+                label="作業種別の幅"
+                value={`${breadth} 種`}
+                sub={itemTypes.map((t: any) => t.name).join(" / ") || "-"}
+              />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {/* 作業種別ドーナツ */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Paper sx={{ p: 2, height: "100%" }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  作業種別の内訳
+                </Typography>
+                {itemTypes.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+                    データなし
+                  </Typography>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={itemTypes}
+                        cx="50%" cy="50%"
+                        innerRadius={60} outerRadius={95}
+                        dataKey="total"
+                        nameKey="name"
+                        paddingAngle={2}
+                      >
+                        {itemTypes.map((_: any, i: number) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v: any, _: any, props: any) =>
+                          [`${fmt(Number(v))} (${props.payload.count}件)`, props.payload.name]
+                        }
+                      />
+                      <Legend iconSize={10} formatter={(value, entry: any) =>
+                        `${value} ${entry.payload.count}件`
+                      } />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* 月次棒グラフ */}
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Paper sx={{ p: 2, height: "100%" }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  月次推移
+                </Typography>
+                {monthly.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+                    データなし
+                  </Typography>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={monthly} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtK} />
+                      <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                      <Bar dataKey="total" name="金額" fill="#2e7d32" radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="count" position="top" formatter={(v: any) => `${v}件`} style={{ fontSize: 10, fill: "#555" }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* カテゴリランキング */}
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              担当カテゴリ一覧
+            </Typography>
+            <Divider sx={{ mb: 1 }} />
+            {categories.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                カテゴリ情報がありません
+              </Typography>
+            ) : (
+              <Box>
+                {categories.map((c: any, i: number) => (
+                  <Stack
+                    key={i}
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ py: 1, borderBottom: "1px solid #f0f0f0" }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        label={i + 1}
+                        size="small"
+                        sx={{ bgcolor: CHART_COLORS[i % CHART_COLORS.length], color: "white", minWidth: 28 }}
+                      />
+                      <Typography variant="body2">{c.name}</Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Typography variant="body2" fontWeight="bold">{fmt(c.total)}</Typography>
+                      <Typography variant="caption" color="text.secondary">{c.count}件</Typography>
+                    </Stack>
+                  </Stack>
+                ))}
               </Box>
-            </Box>
-
-            {/* 子（開いたときだけ） */}
-            {openIndex === i &&
-              item.categories?.map((c: any, j: number) => (
-                <Box
-                  key={j}
-                  display="flex"
-                  justifyContent="space-between"
-                  sx={{ pl: 4, fontSize: 13, color: "#666" }}
-                >
-                  <Typography>
-                    └ {c.name}
-                  </Typography>
-
-                  <Typography textAlign="right">
-                    ¥{Number(c.total).toLocaleString()}
-                    <br />
-                    <span style={{ fontSize: 12 }}>
-                      {c.count}件
-                    </span>
-                  </Typography>
-                </Box>
-              ))}
-          </Box>
-        ))}
-      </Paper>
+            )}
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }

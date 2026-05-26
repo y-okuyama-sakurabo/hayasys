@@ -96,16 +96,35 @@ class SalesDailyAPIView(APIView):
         # dict化
         # -----------------------------
         estimate_map = {x["estimate_date"]: x["total"] for x in estimate_qs}
-        order_map = {x["order_date"]: x["total"] for x in order_qs}
+        order_map    = {x["order_date"]:    x["total"] for x in order_qs}
+
+        # 売上集計（sales_date 基準）
+        sales_filter: dict = {"sales_date__range": [start, end]}
+        if shop_id and shop_id != "all":
+            sales_filter["shop_id"] = shop_id
+        else:
+            sales_filter["shop"] = request.user.shop
+        if staff_id and staff_id != "all":
+            sales_filter["created_by_id"] = staff_id
+
+        sales_qs = (
+            Order.objects
+            .filter(**sales_filter)
+            .exclude(sales_date__isnull=True)
+            .values("sales_date")
+            .annotate(total=Sum("grand_total"))
+        )
+        sales_map = {x["sales_date"]: x["total"] for x in sales_qs}
 
         result = []
         current = start
 
         while current <= end:
             result.append({
-                "date": current,
+                "date":     current,
                 "estimate": float(estimate_map.get(current, 0) or 0),
-                "order": float(order_map.get(current, 0) or 0),
+                "order":    float(order_map.get(current, 0) or 0),
+                "sales":    float(sales_map.get(current, 0) or 0),
             })
             current += timedelta(days=1)
 
@@ -130,27 +149,19 @@ class SalesListAPIView(APIView):
         # -----------------------------
         if date_str:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-
-            estimates = Estimate.objects.filter(
-                estimate_date=target_date
-            )
-            orders = Order.objects.filter(
-                order_date=target_date
-            )
+            estimates = Estimate.objects.filter(estimate_date=target_date)
+            orders    = Order.objects.filter(order_date=target_date)
+            sales     = Order.objects.filter(sales_date=target_date)
 
         # -----------------------------
         # 期間指定
         # -----------------------------
         elif start_str and end_str:
             start = datetime.strptime(start_str, "%Y-%m-%d").date()
-            end = datetime.strptime(end_str, "%Y-%m-%d").date()
-
-            estimates = Estimate.objects.filter(
-                estimate_date__range=[start, end]
-            )
-            orders = Order.objects.filter(
-                order_date__range=[start, end]
-            )
+            end   = datetime.strptime(end_str,   "%Y-%m-%d").date()
+            estimates = Estimate.objects.filter(estimate_date__range=[start, end])
+            orders    = Order.objects.filter(order_date__range=[start, end])
+            sales     = Order.objects.filter(sales_date__range=[start, end])
 
         else:
             raise ValidationError("date または start/end を指定してください")
@@ -160,18 +171,22 @@ class SalesListAPIView(APIView):
         # -----------------------------
         if shop_id and shop_id != "all":
             estimates = estimates.filter(shop_id=shop_id)
-            orders = orders.filter(shop_id=shop_id)
+            orders    = orders.filter(shop_id=shop_id)
+            sales     = sales.filter(shop_id=shop_id)
         else:
             estimates = estimates.filter(shop=request.user.shop)
-            orders = orders.filter(shop=request.user.shop)
+            orders    = orders.filter(shop=request.user.shop)
+            sales     = sales.filter(shop=request.user.shop)
 
         if staff_id and staff_id != "all":
             estimates = estimates.filter(created_by_id=staff_id)
-            orders = orders.filter(created_by_id=staff_id)
+            orders    = orders.filter(created_by_id=staff_id)
+            sales     = sales.filter(created_by_id=staff_id)
 
         return Response({
             "estimates": EstimateSerializer(estimates, many=True).data,
-            "orders": OrderSerializer(orders, many=True).data,
+            "orders":    OrderSerializer(orders,    many=True).data,
+            "sales":     OrderSerializer(sales,     many=True).data,
         })
 
 class ProductAnalyticsAPIView(APIView):
@@ -325,9 +340,23 @@ class ProductAnalyticsAPIView(APIView):
             data = [d for d in data if d["total"] and d["total"] > 0]
             data.sort(key=lambda x: x["total"], reverse=True)
 
+            grand_total = sum(float(d["total"]) for d in data)
+            for d in data:
+                d["share"] = round(float(d["total"]) / grand_total * 100, 1) if grand_total > 0 else 0.0
+
             return Response(data)
 
         elif type_ == "manufacturer":
+
+            from django.db.models import Q as _Q
+            _filter_cat = request.query_params.get("filter_category_id")
+            if _filter_cat:
+                qs = qs.filter(
+                    _Q(category_id=_filter_cat) |
+                    _Q(category__parent_id=_filter_cat) |
+                    _Q(category__parent__parent_id=_filter_cat) |
+                    _Q(category__parent__parent__parent_id=_filter_cat)
+                )
 
             data = {}
 
@@ -502,59 +531,89 @@ class ProductAnalyticsAPIView(APIView):
         # ==========================================
         elif type_ == "staff_work":
 
+            ITEM_TYPE_LABELS = {
+                "vehicle":   "車両",
+                "accessory": "用品",
+                "insurance": "保険",
+                "fee":       "諸費用",
+                "discount":  "値引き",
+            }
+
+            # 月別集計のために order/estimate も select_related
+            if mode == "order":
+                qs = qs.select_related("order", "staff")
+            else:
+                qs = qs.select_related("estimate", "staff")
+
             data = {}
 
             for item in qs:
                 staff = item.staff
 
                 if not staff:
-                    key = "unknown"
+                    key  = "unknown"
                     name = "未割当"
                 else:
-                    key = staff.id
+                    key  = staff.id
                     name = staff.display_name
 
                 if key not in data:
                     data[key] = {
-                        "name": name,
-                        "total": 0,
-                        "count": 0,
-                        "categories": {},  # ←追加🔥
+                        "name":       name,
+                        "total":      0,
+                        "count":      0,
+                        "categories": {},
+                        "item_types": {},
+                        "monthly":    {},
                     }
 
                 data[key]["total"] += item.subtotal or 0
                 data[key]["count"] += 1
 
-                # -----------------------------
                 # 作業内容（カテゴリ）
-                # -----------------------------
                 if item.category:
                     cat_name = item.category.name
-
                     if cat_name not in data[key]["categories"]:
-                        data[key]["categories"][cat_name] = {
-                            "name": cat_name,
-                            "count": 0,
-                            "total": 0,
-                        }
-
+                        data[key]["categories"][cat_name] = {"name": cat_name, "count": 0, "total": 0}
                     data[key]["categories"][cat_name]["count"] += 1
                     data[key]["categories"][cat_name]["total"] += item.subtotal or 0
 
-            # -----------------------------
+                # 作業種別（item_type）
+                itype       = item.item_type or "accessory"
+                itype_label = ITEM_TYPE_LABELS.get(itype, itype)
+                if itype not in data[key]["item_types"]:
+                    data[key]["item_types"][itype] = {"key": itype, "name": itype_label, "count": 0, "total": 0}
+                data[key]["item_types"][itype]["count"] += 1
+                data[key]["item_types"][itype]["total"] += item.subtotal or 0
+
+                # 月別集計
+                ref_date = (
+                    getattr(item.order,    "order_date",    None) if mode == "order"
+                    else getattr(item.estimate, "estimate_date", None)
+                )
+                if ref_date:
+                    month_key = str(ref_date)[:7]
+                    if month_key not in data[key]["monthly"]:
+                        data[key]["monthly"][month_key] = {"month": month_key, "count": 0, "total": 0}
+                    data[key]["monthly"][month_key]["count"] += 1
+                    data[key]["monthly"][month_key]["total"] += item.subtotal or 0
+
             # 整形
-            # -----------------------------
             result = []
 
             for s in data.values():
-                cats = list(s["categories"].values())
-                cats.sort(key=lambda x: x["count"], reverse=True)
+                cats   = sorted(list(s["categories"].values()), key=lambda x: x["total"],  reverse=True)
+                itypes = sorted(list(s["item_types"].values()),  key=lambda x: x["total"],  reverse=True)
+                monthly = sorted(list(s["monthly"].values()),    key=lambda x: x["month"])
 
                 result.append({
-                    "name": s["name"],
-                    "total": s["total"],
-                    "count": s["count"],
-                    "categories": cats,
+                    "name":             s["name"],
+                    "total":            s["total"],
+                    "count":            s["count"],
+                    "categories":       cats,
+                    "item_types":       itypes,
+                    "monthly":          monthly,
+                    "category_breadth": len(s["item_types"]),
                 })
 
             result.sort(key=lambda x: x["total"], reverse=True)

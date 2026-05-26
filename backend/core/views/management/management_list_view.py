@@ -19,7 +19,6 @@ class ManagementOrderListAPIView(APIView):
             )
             .prefetch_related(
                 "payment_management__records",
-                "deliveries__items",
             )
             .order_by("-order_date")
         )
@@ -45,29 +44,33 @@ class ManagementOrderListAPIView(APIView):
             except Exception:
                 pass
 
+        # =====================================================
+        # 期間フィルタ（date_from / date_to）
+        # =====================================================
+        date_from = request.GET.get("date_from")
+        date_to   = request.GET.get("date_to")
+        if date_from:
+            qs = qs.filter(order_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(order_date__lte=date_to)
+
+        # Order.delivery_status の値（not_delivered/partial/delivered）を
+        # フロントエンドの表示値（pending/partial/completed）にマッピング
+        DELIVERY_STATUS_MAP = {
+            "not_delivered": "pending",
+            "partial":       "partial",
+            "delivered":     "completed",
+        }
+
         results = []
 
         for order in qs:
             # --- 納品状況 ---
-            deliveries = order.deliveries.all()
-
-            if not deliveries.exists():
-                delivery_status = "pending"
-            else:
-                total_need = 0
-                total_done = 0
-
-                for delivery in deliveries:
-                    for item in delivery.items.all():
-                        total_need += item.quantity or 0
-                        total_done += item.quantity or 0  # 必要なら実納品数の項目に変更
-
-                if total_done >= total_need and total_need > 0:
-                    delivery_status = "completed"
-                elif total_done > 0:
-                    delivery_status = "partial"
-                else:
-                    delivery_status = "pending"
+            # Order.delivery_status は Delivery.update_status() が常に正しく更新するので
+            # そのまま使う（一覧側での再計算は不要・誤りの原因になる）
+            delivery_status = DELIVERY_STATUS_MAP.get(
+                order.delivery_status or "not_delivered", "pending"
+            )
 
             # --- 入金状況 ---
             try:
@@ -81,7 +84,10 @@ class ManagementOrderListAPIView(APIView):
             if unpaid < 0:
                 unpaid = 0
 
-            if paid_amount == 0:
+            if grand_total <= 0:
+                # 受注金額が0円の場合は入金不要とみなす
+                payment_status = "paid"
+            elif paid_amount <= 0:
                 payment_status = "pending"
             elif paid_amount < grand_total:
                 payment_status = "partial"

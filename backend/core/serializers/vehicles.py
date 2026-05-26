@@ -9,6 +9,7 @@ from core.models import (
     CustomerVehicle,
 )
 from core.models import Manufacturer, VehicleCategory, Color
+from core.models.categories import Category
 from core.utils.images import compress_image
 from PIL import Image
 
@@ -48,7 +49,7 @@ class VehicleWriteSerializer(serializers.ModelSerializer):
     )
 
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=VehicleCategory.objects.all(),
+        queryset=Category.objects.all(),
         source="category",
         required=False,
         allow_null=True
@@ -71,7 +72,7 @@ class VehicleWriteSerializer(serializers.ModelSerializer):
             "vehicle_name",
             "displacement",
             "model_year",
-            "sale_type",
+            "new_car_type",
             "manufacturer_id",
             "category_id",
             "model_code",
@@ -198,6 +199,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             "vehicle_name",
             "displacement",
             "model_year",
+            "new_car_type",
             "manufacturer_id",
             "manufacturer_name",
             "category_id",

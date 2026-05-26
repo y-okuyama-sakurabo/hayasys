@@ -35,6 +35,7 @@ from core.views.customers.memos import (
     CustomerMemoRetrieveUpdateDestroyView,
 )
 from core.views.customers.similar import SimilarCustomerAPIView
+from core.views.customers.transactions import CustomerTransactionHistoryAPIView
 
 # === Vehicles (vehicle master) ===
 from core.views.vehicles.views import (
@@ -84,6 +85,8 @@ from core.views.business_communication.views import (
     CustomerBusinessCommunicationThreadListCreateAPIView,
     BusinessCommunicationMessageListCreateAPIView,
     BusinessCommunicationThreadRetrieveDestroyAPIView,
+    CommunicationThreadListCreateAPIView,
+    CommunicationThreadStatusUpdateAPIView,
 )
 
 # === Estimates ===
@@ -91,6 +94,7 @@ from core.views.estimates.views import (
     EstimateListCreateAPIView,
     EstimateRetrieveUpdateDestroyAPIView,
     EstimateNextNoAPIView,
+    EstimateStatusUpdateAPIView,
 )
 from core.views.estimates.parties import (
     EstimatePartyListCreateAPIView,
@@ -124,6 +128,7 @@ from core.views.orders.views import (
     OrderRetrieveUpdateDestroyAPIView,
     OrderFromEstimateAPIView,
     PrepareOrderFromEstimateAPIView,
+    OrderStatusUpdateAPIView,
 )
 from core.views.orders.items import (
     OrderItemListCreateAPIView,
@@ -212,6 +217,7 @@ urlpatterns = [
     path("customers/<int:customer_id>/images/<int:pk>/", CustomerImageDeleteView.as_view()),
     path("customers/<int:customer_id>/memos/", CustomerMemoListCreateView.as_view()),
     path("customers/<int:customer_id>/memos/<int:pk>/", CustomerMemoRetrieveUpdateDestroyView.as_view()),
+    path("customers/<int:customer_id>/transactions/", CustomerTransactionHistoryAPIView.as_view()),
     path("customers/similar/", SimilarCustomerAPIView.as_view()),
     path(
         "customers/export-csv/",
@@ -266,6 +272,7 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/items/<int:pk>/", EstimateItemRetrieveUpdateDestroyAPIView.as_view()),
     path("estimates/<int:estimate_id>/vehicles/", ev.EstimateVehicleListCreateAPIView.as_view()),
     path("estimates/<int:estimate_id>/vehicles/<int:pk>/", ev.EstimateVehicleRetrieveUpdateDestroyAPIView.as_view()),
+    path("estimates/<int:pk>/status/", EstimateStatusUpdateAPIView.as_view()),
 
     # =========================
     # Orders
@@ -277,6 +284,7 @@ urlpatterns = [
     path("orders/<int:order_id>/items/", OrderItemListCreateAPIView.as_view()),
     path("order-items/<int:pk>/", OrderItemRetrieveUpdateDestroyAPIView.as_view()),
     path("orders/<int:pk>/mark-sales/", OrderMarkSalesAPIView.as_view()),
+    path("orders/<int:pk>/status/", OrderStatusUpdateAPIView.as_view()),
 
     # =========================
     # Deliveries
@@ -332,6 +340,14 @@ urlpatterns = [
     # =========================
     # Business Communication
     # =========================
+    path(
+        "communication-threads/",
+        CommunicationThreadListCreateAPIView.as_view(),
+    ),
+    path(
+        "communication-threads/<int:pk>/status/",
+        CommunicationThreadStatusUpdateAPIView.as_view(),
+    ),
     path(
     "customers/<int:customer_id>/communication-threads/",
     CustomerBusinessCommunicationThreadListCreateAPIView.as_view(),

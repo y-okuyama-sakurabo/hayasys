@@ -26,11 +26,16 @@ class CustomerVehicleListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         customer = self.get_customer()
-        qs = CustomerVehicle.objects.filter(customer=customer).select_related("vehicle")
-        # 拡張するなら:
-        # status_ = self.request.query_params.get("status", "all")
-        # if status_ == "current": qs = qs.filter(owned_to__isnull=True)
-        # elif status_ == "past": qs = qs.filter(owned_to__isnull=False)
+        qs = CustomerVehicle.objects.filter(customer=customer).select_related(
+            "vehicle",
+            "vehicle__manufacturer",
+            "vehicle__category",
+            "vehicle__color",
+        ).prefetch_related(
+            "vehicle__registrations",
+            "vehicle__insurances",
+            "vehicle__warranties",
+        )
         return qs.order_by("-owned_to", "-owned_from", "-id")
 
     def get_serializer_class(self):
@@ -59,7 +64,16 @@ class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroy
 
     def get_queryset(self):
         # customer配下に限定して誤操作防止
-        return CustomerVehicle.objects.filter(customer=self.get_customer()).select_related("vehicle")
+        return CustomerVehicle.objects.filter(customer=self.get_customer()).select_related(
+            "vehicle",
+            "vehicle__manufacturer",
+            "vehicle__category",
+            "vehicle__color",
+        ).prefetch_related(
+            "vehicle__registrations",
+            "vehicle__insurances",
+            "vehicle__warranties",
+        )
 
 
 
@@ -71,7 +85,16 @@ class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroy
         return get_object_or_404(Customer, pk=self.kwargs["customer_id"])
 
     def get_queryset(self):
-        return CustomerVehicle.objects.filter(customer=self.get_customer()).select_related("vehicle")
+        return CustomerVehicle.objects.filter(customer=self.get_customer()).select_related(
+            "vehicle",
+            "vehicle__manufacturer",
+            "vehicle__category",
+            "vehicle__color",
+        ).prefetch_related(
+            "vehicle__registrations",
+            "vehicle__insurances",
+            "vehicle__warranties",
+        )
 
     def get_serializer_class(self):
         if self.request.method in ["PUT", "PATCH"]:

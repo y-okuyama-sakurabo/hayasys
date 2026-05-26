@@ -60,10 +60,11 @@ class CustomerListCreateView(ListCreateAPIView):
                 | Q(customer_vehicles__vehicle__registrations__registration_area__icontains=q_norm)
             )
 
-        return qs.annotate(
+        return qs.distinct().annotate(
             owned_vehicle_count=Count(
                 "customer_vehicles",
                 filter=Q(customer_vehicles__owned_to__isnull=True),
+                distinct=True,
             )
         ).order_by("id")
 
@@ -81,16 +82,6 @@ class CustomerCSVExportAPIView(APIView):
 
     def get(self, request):
         qs = Customer.objects.all().order_by("id")
-
-        # =========================
-        # 店舗制限
-        # =========================
-        user = request.user
-
-        if not getattr(user, "is_superuser", False) and getattr(user, "shop_id", None):
-            qs = qs.filter(
-                Q(first_shop_id=user.shop_id) | Q(last_shop_id=user.shop_id)
-            )
 
         # =========================
         # 検索条件

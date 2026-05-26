@@ -107,11 +107,13 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
 
   const SETTLEMENT_TYPES = [
     { key: "trade_in", label: "下取車" },
-    { key: "cash", label: "現金" },
-    { key: "card", label: "カード・クーポン" },
-    { key: "credit", label: "クレジット" },
-    { key: "advance", label: "前受金" },
-  ];  
+    { key: "cash",     label: "現金" },
+    { key: "card",     label: "カード" },
+    { key: "loan",     label: "ローン" },
+    { key: "qr",       label: "QR決済" },
+    { key: "coupon",   label: "商品券・クーポン" },
+    { key: "transfer", label: "振込" },
+  ];
 
   const settlementMap = (estimate.settlements || []).reduce(
     (acc: any, s: any) => {
@@ -301,7 +303,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                             />
                           </VerticalSection>
 
-                          <VerticalSection label="クレジット">
+                          <VerticalSection label="ローン">
                             <CreditSection estimate={estimate} />
                           </VerticalSection>
                         </>
@@ -1042,18 +1044,14 @@ function CreditSection({ estimate }: any) {
 
 function getSettlementLabel(type: string) {
   switch (type) {
-    case "trade_in":
-      return "下取車";
-    case "cash":
-      return "現金";
-    case "card":
-      return "カード・クーポン";
-    case "credit":
-      return "クレジット";
-    case "advance":
-      return "前受金";
-    default:
-      return type;
+    case "trade_in": return "下取車";
+    case "cash":     return "現金";
+    case "card":     return "カード";
+    case "loan":     return "ローン";
+    case "qr":       return "QR決済";
+    case "coupon":   return "商品券・クーポン";
+    case "transfer": return "振込";
+    default:         return type;
   }
 }
 const VerticalSection = ({

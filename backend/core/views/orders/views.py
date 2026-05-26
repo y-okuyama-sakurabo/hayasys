@@ -118,6 +118,14 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
         if amount_max:
             qs = qs.filter(grand_total__lte=amount_max)
 
+        # -------------------------
+        # ステータス
+        # -------------------------
+
+        status_param = self.request.query_params.get("status")
+        if status_param and status_param != "all":
+            qs = qs.filter(status=status_param)
+
         return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
@@ -206,7 +214,13 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         if hasattr(order, "payment_management"):
             order.payment_management.delete()
 
-        # ⑥ Order
+        # ⑥ 見積ステータスを「受注済み → 提出済み」に戻す
+        if order.estimate_id:
+            Estimate.objects.filter(
+                id=order.estimate_id, status="ordered"
+            ).update(status="issued")
+
+        # ⑦ Order
         order.delete()
 
         return Response(status=204)
@@ -610,3 +624,46 @@ class PrepareOrderFromEstimateAPIView(APIView):
         }
 
         return Response(data, status=200)
+
+
+# ======================================
+# 受注ステータス更新
+# ======================================
+class OrderStatusUpdateAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    VALID_TRANSITIONS = {
+        "draft": {"ordered", "cancelled"},
+        "ordered": {"cancelled", "delivered"},
+        "delivered": set(),
+        "cancelled": set(),
+    }
+
+    def patch(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        order = get_object_or_404(Order, pk=pk)
+        new_status = request.data.get("status")
+
+        allowed = self.VALID_TRANSITIONS.get(order.status, set())
+        if new_status not in allowed:
+            return Response(
+                {"detail": f"'{order.status}' から '{new_status}' への変更はできません"},
+                status=400,
+            )
+
+        order.status = new_status
+
+        update_fields = ["status"]
+
+        # 受注確定時に order_date が未設定なら今日の日付をセット
+        if new_status == "ordered" and not order.order_date:
+            order.order_date = date.today()
+            update_fields.append("order_date")
+
+        order.save(update_fields=update_fields)
+
+        return Response({
+            "status": order.status,
+            "status_display": order.get_status_display(),
+            "order_date": order.order_date,
+        })

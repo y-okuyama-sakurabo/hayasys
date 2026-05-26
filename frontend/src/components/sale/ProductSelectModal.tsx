@@ -21,7 +21,7 @@ import {
   MenuItem
 } from "@mui/material";
 
-import EstimateCategorySelector from "@/components/estimate/EstimateCategorySelector";
+import CategorySelector from "@/components/sale/CategorySelector";
 import apiClient from "@/lib/apiClient";
 
 type Props = {
@@ -41,7 +41,7 @@ export default function ProductSelectModal({
 }: Props) {
 
   console.log("modal itemType:", itemType);
-  
+
   const [tab, setTab] = useState(0);
   console.log("tab:", tab); // ←これ追加
 
@@ -311,7 +311,7 @@ export default function ProductSelectModal({
         {/* ================= 手入力 ================= */}
         {tab === 0 && (
           <Box>
-            <EstimateCategorySelector
+            <CategorySelector
               value={categoryId2}
               onChange={(id) => setCategoryId2(id)}
               categoryTypes={categoryTypes}
@@ -436,7 +436,7 @@ export default function ProductSelectModal({
         {/* ================= カテゴリ選択 ================= */}
         {tab === 1 && (
           <Box>
-            <EstimateCategorySelector
+            <CategorySelector
               value={categoryId1}
               onChange={(id) => setCategoryId1(id)}
               categoryTypes={categoryTypes}

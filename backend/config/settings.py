@@ -73,7 +73,6 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ここが無いと auth.User と core.User が衝突します（最重要）
 AUTH_USER_MODEL = "core.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
@@ -81,7 +80,7 @@ LOGIN_REDIRECT_URL = "/"
 # DRF / JWT
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "core.authentication.CookieJWTAuthentication",  # ← ここがポイント！
+        "core.authentication.CookieJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),

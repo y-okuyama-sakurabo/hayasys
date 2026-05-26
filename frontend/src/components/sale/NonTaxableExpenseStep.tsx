@@ -1,6 +1,6 @@
 "use client";
 
-import EstimateItemsStep from "./EstimateItemsStep";
+import ItemsStep from "./ItemsStep";
 
 type Props = {
   items: any[];
@@ -9,7 +9,7 @@ type Props = {
 
 export default function NonTaxableExpenseStep({ items, dispatch }: Props) {
   return (
-    <EstimateItemsStep
+    <ItemsStep
       type="non_taxable_fee"
       taxType="non_taxable"
       items={items}

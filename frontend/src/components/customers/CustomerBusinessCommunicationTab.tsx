@@ -1,44 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Stack } from "@mui/material";
+import { Box, Button, Stack } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import apiClient from "@/lib/apiClient";
 
-import BusinessCommunicationCreate from "@/components/business-communications/BusinessCommunicationCreate";
-import BusinessCommunicationList from "@/components/business-communications/BusinessCommunicationList";
+import BusinessCommunicationList, {
+  BusinessCommunicationThread,
+} from "@/components/business-communications/BusinessCommunicationList";
+import BusinessCommunicationCreateDialog from "@/components/business-communications/BusinessCommunicationCreateDialog";
 
-export default function CustomerBusinessCommunicationTab({ customerId }: any) {
-
-  const [items, setItems] = useState<any[]>([]);
+export default function CustomerBusinessCommunicationTab({
+  customerId,
+  customerName,
+}: {
+  customerId: number;
+  customerName?: string;
+}) {
+  const [items, setItems] = useState<BusinessCommunicationThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const fetchItems = async () => {
-
     setLoading(true);
-
     try {
-
       const res = await apiClient.get(
         `/customers/${customerId}/communication-threads/`
       );
-
       const data = Array.isArray(res.data)
         ? res.data
         : res.data.results ?? [];
-
       setItems(data);
-
-    } catch (e) {
-
-      console.error("業務連絡取得失敗", e);
+    } catch {
       setItems([]);
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   useEffect(() => {
@@ -46,25 +43,34 @@ export default function CustomerBusinessCommunicationTab({ customerId }: any) {
   }, [customerId]);
 
   return (
-
     <Box>
-
-      <BusinessCommunicationCreate
-        customerId={customerId}
-        refresh={fetchItems}
-      />
-
-      <Stack spacing={2}>
-
-        <BusinessCommunicationList
-          items={items}
-          loading={loading}
-          onChanged={fetchItems}
-        />
-
+      <Stack direction="row" justifyContent="flex-end" mb={2}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateOpen(true)}
+        >
+          新規作成
+        </Button>
       </Stack>
 
-    </Box>
+      <BusinessCommunicationList
+        items={items}
+        loading={loading}
+        emptyText="業務連絡はありません"
+        onChanged={fetchItems}
+      />
 
+      <BusinessCommunicationCreateDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false);
+          fetchItems();
+        }}
+        customerId={customerId}
+        customerName={customerName}
+      />
+    </Box>
   );
 }

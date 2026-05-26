@@ -73,6 +73,11 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
         if amount_max:
             qs = qs.filter(grand_total__lte=amount_max)
 
+        # ステータス
+        status_param = self.request.query_params.get("status")
+        if status_param and status_param != "all":
+            qs = qs.filter(status=status_param)
+
         return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
@@ -267,3 +272,35 @@ class EstimateItemRetrieveUpdateDestroyAPIView(
     def get_queryset(self):
         estimate_id = self.kwargs.get("estimate_id")
         return EstimateItem.objects.filter(estimate_id=estimate_id)
+
+
+# ==================================================
+# 見積ステータス更新
+# ==================================================
+class EstimateStatusUpdateAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    VALID_TRANSITIONS = {
+        "draft": {"issued"},
+        "issued": {"draft", "ordered"},
+        "ordered": {"issued"},
+    }
+
+    def patch(self, request, pk):
+        estimate = get_object_or_404(Estimate, pk=pk)
+        new_status = request.data.get("status")
+
+        allowed = self.VALID_TRANSITIONS.get(estimate.status, set())
+        if new_status not in allowed:
+            return Response(
+                {"detail": f"'{estimate.status}' から '{new_status}' への変更はできません"},
+                status=400,
+            )
+
+        estimate.status = new_status
+        estimate.save(update_fields=["status"])
+
+        return Response({
+            "status": estimate.status,
+            "status_display": estimate.get_status_display(),
+        })

@@ -24,7 +24,7 @@ class Delivery(models.Model):
         return f"Delivery #{self.id} (Order {self.order_id})"
 
     # ============================================================
-    # 🔥 Order 全体の納品状況を自動計算し、Order に反映する
+    #  Order 全体の納品状況を自動計算し、Order に反映する
     # ============================================================
     def update_status(self):
         order = self.order
@@ -63,7 +63,7 @@ class Delivery(models.Model):
                 completed += 1
 
         # ---------------------------------------
-        # 🔥 Order.delivery_status の判定
+        #  Order.delivery_status の判定
         # ---------------------------------------
         if total_items == 0:
             status = "not_delivered"
@@ -77,7 +77,7 @@ class Delivery(models.Model):
         order.delivery_status = status
 
         # ---------------------------------------
-        # 🔥 final_delivery_date の決定
+        #  final_delivery_date の決定
         # ---------------------------------------
         if status == "delivered" and delivered_dates:
             order.final_delivery_date = max(delivered_dates)

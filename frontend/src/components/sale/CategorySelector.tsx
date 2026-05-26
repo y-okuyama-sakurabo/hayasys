@@ -20,7 +20,7 @@ type Category = {
 
 let categoryCache: Record<string, Category[]> = {};
 
-export default function EstimateCategorySelector({
+export default function CategorySelector({
   value,
   onChange,
   categoryTypes,
@@ -37,7 +37,7 @@ export default function EstimateCategorySelector({
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
   const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [searchText, setSearchText] = useState("");
-  
+
 
   /* =============================
      初期ロード（type対応 安定版）

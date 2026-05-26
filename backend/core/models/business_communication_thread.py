@@ -27,6 +27,13 @@ class BusinessCommunicationThread(models.Model):
         verbose_name="作成者",
     )
 
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", "未対応"), ("done", "対応済み")],
+        default="pending",
+        verbose_name="ステータス",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="作成日時",

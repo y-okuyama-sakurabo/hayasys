@@ -21,10 +21,10 @@ class SettlementSerializer(serializers.ModelSerializer):
         settlement_type = data.get("settlement_type")
         amount = data.get("amount", 0)
 
-        # クレジットなのに0円はNG（任意）
-        if settlement_type == "credit" and amount == 0:
+        # ローンなのに0円はNG
+        if settlement_type == "loan" and amount == 0:
             raise serializers.ValidationError({
-                "amount": "クレジットは0円では登録できません"
+                "amount": "ローンは0円では登録できません"
             })
 
         return data

@@ -5,7 +5,12 @@ from core.models import Schedule, Shop, Estimate, Order
 class ScheduleSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source="customer.name", read_only=True)
     shop_name = serializers.CharField(source="shop.name", read_only=True)
-    staff_name = serializers.CharField(source="staff.username", read_only=True)
+    staff_name = serializers.SerializerMethodField()
+
+    def get_staff_name(self, obj):
+        if not obj.staff:
+            return None
+        return obj.staff.display_name or obj.staff.login_id or obj.staff.username
     delivery_shop = serializers.PrimaryKeyRelatedField(
         queryset=Shop.objects.all(),
         required=False,

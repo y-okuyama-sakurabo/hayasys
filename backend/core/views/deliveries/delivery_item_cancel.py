@@ -57,15 +57,17 @@ class DeliveryItemCancelAPIView(APIView):
         oi.save(update_fields=["delivery_status", "delivery_date"])
 
         # ---------------------------------------------
-        # 🔥 Delivery にアイテムが無くなったら削除
+        # 🔥 Order 全体の納品ステータス再計算
+        #    ※ delivery.delete() より先に呼ぶ。
+        #      削除後に order.deliveries が空になると
+        #      update_status() が一度も実行されないため。
         # ---------------------------------------------
-        if delivery.items.count() == 0:
-            delivery.delete()
+        delivery.update_status()
 
         # ---------------------------------------------
-        # 🔥 Order 全体の納品ステータス再計算
+        # 🔥 Delivery にアイテムが無くなったら削除
         # ---------------------------------------------
-        for d in order.deliveries.all():
-            d.update_status()
+        if not delivery.items.exists():
+            delivery.delete()
 
         return Response({"detail": "納品を取消しました"}, status=200)

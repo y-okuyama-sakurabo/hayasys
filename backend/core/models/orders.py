@@ -6,10 +6,11 @@ from core.models.unit import Unit
 from decimal import Decimal
 
 class OrderStatus(models.TextChoices):
-    DRAFT = "draft", "下書き"
-    ORDERED = "ordered", "受注確定"
-    CANCELLED = "cancelled", "キャンセル"
-    DELIVERED = "delivered", "納車済"
+    DRAFT           = "draft",           "下書き"
+    ORDERED         = "ordered",         "受注確定"
+    CANCELLED       = "cancelled",       "キャンセル"
+    DELIVERED       = "delivered",       "納車済"
+    SALES_COMPLETED = "sales_completed", "売上計上済"
 
 class Order(models.Model):
     order_no = models.CharField(max_length=20, unique=True)
@@ -51,7 +52,7 @@ class Order(models.Model):
     postal_code = models.CharField(max_length=20, blank=True, null=True)
     address = models.CharField(max_length=255, blank=True, null=True)
 
-    status = models.CharField(max_length=20, choices=OrderStatus.choices, default="ordered")
+    status = models.CharField(max_length=20, choices=OrderStatus.choices, default="draft")
     order_date = models.DateField(null=True, blank=True)
     DELIVERY_STATUS_CHOICES = [
         ("not_delivered", "未納品"),

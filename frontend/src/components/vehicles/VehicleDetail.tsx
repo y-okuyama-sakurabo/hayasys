@@ -24,6 +24,7 @@ import {
 import { SelectChangeEvent } from "@mui/material/Select";
 
 import apiClient from "@/lib/apiClient";
+import VehicleCategorySelect from "@/components/vehicles/VehicleCategorySelect";
 
 type Props = {
   customerId: number;
@@ -34,6 +35,19 @@ type IdName = { id: number; name: string };
 
 const toArray = (res: any) =>
   Array.isArray(res?.data) ? res.data : res?.data?.results ?? res?.data ?? [];
+
+// ── 区分ラベルマップ ─────────────────────────────────────────
+const NEW_CAR_TYPE_LABELS: Record<string, string> = {
+  new:         "新車",
+  used:        "中古車",
+  rental_up:   "レンタルアップ",
+  consignment: "委託販売",
+};
+
+const INS_TYPE_LABELS: Record<string, string> = {
+  mandatory: "自賠責",
+  optional:  "任意保険",
+};
 
 const blankToNull = (v: any) => {
   if (v == null) return null;
@@ -56,7 +70,6 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
 
   // ===== masters =====
   const [manufacturers, setManufacturers] = useState<IdName[]>([]);
-  const [categories, setCategories] = useState<IdName[]>([]); // VehicleCategory master
   const [colors, setColors] = useState<IdName[]>([]);
 
   // ===== forms (省略なし) =====
@@ -144,15 +157,15 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
         owned_to: cv?.owned_to ?? "",
       });
 
-      // vehicle (VehicleWriteSerializer が想定する形に寄せる)
+      // vehicle (VehicleDetailSerializer は manufacturer_id / category_id / color_id を返す)
       setFormVehicle({
         vehicle_name: v?.vehicle_name ?? "",
         displacement: v?.displacement ?? "",
         model_year: v?.model_year ?? "",
         new_car_type: v?.new_car_type ?? "",
-        manufacturer: v?.manufacturer?.id ?? v?.manufacturer ?? null,
-        category: v?.category?.id ?? v?.category ?? null,
-        color: v?.color?.id ?? v?.color ?? null,
+        manufacturer: v?.manufacturer_id ?? null,
+        category:     v?.category_id    ?? null,
+        color:        v?.color_id       ?? null,
         model_code: v?.model_code ?? "",
         chassis_no: v?.chassis_no ?? "",
         color_name: v?.color_name ?? "",
@@ -206,13 +219,11 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
     setLoadingMasters(true);
     setError(null);
     try {
-      const [mRes, cRes, colRes] = await Promise.all([
+      const [mRes, colRes] = await Promise.all([
         apiClient.get("/masters/manufacturers/"),
-        apiClient.get("/masters/vehiclecategories/"),
         apiClient.get("/masters/colors/"),
       ]);
       setManufacturers(toArray(mRes));
-      setCategories(toArray(cRes));
       setColors(toArray(colRes));
     } catch (e: any) {
       console.error(e);
@@ -440,7 +451,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   {rowView("車種", v?.vehicle_name || "-")}
                   {rowView("排気量", v?.displacement != null ? `${v.displacement} cc` : "-")}
                   {rowView("年式", v?.model_year || "-")}
-                  {rowView("新車 / 中古", v?.new_car_type || "-")}
+                  {rowView("新車 / 中古", NEW_CAR_TYPE_LABELS[v?.new_car_type] ?? v?.new_car_type ?? "-")}
                   {rowView("メーカー", v?.manufacturer_name || "-")}
                   {rowView("カテゴリ", v?.category_name || "-")}
                   {rowView("カラー", v?.color_label || "-")}
@@ -455,7 +466,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
               ) : (
                 <>
                   {rowEdit(
-                    "車種（vehicle_name）",
+                    "車種",
                     <TextField
                       size="small"
                       value={formVehicle.vehicle_name ?? ""}
@@ -465,7 +476,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "排気量（displacement）",
+                    "排気量 (cc)",
                     <TextField
                       size="small"
                       type="number"
@@ -476,7 +487,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "年式（model_year）",
+                    "年式",
                     <TextField
                       size="small"
                       value={formVehicle.model_year ?? ""}
@@ -486,30 +497,32 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "新車 / 中古（new_car_type）",
+                    "新車 / 中古区分",
                     <FormControl size="small" fullWidth>
-                      <InputLabel id="new-used-label">新車 / 中古</InputLabel>
+                      <InputLabel id="new-used-label">新車 / 中古区分</InputLabel>
                       <Select
                         labelId="new-used-label"
-                        label="新車 / 中古"
+                        label="新車 / 中古区分"
                         value={formVehicle.new_car_type ?? ""}
                         onChange={(e) => setFormVehicle((p: any) => ({ ...p, new_car_type: e.target.value }))}
                       >
                         <MenuItem value="">未選択</MenuItem>
                         <MenuItem value="new">新車</MenuItem>
-                        <MenuItem value="used">中古</MenuItem>
+                        <MenuItem value="used">中古車</MenuItem>
+                        <MenuItem value="rental_up">レンタルアップ</MenuItem>
+                        <MenuItem value="consignment">委託販売</MenuItem>
                       </Select>
                     </FormControl>
                   )}
 
                   {rowEdit(
-                    "メーカー（manufacturer）",
+                    "メーカー",
                     <FormControl size="small" fullWidth>
                       <InputLabel id="manufacturer-label">メーカー</InputLabel>
                       <Select
                         labelId="manufacturer-label"
                         label="メーカー"
-                        value={formVehicle.manufacturer ?? ""}
+                        value={formVehicle.manufacturer != null ? String(formVehicle.manufacturer) : ""}
                         onChange={(e) =>
                           setFormVehicle((p: any) => ({
                             ...p,
@@ -519,7 +532,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                       >
                         <MenuItem value="">未選択</MenuItem>
                         {manufacturers.map((m) => (
-                          <MenuItem key={m.id} value={m.id}>
+                          <MenuItem key={m.id} value={String(m.id)}>
                             {m.name}
                           </MenuItem>
                         ))}
@@ -528,38 +541,23 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "カテゴリ（category）",
-                    <FormControl size="small" fullWidth>
-                      <InputLabel id="category-label">カテゴリ</InputLabel>
-                      <Select
-                        labelId="category-label"
-                        label="カテゴリ"
-                        value={formVehicle.category ?? ""}
-                        onChange={(e) =>
-                          setFormVehicle((p: any) => ({
-                            ...p,
-                            category: e.target.value === "" ? null : Number(e.target.value),
-                          }))
-                        }
-                      >
-                        <MenuItem value="">未選択</MenuItem>
-                        {categories.map((c) => (
-                          <MenuItem key={c.id} value={c.id}>
-                            {c.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    "カテゴリ",
+                    <VehicleCategorySelect
+                      value={formVehicle.category ?? null}
+                      onChange={(id) =>
+                        setFormVehicle((p: any) => ({ ...p, category: id }))
+                      }
+                    />
                   )}
 
                   {rowEdit(
-                    "カラー（color）",
+                    "カラー",
                     <FormControl size="small" fullWidth>
                       <InputLabel id="color-label">カラー</InputLabel>
                       <Select
                         labelId="color-label"
                         label="カラー"
-                        value={formVehicle.color ?? ""}
+                        value={formVehicle.color != null ? String(formVehicle.color) : ""}
                         onChange={(e) =>
                           setFormVehicle((p: any) => ({
                             ...p,
@@ -569,7 +567,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                       >
                         <MenuItem value="">未選択</MenuItem>
                         {colors.map((c) => (
-                          <MenuItem key={c.id} value={c.id}>
+                          <MenuItem key={c.id} value={String(c.id)}>
                             {c.name}
                           </MenuItem>
                         ))}
@@ -578,7 +576,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "カラー名称（color_name）",
+                    "カラー名称",
                     <TextField
                       size="small"
                       value={formVehicle.color_name ?? ""}
@@ -588,7 +586,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "カラーコード（color_code）",
+                    "カラーコード",
                     <TextField
                       size="small"
                       value={formVehicle.color_code ?? ""}
@@ -598,7 +596,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "エンジンタイプ（engine_type）",
+                    "エンジン形式",
                     <TextField
                       size="small"
                       value={formVehicle.engine_type ?? ""}
@@ -608,7 +606,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "車台番号（chassis_no）",
+                    "車台番号",
                     <TextField
                       size="small"
                       value={formVehicle.chassis_no ?? ""}
@@ -618,7 +616,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "型式（model_code）",
+                    "型式",
                     <TextField
                       size="small"
                       value={formVehicle.model_code ?? ""}
@@ -628,7 +626,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "購入日（owned_from）",
+                    "購入日",
                     <TextField
                       size="small"
                       type="date"
@@ -640,7 +638,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                   )}
 
                   {rowEdit(
-                    "手放し日（owned_to）",
+                    "手放し日",
                     <TextField
                       size="small"
                       type="date"
@@ -773,7 +771,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
             <TableBody>
               {!editMode ? (
                 <>
-                  {rowView("種別", v?.insurances?.[0]?.type ?? "-")}
+                  {rowView("種別", INS_TYPE_LABELS[v?.insurances?.[0]?.type ?? ""] ?? v?.insurances?.[0]?.type ?? "-")}
                   {rowView("保険会社", v?.insurances?.[0]?.company ?? "-")}
                   {rowView("開始", v?.insurances?.[0]?.start_date ?? "-")}
                   {rowView("終了日", v?.insurances?.[0]?.end_date ?? "-")}

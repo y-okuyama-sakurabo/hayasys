@@ -58,6 +58,7 @@ class DashboardAPIView(APIView):
         schedules = (
             Schedule.objects
             .filter(shop=shop, start_at__date=today)
+            .select_related("customer", "staff")
             .order_by("start_at")
         )
 
@@ -68,6 +69,12 @@ class DashboardAPIView(APIView):
                 "start_at": s.start_at,
                 "customer": s.customer.name if s.customer else None,
                 "type": s.schedule_type,
+                "staff": (
+                    s.staff.display_name or s.staff.login_id
+                    if s.staff else None
+                ),
+                "estimate_id": s.estimate_id,
+                "order_id": s.order_id,
             }
             for s in schedules
         ]

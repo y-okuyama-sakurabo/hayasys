@@ -1,337 +1,331 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
+  Box, Paper, Typography, Stack, Chip, Grid,
+  FormControl, InputLabel, Select, MenuItem, TextField,
+  ToggleButton, ToggleButtonGroup, Tab, Tabs, Divider,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
 } from "recharts";
 import apiClient from "@/lib/apiClient";
+import dayjs from "dayjs";
 
-export default function ProductAnalyticsPage() {
-  // -----------------------------
-  // フィルタ
-  // -----------------------------
-  const [mode, setMode] = useState<"order" | "estimate">("order");
-  const [shopId, setShopId] = useState<number | "all">("all");
-  const [staffId, setStaffId] = useState<number | "all">("all");
+// ========================
+// 定数
+// ========================
+const CHART_COLORS = [
+  "#4caf50", "#2196f3", "#ff9800", "#f44336",
+  "#9c27b0", "#00bcd4", "#795548", "#e91e63", "#607d8b",
+];
+const fmt = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
 
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-
-  const [shops, setShops] = useState<any[]>([]);
-  const [staffs, setStaffs] = useState<any[]>([]);
-
-  // -----------------------------
-  // カテゴリ（階層セレクタ）
-  // -----------------------------
-  const [categories, setCategories] = useState<any[]>([]);
-  const [categoryStack, setCategoryStack] = useState<any[]>([]);
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [type, setType] = useState<"category" | "manufacturer" | "color">("category");
-
-  useEffect(() => {
-    if (type === "manufacturer") {
-      setCategoryStack([]);
-      setCategoryId(null);
-    }
-  }, [type]);
-
-  const [manufacturers, setManufacturers] = useState<any[]>([]);
-  const [manufacturerId, setManufacturerId] = useState<number | "all">("all");
-
-  // -----------------------------
-  // データ
-  // -----------------------------
-  const [data, setData] = useState<any[]>([]);
-
-  // -----------------------------
-  // 初期ロード
-  // -----------------------------
-  useEffect(() => {
-    const fetchInit = async () => {
-      const [shopRes, staffRes, categoryRes, manufacturerRes] = await Promise.all([
-        apiClient.get("/masters/shops/"),
-        apiClient.get("/masters/staffs/"),
-        apiClient.get("/categories/tree/"),
-        apiClient.get("/masters/manufacturers/"), 
-      ]);
-
-      setShops(shopRes.data.results || shopRes.data || []);
-      setStaffs(staffRes.data.results || staffRes.data || []);
-      setCategories(categoryRes.data.results || categoryRes.data || []);
-      setManufacturers(manufacturerRes.data.results || manufacturerRes.data || []);
-    };
-
-    fetchInit();
-
-    const today = new Date();
-    const first = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    setStart(first.toISOString().slice(0, 10));
-    setEnd(today.toISOString().slice(0, 10));
-  }, []);
-
-  // -----------------------------
-  // データ取得
-  // -----------------------------
-  const fetchData = async () => {
-    const res = await apiClient.get("/analytics/product/", {
-      params: {
-        mode,
-        type,
-        start,
-        end,
-        shop_id: shopId,
-        staff_id: staffId,
-        category_id: categoryId,
-        manufacturer_id: manufacturerId, 
-      },
-    });
-
-    setData(res.data);
-  };
-
-  useEffect(() => {
-    if (!start || !end) return;
-    fetchData();
-  }, [mode, type, start, end, shopId, staffId, categoryId, manufacturerId]);
-
-  // -----------------------------
-  // 現在の階層
-  // -----------------------------
-  const currentLevel =
-    categoryStack.length === 0
-      ? categories
-      : categoryStack[categoryStack.length - 1].children || [];
-
-  // -----------------------------
-  // カテゴリ選択
-  // -----------------------------
-  const handleCategoryChange = (value: number | "") => {
-    if (value === "") {
-      // ← 戻る
-      const newStack = categoryStack.slice(0, -1);
-      setCategoryStack(newStack);
-
-      const newId =
-        newStack.length > 0
-          ? newStack[newStack.length - 1].id
-          : null;
-
-      setCategoryId(newId);
-      return;
-    }
-
-    const selected = currentLevel.find((c: any) => c.id === value);
-
-    if (!selected) return;
-
-    const newStack = [...categoryStack, selected];
-
-    setCategoryStack(newStack);
-    setCategoryId(selected.id);
-  };
-
+// ========================
+// 横棒グラフ + ランキングリスト（共通）
+// ========================
+function RankedSection({
+  data, nameKey = "name", totalKey = "total", countKey = "count",
+  onSelect, selectedId, idKey,
+}: {
+  data: any[];
+  nameKey?: string;
+  totalKey?: string;
+  countKey?: string;
+  onSelect?: (item: any) => void;
+  selectedId?: number | string | null;
+  idKey?: string;
+}) {
+  const maxTotal = data[0]?.[totalKey] || 1;
   return (
     <Box>
-      {/* =============================
-         フィルタ
-      ============================== */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box display="flex" gap={2} flexWrap="wrap">
-
-          <ToggleButtonGroup
-            value={mode}
-            exclusive
-            onChange={(_, v) => v && setMode(v)}
+      {data.map((item, i) => {
+        const isSelected = idKey && selectedId != null && item[idKey] === selectedId;
+        const barWidth = Math.max((item[totalKey] / maxTotal) * 100, 1);
+        return (
+          <Box
+            key={i}
+            onClick={() => onSelect?.(item)}
+            sx={{
+              py: 1.2, px: 1.5,
+              borderBottom: "1px solid #f0f0f0",
+              cursor: onSelect ? "pointer" : "default",
+              bgcolor: isSelected ? "action.selected" : "transparent",
+              borderRadius: 1,
+              "&:hover": onSelect ? { bgcolor: "action.hover" } : undefined,
+            }}
           >
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" fontWeight={i < 3 ? "bold" : "normal"}>
+                {i + 1}. {item[nameKey] ?? item.color_label ?? "-"}
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2" fontWeight="bold">{fmt(item[totalKey])}</Typography>
+                <Typography variant="caption" color="text.secondary">{item[countKey]}件</Typography>
+                {item.share != null && (
+                  <Chip label={`${item.share}%`} size="small" variant="outlined" />
+                )}
+              </Stack>
+            </Stack>
+            {/* バー */}
+            <Box sx={{ height: 4, bgcolor: "grey.100", borderRadius: 2, overflow: "hidden" }}>
+              <Box sx={{ height: "100%", width: `${barWidth}%`, bgcolor: CHART_COLORS[i % CHART_COLORS.length], borderRadius: 2, transition: "width 0.4s" }} />
+            </Box>
+          </Box>
+        );
+      })}
+      {data.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+          データがありません
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// ========================
+// メイン
+// ========================
+export default function ProductAnalyticsPage() {
+  const today = dayjs();
+
+  // フィルター
+  const [mode,   setMode]   = useState<"order" | "estimate">("order");
+  const [shopId, setShopId] = useState<number | "all">("all");
+  const [start,  setStart]  = useState(today.startOf("month").format("YYYY-MM-DD"));
+  const [end,    setEnd]    = useState(today.format("YYYY-MM-DD"));
+  const [shops,  setShops]  = useState<any[]>([]);
+
+  // タブ
+  const [tab, setTab] = useState(0); // 0=カテゴリ, 1=メーカー, 2=色
+
+  // カテゴリ選択（メーカー・色タブのフィルターに使う）
+  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null);
+
+  // データ
+  const [catData, setCatData] = useState<any[]>([]);
+  const [mfrData, setMfrData] = useState<any[]>([]);
+  const [colorData, setColorData] = useState<any[]>([]);
+
+  // 初期ロード
+  useEffect(() => {
+    apiClient.get("/masters/shops/")
+      .then((r) => setShops(r.data.results || r.data || []))
+      .catch(console.error);
+  }, []);
+
+  // データ取得
+  const baseParams = { mode, start, end, shop_id: shopId };
+
+  const fetchCategory = useCallback(async () => {
+    const res = await apiClient.get("/analytics/product/", { params: { ...baseParams, type: "category" } });
+    setCatData(res.data || []);
+  }, [mode, start, end, shopId]);
+
+  const fetchManufacturer = useCallback(async () => {
+    const params: any = { ...baseParams, type: "manufacturer" };
+    if (selectedCategory) params.filter_category_id = selectedCategory.id;
+    const res = await apiClient.get("/analytics/product/", { params });
+    setMfrData(res.data || []);
+  }, [mode, start, end, shopId, selectedCategory]);
+
+  const fetchColor = useCallback(async () => {
+    const res = await apiClient.get("/analytics/product/", { params: { ...baseParams, type: "color" } });
+    setColorData(res.data || []);
+  }, [mode, start, end, shopId]);
+
+  useEffect(() => { if (start && end) fetchCategory(); },     [fetchCategory]);
+  useEffect(() => { if (start && end) fetchManufacturer(); }, [fetchManufacturer]);
+  useEffect(() => { if (start && end) fetchColor(); },        [fetchColor]);
+
+  // カテゴリ選択ハンドラ
+  const handleSelectCategory = (item: any) => {
+    if (selectedCategory?.id === item.category_id) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory({ id: item.category_id, name: item.name });
+    }
+  };
+
+  // Donut用データ（top9 + その他）
+  const donutData = catData.slice(0, 9).map((d) => ({
+    name:  d.name,
+    value: Number(d.total),
+    share: d.share,
+  }));
+  if (catData.length > 9) {
+    const rest = catData.slice(9).reduce((s: number, d: any) => s + Number(d.total), 0);
+    donutData.push({ name: "その他", value: rest, share: Number((100 - donutData.reduce((s, d) => s + (d.share ?? 0), 0)).toFixed(1)) });
+  }
+
+  // ========================
+  // UI
+  // ========================
+  return (
+    <Box>
+      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>商品分析</Typography>
+
+      {/* ── フィルター ── */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setMode(v)}>
             <ToggleButton value="order">受注</ToggleButton>
             <ToggleButton value="estimate">見積</ToggleButton>
           </ToggleButtonGroup>
-          <ToggleButtonGroup
-            value={type}
-            exclusive
-            onChange={(_, v) => v && setType(v)}
-          >
-            <ToggleButton value="category">カテゴリ</ToggleButton>
-            <ToggleButton value="manufacturer">メーカー</ToggleButton>
-            <ToggleButton value="color">色</ToggleButton>
-          </ToggleButtonGroup>
 
-          <FormControl size="small">
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>店舗</InputLabel>
-            <Select
-              value={shopId}
-              label="店舗"
-              onChange={(e) => setShopId(e.target.value as any)}
-            >
+            <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
               <MenuItem value="all">全店舗</MenuItem>
-              {shops.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name}
-                </MenuItem>
-              ))}
+              {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
             </Select>
           </FormControl>
 
-          {type === "manufacturer" && (
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>メーカー</InputLabel>
-              <Select
-                value={manufacturerId}
-                label="メーカー"
-                onChange={(e) => setManufacturerId(e.target.value as any)}
-              >
-                <MenuItem value="all">全メーカー</MenuItem>
-                {manufacturers.map((m) => (
-                  <MenuItem key={m.id} value={m.id}>
-                    {m.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-
-
-          {/* 🔥 カテゴリ（階層） */}
-          {type === "category" && (
-            <>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>カテゴリ</InputLabel>
-                <Select
-                  key={categoryStack.length} 
-                  value=""
-                  label="カテゴリ"
-                  onChange={(e) => handleCategoryChange(e.target.value as any)}
-                >
-
-                  {currentLevel.map((c: any) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => {
-                  setCategoryStack([]);
-                  setCategoryId(null);
-                }}
-              >
-                リセット
-              </Button>
-            </>
-          )}
-
-          <input
-            type="date"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-          />
-          <input
-            type="date"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-          />
-        </Box>
+          <TextField label="開始日" type="date" size="small" value={start}
+            onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+          <TextField label="終了日" type="date" size="small" value={end}
+            onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+        </Stack>
       </Paper>
 
-      {/* =============================
-         タイトル
-      ============================== */}
-      <Typography mb={2}>
-        {type === "category"
-          ? categoryStack.map((c) => c.name).join(" > ") || "全カテゴリ"
-          : type === "color"
-          ? "色分析"
-          : "メーカー分析"}
-      </Typography>
+      {/* ── 選択カテゴリ chip ── */}
+      {selectedCategory && (
+        <Stack direction="row" sx={{ mb: 2 }}>
+          <Chip
+            label={`カテゴリ: ${selectedCategory.name}`}
+            onDelete={() => setSelectedCategory(null)}
+            deleteIcon={<CloseIcon />}
+            color="primary"
+            variant="outlined"
+          />
+        </Stack>
+      )}
 
-      {/* =============================
-         ランキング
-      ============================== */}
-      <Paper sx={{ p: 2 }}>
-        {data.map((item, i) => (
-          <Box
-            key={i}
-            sx={{ borderBottom: "1px solid #eee", py: 1 }}
-          >
-            {/* メーカー */}
-            <Box display="flex" justifyContent="space-between">
-              <Typography>
-                {i + 1}. {type === "color" ? item.color_label : item.name}
-              </Typography>
+      {/* ── タブ ── */}
+      <Paper>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: 1, borderColor: "divider" }}>
+          <Tab label="カテゴリ" />
+          <Tab label="メーカー" />
+          <Tab label="色" />
+        </Tabs>
 
-              <Typography textAlign="right">
-                ¥{Number(item.total).toLocaleString()}
-                <br />
-                <span style={{ fontSize: 12, color: "#666" }}>
-                  {item.count}件
-                </span>
-              </Typography>
-            </Box>
-            {type === "color" && item.categories?.map((c: any, j: number) => (
-              <Box
-                key={j}
-                display="flex"
-                justifyContent="space-between"
-                sx={{ pl: 2, fontSize: 13, color: "#666" }}
-              >
-                <Typography>
-                  └ {c.name}
-                </Typography>
-                <Typography textAlign="right">
-                  ¥{Number(item.total).toLocaleString()}
-                  <br />
-                  <span style={{ fontSize: 12, color: "#666" }}>
-                    {item.count}件
-                  </span>
-                </Typography>
-              </Box>
-            ))}
+        <Box sx={{ p: 2 }}>
 
-            {/* 内訳 */}
-            {item.paths?.map((p: any, j: number) => (
-              <Box
-                key={j}
-                display="flex"
-                justifyContent="space-between"
-                sx={{ pl: 2, fontSize: 13, color: "#666" }}
-              >
-                <Typography>
-                  └ {p.path.map((x: any) => x.name).join(" > ")}
+          {/* ======== カテゴリタブ ======== */}
+          {tab === 0 && (
+            <Grid container spacing={3}>
+              {/* 左：ドーナツグラフ */}
+              <Grid size={{ xs: 12, md: 5 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>売上構成比</Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={donutData}
+                      cx="50%" cy="50%"
+                      innerRadius={70} outerRadius={110}
+                      dataKey="value"
+                      paddingAngle={2}
+                    >
+                      {donutData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                    <Legend
+                      formatter={(value, entry: any) =>
+                        `${value} ${entry.payload.share ?? ""}%`
+                      }
+                      iconSize={10}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Grid>
+
+              {/* 右：ランキングリスト */}
+              <Grid size={{ xs: 12, md: 7 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  カテゴリ別ランキング
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                    ※ クリックするとメーカー・色タブがそのカテゴリに絞り込まれます
+                  </Typography>
                 </Typography>
-                <Typography textAlign="right">
-                  ¥{Number(p.total).toLocaleString()}
-                  <br />
-                  <span style={{ fontSize: 12, color: "#999" }}>
-                    {p.count}件
-                  </span>
+                <RankedSection
+                  data={catData}
+                  onSelect={handleSelectCategory}
+                  selectedId={selectedCategory?.id}
+                  idKey="category_id"
+                />
+              </Grid>
+            </Grid>
+          )}
+
+          {/* ======== メーカータブ ======== */}
+          {tab === 1 && (
+            <Grid container spacing={3}>
+              {/* 横棒グラフ（top10） */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  メーカー別売上
+                  {selectedCategory && <Chip label={selectedCategory.name} size="small" sx={{ ml: 1 }} />}
                 </Typography>
-              </Box>
-            ))}
-          </Box>
-        ))}
+                <ResponsiveContainer width="100%" height={Math.max(200, mfrData.slice(0, 10).length * 36)}>
+                  <BarChart layout="vertical" data={mfrData.slice(0, 10)} margin={{ left: 16, right: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                    <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                    <Bar dataKey="total" name="売上" radius={[0, 4, 4, 0]}>
+                      {mfrData.slice(0, 10).map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                      <LabelList dataKey="count" position="right" formatter={(v: any) => `${v}件`} style={{ fontSize: 11, fill: "#666" }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>全メーカー一覧</Typography>
+                <RankedSection data={mfrData} />
+              </Grid>
+            </Grid>
+          )}
+
+          {/* ======== 色タブ ======== */}
+          {tab === 2 && (
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  車体色別（受注台数）
+                </Typography>
+                <ResponsiveContainer width="100%" height={Math.max(200, colorData.slice(0, 10).length * 36)}>
+                  <BarChart layout="vertical" data={colorData.slice(0, 10)} margin={{ left: 16, right: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="color_label" width={100} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: any) => `${v}台`} />
+                    <Bar dataKey="count" name="台数" radius={[0, 4, 4, 0]}>
+                      {colorData.slice(0, 10).map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                      <LabelList dataKey="count" position="right" formatter={(v: any) => `${v}台`} style={{ fontSize: 11, fill: "#666" }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>全カラー一覧</Typography>
+                <RankedSection data={colorData} nameKey="color_label" countKey="count" />
+              </Grid>
+            </Grid>
+          )}
+
+        </Box>
       </Paper>
     </Box>
   );

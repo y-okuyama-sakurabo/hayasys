@@ -161,16 +161,16 @@ class OrderSerializer(serializers.ModelSerializer):
     def _upsert_payment(self, order, payment_data, settlements_data):
         ct = ContentType.objects.get_for_model(Order)
 
-        credit_amount = sum(
+        loan_amount = sum(
             int(s["amount"])
             for s in settlements_data
-            if s["settlement_type"] == "credit"
+            if s["settlement_type"] == "loan"
         )
 
-        if credit_amount > 0:
+        if loan_amount > 0:
             if not payment_data:
                 raise serializers.ValidationError({
-                    "payment": "クレジット情報が必要です"
+                    "payment": "ローン情報が必要です"
                 })
 
             Payment.objects.update_or_create(
@@ -527,6 +527,9 @@ class OrderSerializer(serializers.ModelSerializer):
                 **insurance_data
             )
 
+        # 車両販売の場合、CustomerVehicle を再同期（車両情報変更に追従）
+        create_customer_vehicle_from_order(instance)
+
         return instance
     
     def _recalculate_order(self, order):
@@ -573,27 +576,27 @@ class OrderSerializer(serializers.ModelSerializer):
                     "settlements": "支払い合計が総額と一致しません"
                 })
 
-        credit_count = sum(
+        loan_count = sum(
             1 for s in settlements
-            if s.get("settlement_type") == "credit"
+            if s.get("settlement_type") == "loan"
         )
 
-        if credit_count > 1:
+        if loan_count > 1:
             raise serializers.ValidationError({
-                "settlements": "クレジットは1件のみです"
+                "settlements": "ローンは1件のみです"
             })
 
-        credit_amount = sum(
+        loan_amount = sum(
             int(s.get("amount", 0))
             for s in settlements
-            if s.get("settlement_type") == "credit"
+            if s.get("settlement_type") == "loan"
         )
 
         payment_data = self.initial_data.get("payment")
 
-        if credit_amount > 0 and not payment_data:
+        if loan_amount > 0 and not payment_data:
             raise serializers.ValidationError({
-                "payment": "クレジット情報を入力してください"
+                "payment": "ローン情報を入力してください"
             })
 
         return data

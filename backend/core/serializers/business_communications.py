@@ -151,8 +151,10 @@ class BusinessCommunicationThreadSerializer(serializers.ModelSerializer):
             "id",
             "customer",
             "title",
+            "status",
             "created_by",
             "created_at",
+            "updated_at",
             "messages",
             "sender_name",
             "receiver_name",
@@ -172,7 +174,6 @@ class BusinessCommunicationThreadSerializer(serializers.ModelSerializer):
             return first.sender_shop.name
 
         return None
-
 
     def get_receiver_name(self, obj):
 

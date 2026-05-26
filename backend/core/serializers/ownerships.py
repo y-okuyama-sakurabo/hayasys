@@ -76,9 +76,12 @@ class CustomerVehicleCreateSerializer(serializers.ModelSerializer):
             except Vehicle.DoesNotExist:
                 raise serializers.ValidationError({"vehicle_id": "指定された車両が存在しません。"})
         else:
-            vehicle_serializer = VehicleWriteSerializer(data=vehicle_data)
-            vehicle_serializer.is_valid(raise_exception=True)
-            vehicle = vehicle_serializer.save()
+            # validated_data 内の vehicle は親シリアライザーで既にバリデーション済み
+            # (manufacturer/category/color はすでに Python オブジェクトになっている)
+            # 再度 data= で渡すと二重バリデーションで FK が消えるため、
+            # VehicleWriteSerializer.create() を直接呼ぶ
+            vehicle_write = VehicleWriteSerializer()
+            vehicle = vehicle_write.create(vehicle_data)
 
         # 二重登録ガード（同じ車両・同じ開始日）
         if CustomerVehicle.objects.filter(

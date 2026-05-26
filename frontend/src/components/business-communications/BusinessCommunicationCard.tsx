@@ -1,153 +1,78 @@
 "use client";
 
-import {
-  Paper,
-  Typography,
-  Button,
-  Collapse,
-  Stack
-} from "@mui/material";
-
-import DeleteIcon from "@mui/icons-material/Delete";
+import { Paper, Typography, Box, Chip, Stack } from "@mui/material";
 import { useState } from "react";
-import apiClient from "@/lib/apiClient";
-import BusinessCommunicationReplyForm from "./BusinessCommunicationReplyForm";
+import BusinessCommunicationThreadDialog from "./BusinessCommunicationThreadDialog";
 
-export default function BusinessCommunicationCard({ item, refresh }: any) {
+type Thread = {
+  id: number;
+  title: string;
+  status: "pending" | "done";
+  customer?: { id: number; name: string } | null;
+  sender_name?: string;
+  receiver_name?: string;
+  updated_at?: string;
+  messages?: any[];
+};
 
-  const [showReplies, setShowReplies] = useState(false);
-  const [replyMode, setReplyMode] = useState(false);
+export default function BusinessCommunicationCard({
+  item,
+  refresh,
+}: {
+  item: Thread;
+  refresh?: () => void;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const remove = async () => {
-
-    if (!confirm("この業務連絡を削除しますか？")) return;
-
-    await apiClient.delete(
-      `/communication-threads/${item.id}/`
-    );
-
-    refresh?.();
-
-  };
+  const preview = item.messages?.[0]?.content ?? "";
 
   return (
+    <>
+      <Paper
+        sx={{ p: 2, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+        onClick={() => setDialogOpen(true)}
+      >
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          <Box flex={1} minWidth={0}>
+            <Typography fontSize={12} color="text.secondary" noWrap>
+              {item.sender_name} → {item.receiver_name}
+              {item.customer && (
+                <span style={{ marginLeft: 8 }}>顧客：{item.customer.name}</span>
+              )}
+            </Typography>
+            <Typography fontWeight="bold" noWrap>
+              {item.title}
+            </Typography>
+            {preview && (
+              <Typography
+                fontSize={13}
+                color="text.secondary"
+                noWrap
+                mt={0.5}
+              >
+                {preview}
+              </Typography>
+            )}
+          </Box>
+          <Chip
+            size="small"
+            label={item.status === "pending" ? "未対応" : "対応済み"}
+            color={item.status === "pending" ? "warning" : "success"}
+          />
+        </Stack>
+      </Paper>
 
-    <Paper sx={{ p:2 }}>
-
-      {/* header */}
-
-      <Typography fontSize={13} color="text.secondary">
-        from:{item.sender_name} → to:{item.receiver_name}
-      </Typography>
-
-      <Typography fontWeight="bold">
-        タイトル：{item.title}
-      </Typography>
-
-      {/* 最新メッセージ */}
-
-      <Typography mt={1}>
-        本文：{item.messages?.[0]?.content}
-      </Typography>
-
-      {/* 添付（最初のメッセージ） */}
-
-      {item.messages?.[0]?.attachments?.map((a:any)=>(
-
-        <img
-          key={a.id}
-          src={a.file}
-          style={{
-            maxWidth:200,
-            marginTop:8,
-            borderRadius:4
+      {dialogOpen && (
+        <BusinessCommunicationThreadDialog
+          thread={item}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          onChanged={() => {
+            setDialogOpen(false);
+            refresh?.();
           }}
         />
-
-      ))}
-
-      {/* actions */}
-
-      <Stack direction="row" spacing={2} mt={2}>
-
-        <Button
-          size="small"
-          onClick={()=>setShowReplies(!showReplies)}
-        >
-          返信 {Math.max((item.messages?.length ?? 1) - 1, 0)}件
-        </Button>
-
-        <Button
-          size="small"
-          onClick={()=>setReplyMode(!replyMode)}
-        >
-          返信
-        </Button>
-
-        <Button
-          size="small"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={remove}
-        >
-          削除
-        </Button>
-
-      </Stack>
-
-      {/* 返信一覧 */}
-
-      <Collapse in={showReplies}>
-
-        <Stack spacing={1} mt={2}>
-
-          {(item.messages ?? []).slice(1).map((r:any)=>(
-
-            <Paper
-              key={r.id}
-              sx={{
-                p:1,
-                background:"#fafafa"
-              }}
-            >
-
-            <Typography fontSize={14} color="text.secondary">
-
-              {r.sender_staff?.full_name || r.sender_shop?.name}
-
-              {"  "}
-
-              {new Date(r.created_at).toLocaleString()}
-
-            </Typography>
-
-              <Typography fontSize={14}>
-                {r.content}
-              </Typography>
-
-            </Paper>
-
-          ))}
-
-        </Stack>
-
-      </Collapse>
-
-      {/* 返信フォーム */}
-
-      {replyMode && (
-
-        <BusinessCommunicationReplyForm
-          parentId={item.id}
-          receiverShop={item.messages?.[0]?.receiver_shop?.id}
-          receiverStaff={item.messages?.[0]?.receiver_staff?.id}
-          refresh={refresh}
-        />
-
       )}
-
-    </Paper>
-
+    </>
   );
-
 }

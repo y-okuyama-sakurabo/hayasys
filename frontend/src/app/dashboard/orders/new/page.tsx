@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { CircularProgress, Box } from "@mui/material";
 import OrderForm from "@/components/orders/OrderForm";
 
 export default function OrderNewPage() {

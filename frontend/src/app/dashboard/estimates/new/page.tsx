@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { CircularProgress, Box } from "@mui/material";
 import EstimateForm from "@/components/estimate/EstimateForm";
 
 export default function EstimateNewPage() {

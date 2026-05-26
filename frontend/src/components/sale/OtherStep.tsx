@@ -1,6 +1,6 @@
 "use client";
 
-import EstimateItemsStep from "./EstimateItemsStep";
+import ItemsStep from "./ItemsStep";
 
 type Props = {
   items: any[];
@@ -8,5 +8,5 @@ type Props = {
 };
 
 export default function OtherStep({ items, dispatch }: Props) {
-  return <EstimateItemsStep type="accessory" items={items} dispatch={dispatch} />;
+  return <ItemsStep type="accessory" items={items} dispatch={dispatch} />;
 }
