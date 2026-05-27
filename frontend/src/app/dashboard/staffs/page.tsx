@@ -44,9 +44,10 @@ export default function StaffListPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [staffs,     setStaffs]     = useState<any[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [myRole,     setMyRole]     = useState<string | null>(null); // null = まだ取得中
+  const [staffs,       setStaffs]       = useState<any[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [myRole,       setMyRole]       = useState<string | null>(null); // null = まだ取得中
+  const [isSuperuser,  setIsSuperuser]  = useState(false);
 
   // 削除確認
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -61,7 +62,7 @@ export default function StaffListPage() {
 
   const MANAGER_ROLES = ["executive", "accounting", "manager", "store_manager", "admin"];
   // null = ロード中（表示を保留）、それ以外はロール確定
-  const canManage = myRole !== null && MANAGER_ROLES.includes(myRole);
+  const canManage = myRole !== null && (isSuperuser || MANAGER_ROLES.includes(myRole));
 
   const fetchStaffs = async () => {
     setLoading(true);
@@ -78,7 +79,10 @@ export default function StaffListPage() {
   useEffect(() => {
     fetchStaffs();
     apiClient.get("/auth/user/")
-      .then((r) => setMyRole(r.data?.role ?? ""))
+      .then((r) => {
+        setMyRole(r.data?.role ?? "");
+        setIsSuperuser(!!r.data?.is_superuser);
+      })
       .catch(() => setMyRole(""));
   }, []);
 
