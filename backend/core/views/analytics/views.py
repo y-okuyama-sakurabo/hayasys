@@ -64,13 +64,14 @@ class SalesDailyAPIView(APIView):
         }
 
         # 店舗フィルタ
+        # "all" = 全店舗（フィルタなし）、未指定/空 = ユーザーの所属店舗
         if shop_id and shop_id != "all":
             estimate_filter["shop_id"] = shop_id
             order_filter["shop_id"] = shop_id
-        else:
+        elif not shop_id:
             estimate_filter["shop"] = request.user.shop
             order_filter["shop"] = request.user.shop
-        
+
         if staff_id and staff_id != "all":
             estimate_filter["created_by_id"] = staff_id
             order_filter["created_by_id"] = staff_id
@@ -102,7 +103,7 @@ class SalesDailyAPIView(APIView):
         sales_filter: dict = {"sales_date__range": [start, end]}
         if shop_id and shop_id != "all":
             sales_filter["shop_id"] = shop_id
-        else:
+        elif not shop_id:
             sales_filter["shop"] = request.user.shop
         if staff_id and staff_id != "all":
             sales_filter["created_by_id"] = staff_id
@@ -168,12 +169,13 @@ class SalesListAPIView(APIView):
 
         # -----------------------------
         # 店舗フィルタ
+        # "all" = 全店舗（フィルタなし）、未指定/空 = ユーザーの所属店舗
         # -----------------------------
         if shop_id and shop_id != "all":
             estimates = estimates.filter(shop_id=shop_id)
             orders    = orders.filter(shop_id=shop_id)
             sales     = sales.filter(shop_id=shop_id)
-        else:
+        elif not shop_id:
             estimates = estimates.filter(shop=request.user.shop)
             orders    = orders.filter(shop=request.user.shop)
             sales     = sales.filter(shop=request.user.shop)
@@ -260,6 +262,14 @@ class ProductAnalyticsAPIView(APIView):
         if type_ == "category":
 
             from django.db.models import Q
+
+            # item_type フィルタ（vehicle / non_vehicle / accessory 等）
+            item_type_param = request.query_params.get("item_type")
+            if item_type_param:
+                if item_type_param == "non_vehicle":
+                    qs = qs.exclude(item_type="vehicle")
+                elif item_type_param != "all":
+                    qs = qs.filter(item_type=item_type_param)
 
             filter_category_id = request.query_params.get("filter_category_id")
             category_id = request.query_params.get("category_id")
@@ -358,6 +368,18 @@ class ProductAnalyticsAPIView(APIView):
                     _Q(category__parent__parent__parent_id=_filter_cat)
                 )
 
+            # item_type フィルタ（車両/用品/保険/諸費用 等で絞り込み可）
+            item_type = request.query_params.get("item_type")
+            if item_type and item_type != "all":
+                qs = qs.filter(item_type=item_type)
+
+            # メーカーなし件数
+            no_mfr_count = qs.filter(manufacturer__isnull=True).count()
+            no_mfr_total = sum(
+                item.subtotal or 0
+                for item in qs.filter(manufacturer__isnull=True)
+            )
+
             data = {}
 
             for item in qs:
@@ -416,9 +438,24 @@ class ProductAnalyticsAPIView(APIView):
 
             result.sort(key=lambda x: x["total"], reverse=True)
 
+            # メーカーなし を末尾に追加
+            if no_mfr_count > 0:
+                result.append({
+                    "name": "（メーカーなし）",
+                    "total": no_mfr_total,
+                    "count": no_mfr_count,
+                    "paths": [],
+                    "no_manufacturer": True,
+                })
+
             return Response(result)
 
         elif type_ == "color":
+
+            from django.db.models import Q as _QC
+
+            # カテゴリフィルタ用: OrderItem.category 経由で order_id を絞る
+            _color_filter_cat = request.query_params.get("filter_category_id")
 
             # -----------------------------
             # 🚀 vehicleベースに切替
@@ -433,12 +470,24 @@ class ProductAnalyticsAPIView(APIView):
                 # 店舗
                 if shop_id and shop_id != "all":
                     vqs = vqs.filter(order__shop_id=shop_id)
-                else:
+                elif not shop_id:
                     vqs = vqs.filter(order__shop=request.user.shop)
 
                 # 担当
                 if staff_id and staff_id != "all":
                     vqs = vqs.filter(order__created_by_id=staff_id)
+
+                # カテゴリで絞り込み（OrderItem.category 経由）
+                if _color_filter_cat:
+                    order_ids = OrderItem.objects.filter(
+                        item_type="vehicle"
+                    ).filter(
+                        _QC(category_id=_color_filter_cat) |
+                        _QC(category__parent_id=_color_filter_cat) |
+                        _QC(category__parent__parent_id=_color_filter_cat) |
+                        _QC(category__parent__parent__parent_id=_color_filter_cat)
+                    ).values_list("order_id", flat=True)
+                    vqs = vqs.filter(order_id__in=order_ids)
 
                 total_field = "order__grand_total"
 
@@ -450,11 +499,23 @@ class ProductAnalyticsAPIView(APIView):
 
                 if shop_id and shop_id != "all":
                     vqs = vqs.filter(estimate__shop_id=shop_id)
-                else:
+                elif not shop_id:
                     vqs = vqs.filter(estimate__shop=request.user.shop)
 
                 if staff_id and staff_id != "all":
                     vqs = vqs.filter(estimate__created_by_id=staff_id)
+
+                # カテゴリで絞り込み（EstimateItem.category 経由）
+                if _color_filter_cat:
+                    estimate_ids = EstimateItem.objects.filter(
+                        item_type="vehicle"
+                    ).filter(
+                        _QC(category_id=_color_filter_cat) |
+                        _QC(category__parent_id=_color_filter_cat) |
+                        _QC(category__parent__parent_id=_color_filter_cat) |
+                        _QC(category__parent__parent__parent_id=_color_filter_cat)
+                    ).values_list("estimate_id", flat=True)
+                    vqs = vqs.filter(estimate_id__in=estimate_ids)
 
                 total_field = "estimate__grand_total"
 
@@ -541,21 +602,21 @@ class ProductAnalyticsAPIView(APIView):
 
             # 月別集計のために order/estimate も select_related
             if mode == "order":
-                qs = qs.select_related("order", "staff")
+                qs = qs.select_related("order", "staff", "category")
             else:
-                qs = qs.select_related("estimate", "staff")
+                qs = qs.select_related("estimate", "staff", "category")
 
             data = {}
 
             for item in qs:
                 staff = item.staff
 
+                # 担当なしはスキップ（分析対象外）
                 if not staff:
-                    key  = "unknown"
-                    name = "未割当"
-                else:
-                    key  = staff.id
-                    name = staff.display_name
+                    continue
+
+                key  = staff.id
+                name = staff.display_name
 
                 if key not in data:
                     data[key] = {
@@ -565,10 +626,36 @@ class ProductAnalyticsAPIView(APIView):
                         "categories": {},
                         "item_types": {},
                         "monthly":    {},
+                        "items":      [],  # 内訳明細
                     }
 
                 data[key]["total"] += item.subtotal or 0
                 data[key]["count"] += 1
+
+                # 日付・伝票番号
+                if mode == "order":
+                    ref_date = getattr(item.order, "order_date", None)
+                    ref_id   = getattr(item.order, "id",         None)
+                    ref_no   = getattr(item.order, "order_no",   None) or ref_id
+                else:
+                    ref_date = getattr(item.estimate, "estimate_date", None)
+                    ref_id   = getattr(item.estimate, "id",            None)
+                    ref_no   = getattr(item.estimate, "estimate_no",   None) or ref_id
+
+                # 作業種別（item_type）
+                itype       = item.item_type or "accessory"
+                itype_label = ITEM_TYPE_LABELS.get(itype, itype)
+
+                # 内訳明細
+                data[key]["items"].append({
+                    "name":      item.name or "",
+                    "category":  item.category.name if item.category else "",
+                    "item_type": itype_label,
+                    "subtotal":  float(item.subtotal or 0),
+                    "date":      str(ref_date) if ref_date else "",
+                    "ref_id":    ref_id,
+                    "ref_no":    str(ref_no) if ref_no else "",
+                })
 
                 # 作業内容（カテゴリ）
                 if item.category:
@@ -578,19 +665,13 @@ class ProductAnalyticsAPIView(APIView):
                     data[key]["categories"][cat_name]["count"] += 1
                     data[key]["categories"][cat_name]["total"] += item.subtotal or 0
 
-                # 作業種別（item_type）
-                itype       = item.item_type or "accessory"
-                itype_label = ITEM_TYPE_LABELS.get(itype, itype)
+                # 作業種別集計
                 if itype not in data[key]["item_types"]:
                     data[key]["item_types"][itype] = {"key": itype, "name": itype_label, "count": 0, "total": 0}
                 data[key]["item_types"][itype]["count"] += 1
                 data[key]["item_types"][itype]["total"] += item.subtotal or 0
 
                 # 月別集計
-                ref_date = (
-                    getattr(item.order,    "order_date",    None) if mode == "order"
-                    else getattr(item.estimate, "estimate_date", None)
-                )
                 if ref_date:
                     month_key = str(ref_date)[:7]
                     if month_key not in data[key]["monthly"]:
@@ -602,9 +683,10 @@ class ProductAnalyticsAPIView(APIView):
             result = []
 
             for s in data.values():
-                cats   = sorted(list(s["categories"].values()), key=lambda x: x["total"],  reverse=True)
-                itypes = sorted(list(s["item_types"].values()),  key=lambda x: x["total"],  reverse=True)
-                monthly = sorted(list(s["monthly"].values()),    key=lambda x: x["month"])
+                cats    = sorted(list(s["categories"].values()), key=lambda x: x["total"], reverse=True)
+                itypes  = sorted(list(s["item_types"].values()),  key=lambda x: x["total"], reverse=True)
+                monthly = sorted(list(s["monthly"].values()),     key=lambda x: x["month"])
+                items   = sorted(s["items"],                      key=lambda x: x["date"],  reverse=True)
 
                 result.append({
                     "name":             s["name"],
@@ -613,6 +695,7 @@ class ProductAnalyticsAPIView(APIView):
                     "categories":       cats,
                     "item_types":       itypes,
                     "monthly":          monthly,
+                    "items":            items,
                     "category_breadth": len(s["item_types"]),
                 })
 
@@ -622,8 +705,3 @@ class ProductAnalyticsAPIView(APIView):
 
         else:
             raise ValidationError("typeが不正")
-
-        return Response(data)
-    
-
-        

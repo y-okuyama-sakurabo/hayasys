@@ -112,7 +112,7 @@ export default function ManagementDetailPage() {
 
   const [loading,  setLoading]  = useState(true);
   const [order,    setOrder]    = useState<any>(null);
-  const [salesDate, setSalesDate] = useState("");
+  const [opError,  setOpError]  = useState<string | null>(null);
 
   // 納品
   const [deliveryChecked, setDeliveryChecked] = useState<Record<number, boolean>>({});
@@ -130,7 +130,6 @@ export default function ManagementDetailPage() {
     try {
       const res = await apiClient.get(`/management/orders/${orderId}`);
       setOrder(res.data);
-      setSalesDate(res.data.sales_date || "");
     } catch (err) {
       console.error(err);
     } finally {
@@ -181,50 +180,76 @@ export default function ManagementDetailPage() {
   const createDelivery = async () => {
     const items = order.items
       .filter((it: any) => deliveryChecked[it.id])
-      .map((it: any) => ({ order_item_id: it.id, quantity: 1 }));
+      .map((it: any) => ({
+        order_item_id: it.id,
+        quantity: Number(it.quantity),  // 受注数量をそのまま納品数量に使用
+      }));
 
     if (items.length === 0) { alert("納品する商品を選択してください"); return; }
 
-    await apiClient.post("/deliveries/", {
-      order: orderId,
-      delivery_date: deliveryDate,
-      items,
-    });
-    setDeliveryChecked({});
-    fetchDetail();
+    setOpError(null);
+    try {
+      await apiClient.post("/deliveries/", {
+        order: orderId,
+        delivery_date: deliveryDate,
+        items,
+      });
+      setDeliveryChecked({});
+      fetchDetail();
+    } catch (e: any) {
+      setOpError(e?.response?.data?.detail || "納品登録に失敗しました");
+    }
   };
 
   const cancelDelivery = async (deliveryItemId: number) => {
     if (!confirm("この納品を取消しますか？")) return;
-    await apiClient.post("/deliveries/cancel-item/", { delivery_item_id: deliveryItemId });
-    fetchDetail();
+    setOpError(null);
+    try {
+      await apiClient.post("/deliveries/cancel-item/", { delivery_item_id: deliveryItemId });
+      fetchDetail();
+    } catch (e: any) {
+      setOpError(e?.response?.data?.detail || "納品取消に失敗しました");
+    }
   };
 
   const addPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) { alert("入金額を入力してください"); return; }
     if (Number(payAmount) > unpaidTotal) { alert("残額を超える金額は入力できません"); return; }
 
-    await apiClient.post(`/management/payments/${orderId}/records/`, {
-      amount:       Number(payAmount),
-      payment_date: payDate,
-      method:       payMethod,
-    });
-    setPayAmount("");
-    fetchDetail();
+    setOpError(null);
+    try {
+      await apiClient.post(`/management/payments/${orderId}/records/`, {
+        amount:       Number(payAmount),
+        payment_date: payDate,
+        method:       payMethod,
+      });
+      setPayAmount("");
+      fetchDetail();
+    } catch (e: any) {
+      setOpError(e?.response?.data?.detail || "入金登録に失敗しました");
+    }
   };
 
   const deletePayment = async (recordId: number) => {
     if (!confirm("この入金記録を削除しますか？")) return;
-    await apiClient.delete(`/payment-records/${recordId}/`);
-    fetchDetail();
+    setOpError(null);
+    try {
+      await apiClient.delete(`/payment-records/${recordId}/`);
+      fetchDetail();
+    } catch (e: any) {
+      setOpError(e?.response?.data?.detail || "入金削除に失敗しました");
+    }
   };
 
   const markSales = async () => {
     if (!canMarkSales) return;
-    if (!salesDate) { alert("売上日を入力してください"); return; }
-
-    await apiClient.post(`/orders/${orderId}/mark-sales/`, { sales_date: salesDate });
-    fetchDetail();
+    setOpError(null);
+    try {
+      await apiClient.post(`/orders/${orderId}/mark-sales/`, {});
+      fetchDetail();
+    } catch (e: any) {
+      setOpError(e?.response?.data?.detail || "売上計上に失敗しました");
+    }
   };
 
   // ========================
@@ -241,6 +266,13 @@ export default function ManagementDetailPage() {
       >
         一覧に戻る
       </Button>
+
+      {/* ── 操作エラー表示 ── */}
+      {opError && (
+        <Alert severity="error" onClose={() => setOpError(null)} sx={{ mb: 2 }}>
+          {opError}
+        </Alert>
+      )}
 
       {/* ── 基本情報 ── */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -548,25 +580,14 @@ export default function ManagementDetailPage() {
               </Alert>
             )}
 
-            <Stack direction="row" spacing={2} alignItems="center">
-              <TextField
-                label="売上日"
-                type="date"
-                size="small"
-                value={salesDate}
-                onChange={(e) => setSalesDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 180 }}
-              />
-              <Button
-                variant="contained"
-                color="success"
-                disabled={!canMarkSales}
-                onClick={markSales}
-              >
-                売上計上する
-              </Button>
-            </Stack>
+            <Button
+              variant="contained"
+              color="success"
+              disabled={!canMarkSales}
+              onClick={markSales}
+            >
+              売上計上する
+            </Button>
 
             {!canMarkSales && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>

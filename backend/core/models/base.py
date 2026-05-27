@@ -30,12 +30,33 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_active", True)
         return self.create_user(login_id, password, **extra_fields)
 
+ROLE_CHOICES = [
+    ("executive",     "役員"),
+    ("accounting",    "経理総務"),
+    ("manager",       "MGR・SV"),
+    ("store_manager", "店長"),
+    ("staff",         "スタッフ"),
+    # 旧値（後方互換）
+    ("admin",         "管理者(旧)"),
+]
+
+# 店舗に属さずに全店舗を閲覧できるロール
+GLOBAL_ROLES = {"executive", "accounting", "admin"}
+
+# 役割ごとの表示グループ（店舗欄に出す文字列）
+ROLE_GROUP_DISPLAY = {
+    "executive":  "未所属",
+    "accounting": "経理総務",
+    "admin":      "管理者(旧)",
+}
+
+
 class User(AbstractUser):
     username = None
     login_id = models.CharField(max_length=50, unique=True)
     display_name = models.CharField("表示名", max_length=100, blank=True, null=True)
     shop = models.ForeignKey("core.Shop", on_delete=models.PROTECT, null=True, blank=True)
-    role = models.CharField(max_length=20, default="staff")
+    role = models.CharField(max_length=20, default="staff", choices=ROLE_CHOICES)
     USERNAME_FIELD = "login_id"
     REQUIRED_FIELDS = []
     objects = UserManager()

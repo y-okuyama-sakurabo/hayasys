@@ -66,6 +66,8 @@ class CustomerListCreateView(ListCreateAPIView):
                 filter=Q(customer_vehicles__owned_to__isnull=True),
                 distinct=True,
             )
+        ).prefetch_related(
+            "orders__shop",       # first_shop / last_shop の N+1 解消
         ).order_by("id")
 
 class CustomerRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):

@@ -56,29 +56,6 @@ class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroy
     DELETE: 所有関係を削除
     """
     permission_classes = [IsAuthenticated]
-    serializer_class = CustomerVehicleSerializer
-    lookup_url_kwarg = "customer_vehicle_id"
-
-    def get_customer(self):
-        return get_object_or_404(Customer, pk=self.kwargs["customer_id"])
-
-    def get_queryset(self):
-        # customer配下に限定して誤操作防止
-        return CustomerVehicle.objects.filter(customer=self.get_customer()).select_related(
-            "vehicle",
-            "vehicle__manufacturer",
-            "vehicle__category",
-            "vehicle__color",
-        ).prefetch_related(
-            "vehicle__registrations",
-            "vehicle__insurances",
-            "vehicle__warranties",
-        )
-
-
-
-class CustomerVehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
     lookup_url_kwarg = "customer_vehicle_id"
 
     def get_customer(self):

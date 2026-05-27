@@ -621,10 +621,7 @@ export default function OrderForm({ mode, orderId }: Props) {
         sale_type: item.sale_type,
         labor_cost: item.labor_cost ?? 0,
         unit: item.unit ?? null,
-        staff:
-          typeof item.staff === "object"
-            ? item.staff?.id
-            : item.staff_id ?? item.staff ?? null,
+        staff: item.staff_id ?? (typeof item.staff === "number" ? item.staff : null),
         manufacturer:
           typeof item.manufacturer === "object"
             ? item.manufacturer?.id

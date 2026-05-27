@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Container,
   Box,
@@ -22,6 +22,13 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // すでにログイン済みならダッシュボードへリダイレクト
+  useEffect(() => {
+    apiClient.get("/auth/user/")
+      .then(() => router.replace("/dashboard"))
+      .catch(() => { /* 未認証 → ログイン画面のまま表示 */ });
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

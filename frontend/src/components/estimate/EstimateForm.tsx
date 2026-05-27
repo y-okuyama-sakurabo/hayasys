@@ -460,25 +460,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       await apiClient.put(`/estimates/${id}/`, headerPayload);
     }
 
-    // スケジュール保存
-    if (state.schedule?.start_at) {
-      const schedulePayload = {
-        start_at: state.schedule.start_at,
-        end_at: dayjs(state.schedule.start_at).add(1, "hour").format(),
-        delivery_method: state.schedule.delivery_method || "",
-        delivery_shop: state.schedule.delivery_shop || null,
-        description: state.schedule.description || "",
-      };
-      if (state.schedule.id) {
-        await apiClient.patch(`/schedules/${state.schedule.id}/`, schedulePayload);
-      } else {
-        await apiClient.post("/schedules/", {
-          estimate: id,
-          title: "納車予定日",
-          ...schedulePayload,
-        });
-      }
-    }
+    // スケジュール保存は受注のみで行う（見積ではスケジュールテーブルに登録しない）
 
     // 車両保存
     if (state.basic.vehicle_mode !== "none") {

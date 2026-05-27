@@ -344,7 +344,7 @@ export default function CustomerListPage() {
 
             {customers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={4} align="center">
                   データがありません
                 </TableCell>
               </TableRow>

@@ -89,19 +89,20 @@ class ScheduleListCreateAPIView(generics.ListCreateAPIView):
             elif estimate and estimate.party:
                 customer = estimate.party.source_customer
 
-        # 🔥 ここ追加（最重要）
+        # 同一見積に既存スケジュールがある場合は更新して返す
         if estimate:
             existing = Schedule.objects.filter(estimate=estimate).first()
 
             if existing:
-                # update
                 for attr, value in serializer.validated_data.items():
                     setattr(existing, attr, value)
                 existing.staff = user
                 existing.shop = getattr(user, "shop", None)
                 existing.customer = customer
                 existing.save()
-                return existing
+                # serializer.instance をセットすることで DRF が正しいレスポンスを返せる
+                serializer.instance = existing
+                return
 
         serializer.save(
             staff=user,

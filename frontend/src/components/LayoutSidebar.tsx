@@ -58,11 +58,13 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         setRole(res.data.role);
       } catch (err) {
         console.error("ユーザー情報取得失敗:", err);
+        // 認証エラー（トークン切れ等）→ ログインページへ
+        router.replace("/login");
       }
     };
 
     fetchUser();
-  }, []);
+  }, [router]);
 
   React.useEffect(() => {
     if (pathname.includes("/analytics")) {
@@ -80,10 +82,6 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     } catch (e) {
       console.error("ログアウトAPI失敗:", e);
     }
-
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("user_role");
 
     router.push("/login");
   };
@@ -118,11 +116,11 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
       ],
     },
 
-    // 👇 ★ここが今回の変更
+    
     {
       text: "スタッフ管理",
       icon: <AdminPanelSettings />,
-      path: "/dashboard/staffs/new",
+      path: "/dashboard/staffs",
     },
   ];
 

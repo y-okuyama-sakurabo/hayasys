@@ -265,8 +265,6 @@ class BusinessCommunicationThreadRetrieveDestroyAPIView(
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = BusinessCommunicationThreadSerializer
-
-    serializer_class = BusinessCommunicationThreadSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     queryset = (

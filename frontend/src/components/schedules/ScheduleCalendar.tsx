@@ -10,9 +10,15 @@ import {
   Button,
   MenuItem,
   Typography,
+  CircularProgress,
+  Stack,
+  Chip,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FullCalendar from "@fullcalendar/react";
-import type { CalendarApi, DatesSetArg, EventClickArg } from "@fullcalendar/core";
+import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -20,18 +26,11 @@ import apiClient from "@/lib/apiClient";
 import ScheduleEventDialog from "./ScheduleEventDialog";
 import ScheduleCreateDialog from "./ScheduleCreateDialog";
 
-type Customer = {
-  id: number;
-  name: string;
-};
-
-type Shop = {
-  id: number;
-  name: string;
-};
+type Customer = { id: number; name: string };
+type Shop     = { id: number; name: string };
 
 type Schedule = {
-  id?: number; // ←ここ
+  id?: number;
   title: string;
   start_at: string;
   end_at?: string | null;
@@ -44,26 +43,30 @@ type Schedule = {
   staff_name?: string | null;
 };
 
+// イベントの色：顧客あり → 青、なし → グレー青
+const EVENT_COLOR_WITH_CUSTOMER    = "#1565c0";
+const EVENT_COLOR_WITHOUT_CUSTOMER = "#546e7a";
+
 export default function ScheduleCalendar() {
   const calendarRef = useRef<FullCalendar | null>(null);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<number | "">("");
+  const [customers,       setCustomers]       = useState<Customer[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  const [shops, setShops] = useState<Shop[]>([]);
+  const [shops,        setShops]        = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<number | "all" | "">("");
-  const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events,       setEvents]       = useState<any[]>([]);
+  const [initLoading,  setInitLoading]  = useState(true);
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   const [visibleRange, setVisibleRange] = useState<{
     startStr: string;
     endStr: string;
   } | null>(null);
 
-  // dialog
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
+  // ダイアログ
+  const [dialogOpen,       setDialogOpen]       = useState(false);
+  const [dialogMode,       setDialogMode]       = useState<"view" | "edit">("view");
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   // -------------------------
@@ -72,64 +75,76 @@ export default function ScheduleCalendar() {
   useEffect(() => {
     const init = async () => {
       try {
-        const meRes = await apiClient.get("/auth/user/");
-        const myShopId = meRes.data?.shop_id ?? "all";
+        const [meRes, customerRes, shopRes] = await Promise.all([
+          apiClient.get("/auth/user/"),
+          apiClient.get("/customers/?page_size=1000"),
+          apiClient.get("/masters/shops/"),
+        ]);
 
-        const customerRes = await apiClient.get("/customers/");
+        const myShopId    = meRes.data?.shop_id ?? "all";
         const customerList = customerRes.data.results || customerRes.data || [];
+        const shopList     = shopRes.data.results || shopRes.data || [];
+
         setCustomers(customerList);
-
-        const shopRes = await apiClient.get("/masters/shops/");
-        const list = shopRes.data.results || shopRes.data || [];
-        setShops(list);
-
+        setShops(shopList);
         setSelectedShop(myShopId);
       } finally {
-        setLoading(false);
+        setInitLoading(false);
       }
     };
     init();
   }, []);
 
+  // selectedShop が非同期でセットされた後にスケジュールを取得する
+  useEffect(() => {
+    if (selectedShop !== "" && visibleRange) {
+      fetchSchedules(visibleRange.startStr, visibleRange.endStr, selectedShop);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShop]);
+
   // -------------------------
-  // API取得
+  // スケジュール取得
   // -------------------------
   const fetchSchedules = async (
     startStr: string,
     endStr: string,
     shop: number | "all" | ""
   ) => {
-    const params: any = {
-      start: startStr,
-      end: endStr,
-    };
-    if (shop !== "all" && shop !== "") {
-      params.shop_id = shop;
+    setFetchLoading(true);
+    try {
+      const params: any = { start: startStr, end: endStr };
+      if (shop !== "all" && shop !== "") params.shop_id = shop;
+
+      const res  = await apiClient.get("/schedules/", { params });
+      const data = res.data.results || res.data || [];
+
+      setEvents(
+        data.map((s: any) => ({
+          id:    s.id,
+          title: s.title,
+          start: s.start_at,
+          end:   s.end_at,
+          backgroundColor: s.customer
+            ? EVENT_COLOR_WITH_CUSTOMER
+            : EVENT_COLOR_WITHOUT_CUSTOMER,
+          borderColor: s.customer
+            ? EVENT_COLOR_WITH_CUSTOMER
+            : EVENT_COLOR_WITHOUT_CUSTOMER,
+          extendedProps: s,
+        }))
+      );
+    } finally {
+      setFetchLoading(false);
     }
-
-    const res = await apiClient.get("/schedules/", { params });
-    const data = res.data.results || res.data || [];
-
-    setEvents(
-      data.map((s: any) => ({
-        id: s.id,
-        title: s.title,
-        start: s.start_at,
-        end: s.end_at,
-        extendedProps: s,
-      }))
-    );
   };
 
   // -------------------------
   // 表示期間変更
   // -------------------------
   const handleDatesSet = async (arg: DatesSetArg) => {
-    const startStr = arg.startStr;
-    const endStr = arg.endStr;
-
+    const { startStr, endStr } = arg;
     setVisibleRange({ startStr, endStr });
-
     if (selectedShop !== "") {
       await fetchSchedules(startStr, endStr, selectedShop);
     }
@@ -140,14 +155,53 @@ export default function ScheduleCalendar() {
   // -------------------------
   const handleShopChange = async (value: number | "all") => {
     setSelectedShop(value);
-
     if (visibleRange) {
       await fetchSchedules(visibleRange.startStr, visibleRange.endStr, value);
     }
   };
 
   // -------------------------
-  // eventClick → 詳細ダイアログ
+  // 現在日時を datetime-local 形式（YYYY-MM-DDTHH:mm）で返す
+  // 分を切り上げて次の整時（00分）にする
+  // -------------------------
+  const nowRoundedUp = (): { startAt: string; endAt: string } => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    // 分が 0 でなければ次の時間に切り上げ
+    if (now.getMinutes() > 0) {
+      now.setMinutes(0);
+      now.setHours(now.getHours() + 1);
+    }
+    const toLocal = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:00`;
+    const end = new Date(now.getTime() + 60 * 60 * 1000); // +1時間
+    return { startAt: toLocal(now), endAt: toLocal(end) };
+  };
+
+  // -------------------------
+  // 日付クリック → 日程をプリセットして作成ダイアログを開く
+  // -------------------------
+  const handleDateClick = (arg: DateClickArg) => {
+    // allDay クリック → 当日 09:00〜10:00 をデフォルトに
+    const base = arg.dateStr; // "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss"
+    const isAllDay = arg.allDay;
+    const startAt = isAllDay ? `${base}T09:00` : base.slice(0, 16);
+    const endAt   = isAllDay ? `${base}T10:00` : "";
+
+    setSelectedSchedule({
+      id:          undefined,
+      title:       "",
+      start_at:    startAt,
+      end_at:      endAt,
+      description: "",
+      customer:    null,
+      shop:        selectedShop !== "all" && selectedShop !== "" ? selectedShop : null,
+    } as any);
+    setCreateDialogOpen(true);
+  };
+
+  // -------------------------
+  // イベントクリック → 詳細ダイアログ
   // -------------------------
   const handleEventClick = async (info: EventClickArg) => {
     const res = await apiClient.get(`/schedules/${info.event.id}/`);
@@ -157,18 +211,18 @@ export default function ScheduleCalendar() {
   };
 
   // -------------------------
-  // 更新
+  // 保存（新規 / 更新）
   // -------------------------
-  const handleUpdate = async () => {
+  const handleSave = async () => {
     if (!selectedSchedule) return;
 
     const payload = {
-      title: selectedSchedule.title,
-      start_at: selectedSchedule.start_at,
-      end_at: selectedSchedule.end_at,
+      title:       selectedSchedule.title,
+      start_at:    selectedSchedule.start_at,
+      end_at:      selectedSchedule.end_at || null,
       description: selectedSchedule.description,
-      shop: selectedSchedule.shop,
-      customer: selectedSchedule.customer,
+      shop:        selectedSchedule.shop,
+      customer:    selectedSchedule.customer,
     };
 
     if (selectedSchedule.id) {
@@ -179,13 +233,10 @@ export default function ScheduleCalendar() {
 
     setDialogOpen(false);
     setCreateDialogOpen(false);
+    setSelectedSchedule(null);
 
     if (visibleRange) {
-      await fetchSchedules(
-        visibleRange.startStr,
-        visibleRange.endStr,
-        selectedShop
-      );
+      await fetchSchedules(visibleRange.startStr, visibleRange.endStr, selectedShop);
     }
   };
 
@@ -200,49 +251,78 @@ export default function ScheduleCalendar() {
     setDialogOpen(false);
 
     if (visibleRange) {
-      await fetchSchedules(
-        visibleRange.startStr,
-        visibleRange.endStr,
-        selectedShop
-      );
+      await fetchSchedules(visibleRange.startStr, visibleRange.endStr, selectedShop);
     }
   };
 
   // -------------------------
-  // 表示
+  // 初期ロード中
   // -------------------------
-  if (loading) {
+  if (initLoading) {
     return (
-      <Paper sx={{ p: 2 }}>
-        <Typography>ロード中...</Typography>
-      </Paper>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
     <Box>
-      {/* ===== 店舗セレクタ ===== */}
-     
-        <Box display="flex" gap={2} alignItems="center">
+      {/* ===== ツールバー ===== */}
+      <Paper
+        variant="outlined"
+        sx={{ px: 2.5, py: 1.5, mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1.5 }}
+      >
+        {/* 左：追加ボタン + 件数バッジ */}
+        <Stack direction="row" spacing={2} alignItems="center">
           <Button
             variant="contained"
+            startIcon={<AddIcon />}
             onClick={() => {
+              const { startAt, endAt } = nowRoundedUp();
               setSelectedSchedule({
-                id: undefined,
-                title: "",
-                start_at: "",
-                end_at: "",
+                id:          undefined,
+                title:       "",
+                start_at:    startAt,
+                end_at:      endAt,
                 description: "",
-                customer: null,
-                shop: selectedShop !== "all" ? selectedShop : null,
+                customer:    null,
+                shop:        selectedShop !== "all" && selectedShop !== "" ? selectedShop : null,
               } as any);
-
               setCreateDialogOpen(true);
             }}
           >
-            ＋ スケジュール追加
+            スケジュール追加
           </Button>
-          <FormControl size="small" sx={{ minWidth: 220 }}>
+
+          {fetchLoading ? (
+            <CircularProgress size={20} />
+          ) : (
+            <Chip
+              icon={<CalendarMonthIcon fontSize="small" />}
+              label={`${events.length} 件`}
+              size="small"
+              variant="outlined"
+            />
+          )}
+        </Stack>
+
+        {/* 右：凡例 + 店舗フィルタ */}
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          {/* 凡例 */}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: EVENT_COLOR_WITH_CUSTOMER }} />
+              <Typography variant="caption" color="text.secondary">顧客あり</Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: EVENT_COLOR_WITHOUT_CUSTOMER }} />
+              <Typography variant="caption" color="text.secondary">顧客なし</Typography>
+            </Stack>
+          </Stack>
+
+          {/* 店舗セレクタ */}
+          <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>店舗</InputLabel>
             <Select
               label="店舗"
@@ -251,17 +331,31 @@ export default function ScheduleCalendar() {
             >
               <MenuItem value="all">全店舗</MenuItem>
               {shops.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name}
-                </MenuItem>
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
               ))}
             </Select>
           </FormControl>
-        </Box>
-      
+        </Stack>
+      </Paper>
 
       {/* ===== カレンダー ===== */}
-      <Paper sx={{ p: 2 }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          overflow: "hidden",
+          // FullCalendar のスタイル上書き
+          "& .fc-toolbar-title": { fontSize: "1.1rem", fontWeight: 700 },
+          "& .fc-button": {
+            textTransform: "none",
+            fontSize: "0.8rem",
+            padding: "4px 10px",
+          },
+          "& .fc-day-today": { bgcolor: "primary.50 !important" },
+          "& .fc-event": { cursor: "pointer", fontSize: "0.78rem", borderRadius: "4px", px: 0.5 },
+          "& .fc-daygrid-day-number": { fontWeight: 500 },
+        }}
+      >
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -269,13 +363,23 @@ export default function ScheduleCalendar() {
           locale="ja"
           height="auto"
           headerToolbar={{
-            left: "prev,next today",
+            left:   "prev,next today",
             center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
+            right:  "dayGridMonth,timeGridWeek,timeGridDay",
+          }}
+          buttonText={{
+            today:        "今日",
+            month:        "月",
+            week:         "週",
+            day:          "日",
           }}
           events={events}
           datesSet={handleDatesSet}
           eventClick={handleEventClick}
+          dateClick={handleDateClick}
+          eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+          dayMaxEvents={3}
+          moreLinkText={(n) => `+${n}件`}
         />
       </Paper>
 
@@ -285,13 +389,16 @@ export default function ScheduleCalendar() {
         schedule={selectedSchedule}
         mode={dialogMode}
         shops={shops}
-        onClose={() => setDialogOpen(false)}
+        customers={customers}
+        onClose={() => { setDialogOpen(false); setDialogMode("view"); }}
         onEdit={() => setDialogMode("edit")}
-        onUpdate={handleUpdate}
+        onUpdate={handleSave}
         onDelete={handleDelete}
         onChange={setSelectedSchedule}
       />
-      {selectedSchedule && (
+
+      {/* ===== 新規作成ダイアログ ===== */}
+      {selectedSchedule && !selectedSchedule.id && (
         <ScheduleCreateDialog
           open={createDialogOpen}
           schedule={selectedSchedule}
@@ -301,11 +408,7 @@ export default function ScheduleCalendar() {
             setSelectedSchedule(null);
           }}
           onChange={(s) => setSelectedSchedule(s)}
-          onSave={async () => {
-            await handleUpdate();
-            setCreateDialogOpen(false);
-            setSelectedSchedule(null);
-          }}
+          onSave={handleSave}
         />
       )}
     </Box>

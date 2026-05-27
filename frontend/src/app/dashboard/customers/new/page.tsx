@@ -552,9 +552,13 @@ export default function CustomerNewPage() {
             color="warning"
             onClick={async () => {
               if (!pendingPayload) return;
-
-              const res = await apiClient.post("/customers/", pendingPayload);
-              router.push(`/dashboard/customers/${res.data.id}`);
+              try {
+                const res = await apiClient.post("/customers/", pendingPayload);
+                router.push(`/dashboard/customers/${res.data.id}`);
+              } catch {
+                setError("登録に失敗しました");
+                setSimilarOpen(false);
+              }
             }}
           >
             無視して登録

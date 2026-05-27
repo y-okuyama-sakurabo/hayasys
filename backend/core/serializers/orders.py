@@ -473,11 +473,14 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 明細
         if items_data is not None:
+            # DeliveryItem は OrderItem を PROTECT FK で参照しているため先に削除
+            for order_item in instance.items.all():
+                order_item.deliveryitem_set.all().delete()
             instance.items.all().delete()
             for item in items_data:
                 item.pop("saveAsProduct", None)
                 OrderItem.objects.create(order=instance, **item)
-            self._recalculate_order(instance) 
+            self._recalculate_order(instance)
 
         # =========================
         # 🔥 schedule更新（追加）

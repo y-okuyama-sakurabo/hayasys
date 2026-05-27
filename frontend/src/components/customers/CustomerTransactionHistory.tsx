@@ -15,6 +15,7 @@ import {
   CircularProgress,
   Link,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import apiClient from "@/lib/apiClient";
@@ -40,10 +41,11 @@ const ORDER_STATUS_COLOR: Record<
   string,
   "default" | "warning" | "error" | "success" | "primary"
 > = {
-  draft: "default",
-  ordered: "primary",
-  cancelled: "error",
-  delivered: "success",
+  draft:           "default",
+  ordered:         "primary",
+  cancelled:       "error",
+  delivered:       "success",
+  sales_completed: "success",
 };
 
 export default function CustomerTransactionHistory({
@@ -51,6 +53,7 @@ export default function CustomerTransactionHistory({
 }: {
   customerId: number;
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -119,6 +122,13 @@ export default function CustomerTransactionHistory({
                   key={`${item.type}-${item.id}`}
                   hover
                   sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    router.push(
+                      item.type === "estimate"
+                        ? `/dashboard/estimates/${item.id}`
+                        : `/dashboard/orders/${item.id}`
+                    )
+                  }
                 >
                   {/* 種別 */}
                   <TableCell>

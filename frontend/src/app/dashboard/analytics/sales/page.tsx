@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import {
   Box, Paper, Typography, TextField, Stack, CircularProgress,
-  Grid, FormControl, InputLabel, Select, MenuItem,
+  Grid, FormControl, InputLabel, Select, MenuItem, Button,
   Tab, Tabs, Table, TableBody, TableCell, TableHead, TableRow,
   Chip, Divider, ToggleButton, ToggleButtonGroup, LinearProgress,
 } from "@mui/material";
@@ -17,6 +17,7 @@ import {
   XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, CartesianGrid,
 } from "recharts";
+import SearchIcon from "@mui/icons-material/Search";
 import apiClient from "@/lib/apiClient";
 
 // ========================
@@ -98,25 +99,56 @@ function KpiCard({ label, color, total, count, diff }: {
 }
 
 // ========================
-// 受注率カード
+// 見積→受注 転換率カード
 // ========================
-function ConversionRateCard({ orderCount, estimateCount, orderTotal, estimateTotal }: {
-  orderCount: number; estimateCount: number; orderTotal: number; estimateTotal: number;
+function ConversionRateCard({
+  orderedEstimateCount,
+  estimateCount,
+  orderedEstimateTotal,
+  estimateTotal,
+  directOrderCount,
+}: {
+  orderedEstimateCount: number;
+  estimateCount: number;
+  orderedEstimateTotal: number;
+  estimateTotal: number;
+  directOrderCount: number;
 }) {
-  if (estimateCount === 0 && estimateTotal === 0) return null;
+  // 見積が1件もない場合は非表示
+  if (estimateCount === 0) return null;
 
-  const rateCount  = estimateCount  > 0 ? (orderCount  / estimateCount  * 100) : null;
-  const rateAmount = estimateTotal  > 0 ? (orderTotal  / estimateTotal  * 100) : null;
+  // 件数ベース転換率：見積のうち受注済になった割合
+  const rateCount  = estimateCount > 0
+    ? (orderedEstimateCount / estimateCount * 100)
+    : null;
+
+  // 金額ベース転換率：見積金額のうち受注済見積の金額割合
+  const rateAmount = estimateTotal > 0
+    ? (orderedEstimateTotal / estimateTotal * 100)
+    : null;
 
   const barColor = (r: number): "success" | "warning" | "error" =>
     r >= 70 ? "success" : r >= 50 ? "warning" : "error";
 
   return (
     <Paper sx={{ p: 2.5, borderTop: "4px solid #6a1b9a" }}>
-      <Typography variant="caption" color="text.secondary" fontWeight="bold" letterSpacing={0.8}>
-        受注率（見積 → 受注 転換率）
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
+        <Typography variant="caption" color="text.secondary" fontWeight="bold" letterSpacing={0.8}>
+          見積 → 受注 転換率
+        </Typography>
+        {/* 直接受注の補足情報 */}
+        {directOrderCount > 0 && (
+          <Chip
+            size="small"
+            label={`直接受注 ${directOrderCount}件（見積なし）`}
+            variant="outlined"
+            sx={{ fontSize: 11 }}
+          />
+        )}
+      </Stack>
+
       <Grid container spacing={3} sx={{ mt: 0.5 }}>
+        {/* 件数ベース */}
         {rateCount !== null && (
           <Grid size={{ xs: 12, sm: 6 }}>
             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
@@ -124,7 +156,7 @@ function ConversionRateCard({ orderCount, estimateCount, orderTotal, estimateTot
               <Typography variant="body2" fontWeight="bold">
                 {rateCount.toFixed(1)}%
                 <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                  ({orderCount}/{estimateCount}件)
+                  ({orderedEstimateCount} / {estimateCount}件)
                 </Typography>
               </Typography>
             </Stack>
@@ -136,6 +168,8 @@ function ConversionRateCard({ orderCount, estimateCount, orderTotal, estimateTot
             />
           </Grid>
         )}
+
+        {/* 金額ベース */}
         {rateAmount !== null && (
           <Grid size={{ xs: 12, sm: 6 }}>
             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
@@ -143,7 +177,7 @@ function ConversionRateCard({ orderCount, estimateCount, orderTotal, estimateTot
               <Typography variant="body2" fontWeight="bold">
                 {rateAmount.toFixed(1)}%
                 <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                  ({fmt(orderTotal)} / {fmt(estimateTotal)})
+                  ({fmt(orderedEstimateTotal)} / {fmt(estimateTotal)})
                 </Typography>
               </Typography>
             </Stack>
@@ -156,6 +190,10 @@ function ConversionRateCard({ orderCount, estimateCount, orderTotal, estimateTot
           </Grid>
         )}
       </Grid>
+
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+        ※ 同期間に作成された見積のうち、受注済みになった割合（直接受注は含まず）
+      </Typography>
     </Paper>
   );
 }
@@ -240,23 +278,37 @@ export default function SalesAnalyticsPage() {
   const router = useRouter();
   const today  = dayjs();
 
-  // フィルター
-  const [start,   setStart]   = useState(today.startOf("month").format("YYYY-MM-DD"));
-  const [end,     setEnd]     = useState(today.format("YYYY-MM-DD"));
+  // ── 期間モード ──
+  const [periodMode,    setPeriodMode]    = useState<"month" | "range">("month");
+  const [selectedMonth, setSelectedMonth] = useState(today.format("YYYY-MM"));
+
+  // ── 期間指定モード用 ──
+  const [rangeFrom, setRangeFrom] = useState(today.startOf("month").format("YYYY-MM-DD"));
+  const [rangeTo,   setRangeTo]   = useState(today.format("YYYY-MM-DD"));
+
+  // ── フィルター ──
   const [shopId,  setShopId]  = useState<number | "all">("all");
   const [staffId, setStaffId] = useState<number | "all">("all");
   const [shops,   setShops]   = useState<any[]>([]);
   const [staffs,  setStaffs]  = useState<any[]>([]);
 
-  // 集計単位
+  // ── 集計単位 ──
   const [aggUnit, setAggUnit] = useState<AggUnit>("day");
 
-  // データ
+  // ── データ ──
   const [data,     setData]     = useState<DailyData[]>([]);
   const [prevData, setPrevData] = useState<DailyData[]>([]);
   const [fullList, setFullList] = useState<FullList>({ estimates: [], orders: [], sales: [] });
   const [loading,  setLoading]  = useState(false);
   const [tab,      setTab]      = useState(0); // 0=受注, 1=見積, 2=売上
+
+  // 月選択モード時の start/end を導出
+  const monthStart = dayjs(selectedMonth + "-01").startOf("month").format("YYYY-MM-DD");
+  const monthEnd   = dayjs(selectedMonth + "-01").endOf("month").format("YYYY-MM-DD");
+
+  // 実際に使う start/end
+  const start = periodMode === "month" ? monthStart : rangeFrom;
+  const end   = periodMode === "month" ? monthEnd   : rangeTo;
 
   // 初期ロード
   useEffect(() => {
@@ -272,18 +324,28 @@ export default function SalesAnalyticsPage() {
     }).catch(console.error);
   }, []);
 
-  // フィルター変化時
+  // 月選択モード：月 / 店舗 / 担当 が変化したら自動フェッチ
   useEffect(() => {
-    if (!shopId) return;
-    fetchAll();
-  }, [start, end, shopId, staffId]);
+    if (periodMode === "month") fetchAll(monthStart, monthEnd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth, shopId, staffId, periodMode]);
 
-  const fetchAll = async () => {
+  // モード切り替え
+  const handlePeriodModeChange = (_: any, val: "month" | "range") => {
+    if (!val) return;
+    setPeriodMode(val);
+    setData([]);
+    setPrevData([]);
+    setFullList({ estimates: [], orders: [], sales: [] });
+    if (val === "month") fetchAll(monthStart, monthEnd);
+  };
+
+  const fetchAll = async (s = start, e = end) => {
     setLoading(true);
     try {
-      const params     = { start, end, shop_id: shopId, staff_id: staffId };
-      const prevStart  = dayjs(start).subtract(1, "month").format("YYYY-MM-DD");
-      const prevEnd    = dayjs(end).subtract(1, "month").format("YYYY-MM-DD");
+      const params     = { start: s, end: e, shop_id: shopId, staff_id: staffId };
+      const prevStart  = dayjs(s).subtract(1, "month").format("YYYY-MM-DD");
+      const prevEnd    = dayjs(e).subtract(1, "month").format("YYYY-MM-DD");
       const prevParams = { start: prevStart, end: prevEnd, shop_id: shopId, staff_id: staffId };
 
       const [dailyRes, prevDailyRes, listRes] = await Promise.all([
@@ -317,6 +379,14 @@ export default function SalesAnalyticsPage() {
   const estimateCount = fullList.estimates.length;
   const salesCount    = (fullList.sales || []).length;
 
+  // 見積→受注 転換率の分子：同期間の見積のうちステータスが「受注済」のもの
+  const orderedEstimates      = (fullList.estimates as any[]).filter((e) => e.status === "ordered");
+  const orderedEstimateCount  = orderedEstimates.length;
+  const orderedEstimateTotal  = orderedEstimates.reduce((s: number, e: any) => s + Number(e.grand_total || 0), 0);
+
+  // 直接受注数（見積を経由せずに作成された受注の概算）
+  const directOrderCount = Math.max(0, orderCount - orderedEstimateCount);
+
   const aggLabels: Record<AggUnit, string> = { day: "日次", week: "週次", month: "月次" };
 
   // ========================
@@ -328,7 +398,9 @@ export default function SalesAnalyticsPage() {
 
       {/* ── フィルター ── */}
       <Paper sx={{ p: 2, mb: 2 }}>
+        {/* 1行目：店舗 ＋ 担当 ＋ 期間モード ＋ 期間入力 */}
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          {/* 店舗 */}
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>店舗</InputLabel>
             <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
@@ -337,6 +409,7 @@ export default function SalesAnalyticsPage() {
             </Select>
           </FormControl>
 
+          {/* 担当 */}
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>担当</InputLabel>
             <Select value={staffId} label="担当" onChange={(e) => setStaffId(e.target.value as any)}>
@@ -345,16 +418,64 @@ export default function SalesAnalyticsPage() {
             </Select>
           </FormControl>
 
-          <TextField
-            label="開始日" type="date" size="small" value={start}
-            onChange={(e) => setStart(e.target.value)}
-            InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
-          />
-          <TextField
-            label="終了日" type="date" size="small" value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
-          />
+          <Divider orientation="vertical" flexItem />
+
+          {/* 期間モード切り替え */}
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={periodMode}
+            onChange={handlePeriodModeChange}
+          >
+            <ToggleButton value="month">月選択</ToggleButton>
+            <ToggleButton value="range">期間指定</ToggleButton>
+          </ToggleButtonGroup>
+
+          {/* 月選択モード */}
+          {periodMode === "month" && (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>月</InputLabel>
+              <Select
+                value={selectedMonth}
+                label="月"
+                onChange={(e) => setSelectedMonth(String(e.target.value))}
+              >
+                {Array.from({ length: 24 }, (_, i) => {
+                  const m = today.subtract(i, "month");
+                  return (
+                    <MenuItem key={m.format("YYYY-MM")} value={m.format("YYYY-MM")}>
+                      {m.format("YYYY年MM月")}
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* 期間指定モード */}
+          {periodMode === "range" && (
+            <>
+              <TextField
+                label="開始日" type="date" size="small" value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
+              />
+              <Typography variant="body2" color="text.secondary">〜</Typography>
+              <TextField
+                label="終了日" type="date" size="small" value={rangeTo}
+                onChange={(e) => setRangeTo(e.target.value)}
+                InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SearchIcon />}
+                onClick={() => fetchAll(rangeFrom, rangeTo)}
+              >
+                検索
+              </Button>
+            </>
+          )}
         </Stack>
       </Paper>
 
@@ -377,10 +498,11 @@ export default function SalesAnalyticsPage() {
       {/* ── 受注率 ── */}
       <Box sx={{ mb: 2 }}>
         <ConversionRateCard
-          orderCount={orderCount}
+          orderedEstimateCount={orderedEstimateCount}
           estimateCount={estimateCount}
-          orderTotal={orderTotal}
+          orderedEstimateTotal={orderedEstimateTotal}
           estimateTotal={estimateTotal}
+          directOrderCount={directOrderCount}
         />
       </Box>
 

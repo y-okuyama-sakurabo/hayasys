@@ -53,15 +53,15 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
                 | Q(items__product__name__icontains=q_norm)
             ).distinct()
 
-        # 日付範囲
+        # 日付範囲（estimate_date 基準。未設定の場合は created_at で補完）
         date_from = self.request.query_params.get("date_from")
         date_to = self.request.query_params.get("date_to")
 
         if date_from:
-            qs = qs.filter(created_at__date__gte=date_from)
+            qs = qs.filter(estimate_date__gte=date_from)
 
         if date_to:
-            qs = qs.filter(created_at__date__lte=date_to)
+            qs = qs.filter(estimate_date__lte=date_to)
 
         # 金額範囲
         amount_min = self.request.query_params.get("amount_min")
@@ -160,31 +160,26 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
 
     def perform_update(self, serializer):
         """
-        🔥 重要：
-        - PUT/PATCHで shop を送らない場合に、勝手に user_shop で上書きしない
-        - shop を送ってきた時だけ更新する（未送信なら既存維持）
+        - shop を送らない場合は既存の値を維持（上書きしない）
+        - shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
+        - shop=<id> は指定店舗に更新
         """
         staff = getattr(self.request.user, "staff", None)
         user_shop = getattr(staff, "shop", None)
 
         shop_id = self.request.data.get("shop", None)
 
-        # shop が未送信なら既存維持（上書きしない）
+        # shop が未送信（None）なら既存維持
         if shop_id is None:
             serializer.save()
             return
 
-        # shop="" は「未選択」扱い → user_shop に寄せる（nullにしたいなら shop:null を送る）
+        # shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
         if shop_id == "":
             serializer.save(shop=user_shop)
             return
 
-        # shop=null を送ってきたら明示的にnull更新
-        if shop_id is None:
-            serializer.save(shop=None)
-            return
-
-        # shop が送られてきた時だけ解決して更新
+        # shop=<id> で送ってきた時だけ解決して更新
         try:
             shop = Shop.objects.get(id=shop_id)
         except Shop.DoesNotExist:

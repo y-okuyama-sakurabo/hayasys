@@ -2,14 +2,21 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Box, Paper, Typography, Stack, Chip, Grid,
-  FormControl, InputLabel, Select, MenuItem, TextField,
-  ToggleButton, ToggleButtonGroup, Tab, Tabs, Divider,
+  Box, Paper, Typography, Stack, Chip, Grid, Divider,
+  FormControl, InputLabel, Select, MenuItem, TextField, Button,
+  ToggleButton, ToggleButtonGroup, Breadcrumbs, Link,
+  CircularProgress,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon         from "@mui/icons-material/Search";
+import ChevronRightIcon   from "@mui/icons-material/ChevronRight";
+import HomeIcon           from "@mui/icons-material/Home";
+import NavigateNextIcon   from "@mui/icons-material/NavigateNext";
+import DirectionsCarIcon  from "@mui/icons-material/DirectionsCar";
+import CategoryIcon       from "@mui/icons-material/Category";
+import TuneIcon           from "@mui/icons-material/Tune";
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
+  Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
@@ -23,65 +30,276 @@ const CHART_COLORS = [
 ];
 const fmt = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
 
+type CatEntry  = { category_id: number; name: string; total: number; count: number; share?: number };
+type PathEntry = { id: number; name: string };
+
 // ========================
-// 横棒グラフ + ランキングリスト（共通）
+// カテゴリナビゲーター
 // ========================
-function RankedSection({
-  data, nameKey = "name", totalKey = "total", countKey = "count",
-  onSelect, selectedId, idKey,
+function CategoryNavigator({
+  categories, path, selectedId, onCatClick, onBreadcrumbClick, loading,
 }: {
-  data: any[];
-  nameKey?: string;
-  totalKey?: string;
-  countKey?: string;
-  onSelect?: (item: any) => void;
-  selectedId?: number | string | null;
-  idKey?: string;
+  categories: CatEntry[];
+  path: PathEntry[];
+  selectedId: number | null;
+  onCatClick: (cat: CatEntry) => void;
+  onBreadcrumbClick: (depth: number) => void;
+  loading: boolean;
 }) {
-  const maxTotal = data[0]?.[totalKey] || 1;
+  const maxVal = categories.filter((c) => c.category_id !== selectedId)[0]?.total
+    || categories[0]?.total || 1;
+
   return (
     <Box>
-      {data.map((item, i) => {
-        const isSelected = idKey && selectedId != null && item[idKey] === selectedId;
-        const barWidth = Math.max((item[totalKey] / maxTotal) * 100, 1);
-        return (
-          <Box
-            key={i}
-            onClick={() => onSelect?.(item)}
-            sx={{
-              py: 1.2, px: 1.5,
-              borderBottom: "1px solid #f0f0f0",
-              cursor: onSelect ? "pointer" : "default",
-              bgcolor: isSelected ? "action.selected" : "transparent",
-              borderRadius: 1,
-              "&:hover": onSelect ? { bgcolor: "action.hover" } : undefined,
-            }}
+      {/* パンくず */}
+      <Breadcrumbs
+        separator={<NavigateNextIcon sx={{ fontSize: 14 }} />}
+        sx={{ mb: 1.5 }}
+      >
+        <Link
+          component="button"
+          variant="caption"
+          underline="hover"
+          onClick={() => onBreadcrumbClick(-1)}
+          sx={{ display: "flex", alignItems: "center", gap: 0.3, cursor: "pointer" }}
+        >
+          <HomeIcon sx={{ fontSize: 13 }} />
+          ルート
+        </Link>
+        {path.map((p, i) => (
+          <Link
+            key={p.id}
+            component="button"
+            variant="caption"
+            underline="hover"
+            onClick={() => onBreadcrumbClick(i)}
+            sx={{ cursor: "pointer" }}
+            color={i === path.length - 1 ? "text.primary" : "inherit"}
           >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-              <Typography variant="body2" fontWeight={i < 3 ? "bold" : "normal"}>
-                {i + 1}. {item[nameKey] ?? item.color_label ?? "-"}
+            {p.name}
+          </Link>
+        ))}
+      </Breadcrumbs>
+
+      {/* カテゴリリスト */}
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress size={22} />
+        </Box>
+      ) : (
+        <Box sx={{ maxHeight: 500, overflowY: "auto", pr: 0.5 }}>
+          {categories.map((cat) => {
+            const isSelected = cat.category_id === selectedId;
+            const barW = Math.max((cat.total / maxVal) * 100, 2);
+            return (
+              <Box
+                key={cat.category_id}
+                onClick={() => onCatClick(cat)}
+                sx={{
+                  px: 1.5, py: 1, mb: 0.5,
+                  border: "1px solid",
+                  borderColor: isSelected ? "primary.main" : "divider",
+                  bgcolor: isSelected ? "primary.50" : "transparent",
+                  borderRadius: 1.5,
+                  cursor: "pointer",
+                  "&:hover": {
+                    borderColor: "primary.light",
+                    bgcolor: isSelected ? "primary.50" : "action.hover",
+                  },
+                  transition: "all 0.15s",
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography
+                    variant="body2"
+                    fontWeight={isSelected ? "bold" : 500}
+                    color={isSelected ? "primary.main" : "text.primary"}
+                    sx={{ flex: 1, mr: 1 }}
+                  >
+                    {cat.name}
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
+                    <Typography variant="caption" color="text.secondary">
+                      {cat.count}件
+                    </Typography>
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                      {fmt(cat.total)}
+                    </Typography>
+                    <ChevronRightIcon sx={{ fontSize: 15, color: "text.disabled" }} />
+                  </Stack>
+                </Stack>
+                <Box sx={{ mt: 0.5, height: 3, bgcolor: "grey.100", borderRadius: 1 }}>
+                  <Box sx={{
+                    height: "100%",
+                    width: `${barW}%`,
+                    bgcolor: isSelected ? "primary.main" : "primary.light",
+                    borderRadius: 1,
+                    opacity: 0.5,
+                  }} />
+                </Box>
+              </Box>
+            );
+          })}
+
+          {categories.length === 0 && !loading && path.length > 0 && (
+            <Box sx={{ py: 3, textAlign: "center" }}>
+              <Typography variant="caption" color="text.secondary">
+                これ以上サブカテゴリはありません（末端カテゴリ）
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="body2" fontWeight="bold">{fmt(item[totalKey])}</Typography>
-                <Typography variant="caption" color="text.secondary">{item[countKey]}件</Typography>
-                {item.share != null && (
-                  <Chip label={`${item.share}%`} size="small" variant="outlined" />
-                )}
-              </Stack>
-            </Stack>
-            {/* バー */}
-            <Box sx={{ height: 4, bgcolor: "grey.100", borderRadius: 2, overflow: "hidden" }}>
-              <Box sx={{ height: "100%", width: `${barWidth}%`, bgcolor: CHART_COLORS[i % CHART_COLORS.length], borderRadius: 2, transition: "width 0.4s" }} />
             </Box>
-          </Box>
-        );
-      })}
-      {data.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-          データがありません
-        </Typography>
+          )}
+          {categories.length === 0 && !loading && path.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+              データがありません
+            </Typography>
+          )}
+        </Box>
       )}
     </Box>
+  );
+}
+
+// ========================
+// 横棒グラフ（共通）
+// ========================
+function HBar({
+  data, dataKey, nameKey = "name", unit = "¥", top = 10,
+}: {
+  data: any[];
+  dataKey: string;
+  nameKey?: string;
+  unit?: string;
+  top?: number;
+}) {
+  const sliced = data.slice(0, top);
+  if (!sliced.length) return (
+    <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
+      データがありません
+    </Typography>
+  );
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(120, sliced.length * 34)}>
+      <BarChart layout="vertical" data={sliced} margin={{ left: 8, right: 52 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+        <XAxis
+          type="number"
+          tick={{ fontSize: 10 }}
+          tickFormatter={(v) => unit === "¥" ? `${(v / 10000).toFixed(0)}万` : `${v}`}
+        />
+        <YAxis type="category" dataKey={nameKey} width={100} tick={{ fontSize: 11 }} />
+        <Tooltip formatter={(v: any) => unit === "¥" ? fmt(Number(v)) : `${v}台`} />
+        <Bar dataKey={dataKey} name={unit === "¥" ? "売上" : "台数"} radius={[0, 4, 4, 0]}>
+          {sliced.map((_, i) => (
+            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+          ))}
+          <LabelList
+            dataKey={unit === "¥" ? "count" : dataKey}
+            position="right"
+            formatter={(v: any) => unit === "¥" ? `${v}件` : `${v}台`}
+            style={{ fontSize: 10, fill: "#666" }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ========================
+// 分析パネル
+// ========================
+function AnalysisPanel({
+  summary, mfrData, colorData, isVehicle, loading,
+}: {
+  summary: CatEntry | null;
+  mfrData: any[];
+  colorData: any[];
+  isVehicle: boolean;
+  loading: boolean;
+}) {
+  if (!summary && !loading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        minHeight={320}
+        sx={{ color: "text.disabled" }}
+      >
+        <TuneIcon sx={{ fontSize: 48, mb: 1 }} />
+        <Typography variant="body2" color="text.secondary">
+          左のカテゴリを選択すると分析が表示されます
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={320}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const topMfr   = mfrData.filter((d) => !d.no_manufacturer).slice(0, 10);
+  const noMfrRow = mfrData.find((d) => d.no_manufacturer);
+  const topColor = colorData.slice(0, 10);
+
+  return (
+    <Stack spacing={3}>
+      {/* サマリ */}
+      <Box sx={{
+        p: 2, borderRadius: 1.5,
+        bgcolor: "primary.50",
+        border: "1px solid", borderColor: "primary.100",
+      }}>
+        <Typography variant="subtitle2" color="primary.dark" fontWeight="bold" gutterBottom>
+          {summary!.name}
+        </Typography>
+        <Stack direction="row" spacing={4}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">件数</Typography>
+            <Typography variant="h6" fontWeight="bold">{summary!.count}件</Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">売上合計</Typography>
+            <Typography variant="h6" fontWeight="bold">{fmt(summary!.total)}</Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      {/* メーカー別 */}
+      <Box>
+        <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1.5 }}>
+          メーカー別売上
+        </Typography>
+        <HBar data={topMfr} dataKey="total" nameKey="name" unit="¥" />
+        {noMfrRow && (
+          <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: "block" }}>
+            ※ メーカー未登録 {noMfrRow.count}件は除外しています
+          </Typography>
+        )}
+        {topMfr.length === 0 && !noMfrRow && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            メーカーデータがありません
+          </Typography>
+        )}
+      </Box>
+
+      {/* 車体色別（車両のみ） */}
+      {isVehicle && (
+        <>
+          <Divider />
+          <Box>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1.5 }}>
+              車体色別 台数
+            </Typography>
+            <HBar data={topColor} dataKey="count" nameKey="color_label" unit="台" />
+          </Box>
+        </>
+      )}
+    </Stack>
   );
 }
 
@@ -91,74 +309,175 @@ function RankedSection({
 export default function ProductAnalyticsPage() {
   const today = dayjs();
 
-  // フィルター
-  const [mode,   setMode]   = useState<"order" | "estimate">("order");
-  const [shopId, setShopId] = useState<number | "all">("all");
-  const [start,  setStart]  = useState(today.startOf("month").format("YYYY-MM-DD"));
-  const [end,    setEnd]    = useState(today.format("YYYY-MM-DD"));
-  const [shops,  setShops]  = useState<any[]>([]);
+  // ── 共通フィルター ──
+  const [mode,    setMode]    = useState<"order" | "estimate">("order");
+  const [shopId,  setShopId]  = useState<number | "all">("all");
+  const [shops,   setShops]   = useState<any[]>([]);
+  const [initLoading, setInitLoading] = useState(true);
 
-  // タブ
-  const [tab, setTab] = useState(0); // 0=カテゴリ, 1=メーカー, 2=色
+  const [periodMode,    setPeriodMode]    = useState<"month" | "range">("month");
+  const [selectedMonth, setSelectedMonth] = useState(today.format("YYYY-MM"));
+  const [rangeFrom,     setRangeFrom]     = useState(today.startOf("month").format("YYYY-MM-DD"));
+  const [rangeTo,       setRangeTo]       = useState(today.format("YYYY-MM-DD"));
 
-  // カテゴリ選択（メーカー・色タブのフィルターに使う）
-  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null);
+  const initStart = dayjs(today.format("YYYY-MM") + "-01").startOf("month").format("YYYY-MM-DD");
+  const [appliedStart, setAppliedStart] = useState(initStart);
+  const [appliedEnd,   setAppliedEnd]   = useState(today.format("YYYY-MM-DD"));
 
-  // データ
-  const [catData, setCatData] = useState<any[]>([]);
-  const [mfrData, setMfrData] = useState<any[]>([]);
-  const [colorData, setColorData] = useState<any[]>([]);
-
-  // 初期ロード
   useEffect(() => {
-    apiClient.get("/masters/shops/")
-      .then((r) => setShops(r.data.results || r.data || []))
-      .catch(console.error);
-  }, []);
-
-  // データ取得
-  const baseParams = { mode, start, end, shop_id: shopId };
-
-  const fetchCategory = useCallback(async () => {
-    const res = await apiClient.get("/analytics/product/", { params: { ...baseParams, type: "category" } });
-    setCatData(res.data || []);
-  }, [mode, start, end, shopId]);
-
-  const fetchManufacturer = useCallback(async () => {
-    const params: any = { ...baseParams, type: "manufacturer" };
-    if (selectedCategory) params.filter_category_id = selectedCategory.id;
-    const res = await apiClient.get("/analytics/product/", { params });
-    setMfrData(res.data || []);
-  }, [mode, start, end, shopId, selectedCategory]);
-
-  const fetchColor = useCallback(async () => {
-    const res = await apiClient.get("/analytics/product/", { params: { ...baseParams, type: "color" } });
-    setColorData(res.data || []);
-  }, [mode, start, end, shopId]);
-
-  useEffect(() => { if (start && end) fetchCategory(); },     [fetchCategory]);
-  useEffect(() => { if (start && end) fetchManufacturer(); }, [fetchManufacturer]);
-  useEffect(() => { if (start && end) fetchColor(); },        [fetchColor]);
-
-  // カテゴリ選択ハンドラ
-  const handleSelectCategory = (item: any) => {
-    if (selectedCategory?.id === item.category_id) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory({ id: item.category_id, name: item.name });
+    if (periodMode === "month") {
+      setAppliedStart(dayjs(selectedMonth + "-01").startOf("month").format("YYYY-MM-DD"));
+      setAppliedEnd(dayjs(selectedMonth + "-01").endOf("month").format("YYYY-MM-DD"));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodMode, selectedMonth]);
+
+  // ── アイテムタイプタブ ──
+  const [itemTypeTab,   setItemTypeTab]   = useState(0); // 0=車両, 1=その他
+  const [otherSubType,  setOtherSubType]  = useState<string>("non_vehicle");
+
+  const activeItemType = itemTypeTab === 0 ? "vehicle" : otherSubType;
+  const isVehicle      = itemTypeTab === 0;
+
+  // ── カテゴリナビ状態 ──
+  const [catPath,    setCatPath]    = useState<PathEntry[]>([]);
+  const [navCats,    setNavCats]    = useState<CatEntry[]>([]);
+  const [navLoading, setNavLoading] = useState(false);
+
+  // ── 分析状態 ──
+  const [selectedCat,    setSelectedCat]    = useState<CatEntry | null>(null);
+  const [mfrData,        setMfrData]        = useState<any[]>([]);
+  const [colorData,      setColorData]      = useState<any[]>([]);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  const baseParams = { mode, start: appliedStart, end: appliedEnd, shop_id: shopId };
+
+  // ── ナビカテゴリ取得 ──
+  const fetchNavCats = useCallback(async (categoryId?: number) => {
+    setNavLoading(true);
+    try {
+      const params: any = { ...baseParams, type: "category", item_type: activeItemType };
+      if (categoryId != null) params.category_id = categoryId;
+      const res = await apiClient.get("/analytics/product/", { params });
+      setNavCats(res.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setNavLoading(false);
+    }
+  }, [mode, appliedStart, appliedEnd, shopId, activeItemType]); // eslint-disable-line
+
+  // ── 分析データ取得 ──
+  const fetchAnalysis = useCallback(async (categoryId: number) => {
+    setAnalysisLoading(true);
+    try {
+      const filterParams = { ...baseParams, filter_category_id: categoryId };
+      const [mfrRes, colorRes] = await Promise.all([
+        apiClient.get("/analytics/product/", {
+          params: { ...filterParams, type: "manufacturer", item_type: activeItemType },
+        }),
+        isVehicle
+          ? apiClient.get("/analytics/product/", {
+              params: { ...filterParams, type: "color" },
+            })
+          : Promise.resolve({ data: [] }),
+      ]);
+      setMfrData(mfrRes.data || []);
+      setColorData(isVehicle ? (colorRes as any).data || [] : []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }, [mode, appliedStart, appliedEnd, shopId, activeItemType, isVehicle]); // eslint-disable-line
+
+  // フィルター変更時にリセット＆再取得（初期ロード完了後のみ）
+  useEffect(() => {
+    if (initLoading) return;
+    setCatPath([]);
+    setNavCats([]);
+    setSelectedCat(null);
+    setMfrData([]);
+    setColorData([]);
+    fetchNavCats();
+  }, [fetchNavCats, initLoading]);
+
+  // タブ変更時もリセット
+  useEffect(() => {
+    setCatPath([]);
+    setNavCats([]);
+    setSelectedCat(null);
+    setMfrData([]);
+    setColorData([]);
+  }, [itemTypeTab, otherSubType]);
+
+  // ── カテゴリクリック ──
+  const handleCatClick = async (cat: CatEntry) => {
+    const params: any = {
+      ...baseParams,
+      type: "category",
+      item_type: activeItemType,
+      category_id: cat.category_id,
+    };
+    setNavLoading(true);
+    try {
+      const res     = await apiClient.get("/analytics/product/", { params });
+      const children: CatEntry[] = res.data || [];
+      // 葉検出：子が自分自身1件だけ → 末端
+      const isLeaf = children.length === 1 && children[0].category_id === cat.category_id;
+
+      setCatPath((prev) => [...prev, { id: cat.category_id, name: cat.name }]);
+      setNavCats(isLeaf ? [] : children);
+    } finally {
+      setNavLoading(false);
+    }
+    setSelectedCat(cat);
+    fetchAnalysis(cat.category_id);
   };
 
-  // Donut用データ（top9 + その他）
-  const donutData = catData.slice(0, 9).map((d) => ({
-    name:  d.name,
-    value: Number(d.total),
-    share: d.share,
-  }));
-  if (catData.length > 9) {
-    const rest = catData.slice(9).reduce((s: number, d: any) => s + Number(d.total), 0);
-    donutData.push({ name: "その他", value: rest, share: Number((100 - donutData.reduce((s, d) => s + (d.share ?? 0), 0)).toFixed(1)) });
-  }
+  // ── パンくずクリック ──
+  const handleBreadcrumbClick = (depth: number) => {
+    if (depth < 0) {
+      // ルートへ戻る
+      setCatPath([]);
+      setSelectedCat(null);
+      setMfrData([]);
+      setColorData([]);
+      fetchNavCats();
+      return;
+    }
+    const newPath = catPath.slice(0, depth + 1);
+    setCatPath(newPath);
+    setSelectedCat(null);
+    setMfrData([]);
+    setColorData([]);
+    fetchNavCats(newPath[newPath.length - 1].id);
+  };
+
+  // 初期ロード（自店舗デフォルト）
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const [meRes, shopRes] = await Promise.all([
+          apiClient.get("/auth/user/"),
+          apiClient.get("/masters/shops/"),
+        ]);
+        const myShopId = meRes.data?.shop_id ?? "all";
+        setShopId(myShopId);
+        setShops(shopRes.data.results || shopRes.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setInitLoading(false);
+      }
+    };
+    init();
+  }, []);
+
+  const monthOptions = Array.from({ length: 24 }, (_, i) => {
+    const m = today.subtract(i, "month");
+    return { value: m.format("YYYY-MM"), label: m.format("YYYY年MM月") };
+  });
 
   // ========================
   // UI
@@ -167,164 +486,178 @@ export default function ProductAnalyticsPage() {
     <Box>
       <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>商品分析</Typography>
 
-      {/* ── フィルター ── */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setMode(v)}>
-            <ToggleButton value="order">受注</ToggleButton>
-            <ToggleButton value="estimate">見積</ToggleButton>
-          </ToggleButtonGroup>
+      {/* ── 共通フィルター ── */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <ToggleButtonGroup
+              size="small" exclusive
+              value={mode}
+              onChange={(_, v) => v && setMode(v)}
+            >
+              <ToggleButton value="order">受注</ToggleButton>
+              <ToggleButton value="estimate">見積</ToggleButton>
+            </ToggleButtonGroup>
 
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>店舗</InputLabel>
-            <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
-              <MenuItem value="all">全店舗</MenuItem>
-              {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>店舗</InputLabel>
+              <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
+                <MenuItem value="all">全店舗</MenuItem>
+                {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+              </Select>
+            </FormControl>
 
-          <TextField label="開始日" type="date" size="small" value={start}
-            onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
-          <TextField label="終了日" type="date" size="small" value={end}
-            onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+            <ToggleButtonGroup
+              size="small" exclusive
+              value={periodMode}
+              onChange={(_, v) => v && setPeriodMode(v)}
+            >
+              <ToggleButton value="month">月単位</ToggleButton>
+              <ToggleButton value="range">日付範囲</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+
+          {periodMode === "month" ? (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>月選択</InputLabel>
+              <Select
+                value={selectedMonth}
+                label="月選択"
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                {monthOptions.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <TextField
+                label="開始日" type="date" size="small"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 155 }}
+              />
+              <Typography variant="body2" color="text.secondary">〜</Typography>
+              <TextField
+                label="終了日" type="date" size="small"
+                value={rangeTo}
+                onChange={(e) => setRangeTo(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 155 }}
+              />
+              <Button
+                variant="contained" size="small"
+                startIcon={<SearchIcon />}
+                onClick={() => { setAppliedStart(rangeFrom); setAppliedEnd(rangeTo); }}
+              >
+                検索
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Paper>
 
-      {/* ── 選択カテゴリ chip ── */}
-      {selectedCategory && (
-        <Stack direction="row" sx={{ mb: 2 }}>
-          <Chip
-            label={`カテゴリ: ${selectedCategory.name}`}
-            onDelete={() => setSelectedCategory(null)}
-            deleteIcon={<CloseIcon />}
-            color="primary"
-            variant="outlined"
-          />
+      {/* ── メイン：アイテムタイプ × カテゴリドリルダウン ── */}
+      <Paper variant="outlined">
+        {/* タブ行 */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={2}
+          sx={{ px: 2, py: 1.2, borderBottom: 1, borderColor: "divider" }}
+        >
+          <ToggleButtonGroup
+            exclusive size="small"
+            value={itemTypeTab}
+            onChange={(_, v) => { if (v != null) setItemTypeTab(v); }}
+          >
+            <ToggleButton value={0} sx={{ gap: 0.5 }}>
+              <DirectionsCarIcon sx={{ fontSize: 17 }} />
+              車両
+            </ToggleButton>
+            <ToggleButton value={1} sx={{ gap: 0.5 }}>
+              <CategoryIcon sx={{ fontSize: 17 }} />
+              その他
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          {/* その他サブフィルター */}
+          {itemTypeTab === 1 && (
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel>品目種別</InputLabel>
+              <Select
+                value={otherSubType}
+                label="品目種別"
+                onChange={(e) => setOtherSubType(e.target.value)}
+              >
+                <MenuItem value="non_vehicle">全品目（車両除く）</MenuItem>
+                <MenuItem value="accessory">用品</MenuItem>
+                <MenuItem value="insurance">保険</MenuItem>
+                <MenuItem value="fee">諸費用</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
+          {/* 選択中パス表示 */}
+          {catPath.length > 0 && (
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Typography variant="caption" color="text.secondary">
+                選択中:
+              </Typography>
+              {catPath.map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 && (
+                    <Typography variant="caption" color="text.disabled" sx={{ mx: 0.3 }}>›</Typography>
+                  )}
+                  <Chip label={p.name} size="small" variant={i === catPath.length - 1 ? "filled" : "outlined"}
+                    color={i === catPath.length - 1 ? "primary" : "default"}
+                    sx={{ height: 20, fontSize: 11 }}
+                  />
+                </span>
+              ))}
+            </Stack>
+          )}
         </Stack>
-      )}
 
-      {/* ── タブ ── */}
-      <Paper>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: 1, borderColor: "divider" }}>
-          <Tab label="カテゴリ" />
-          <Tab label="メーカー" />
-          <Tab label="色" />
-        </Tabs>
-
+        {/* コンテンツ */}
         <Box sx={{ p: 2 }}>
+          <Grid container spacing={2}>
 
-          {/* ======== カテゴリタブ ======== */}
-          {tab === 0 && (
-            <Grid container spacing={3}>
-              {/* 左：ドーナツグラフ */}
-              <Grid size={{ xs: 12, md: 5 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>売上構成比</Typography>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={donutData}
-                      cx="50%" cy="50%"
-                      innerRadius={70} outerRadius={110}
-                      dataKey="value"
-                      paddingAngle={2}
-                    >
-                      {donutData.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                    <Legend
-                      formatter={(value, entry: any) =>
-                        `${value} ${entry.payload.share ?? ""}%`
-                      }
-                      iconSize={10}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Grid>
-
-              {/* 右：ランキングリスト */}
-              <Grid size={{ xs: 12, md: 7 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  カテゴリ別ランキング
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    ※ クリックするとメーカー・色タブがそのカテゴリに絞り込まれます
-                  </Typography>
+            {/* 左：カテゴリナビ */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, height: "100%", minHeight: 400, bgcolor: "grey.50" }}
+              >
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  カテゴリを選ぶ
                 </Typography>
-                <RankedSection
-                  data={catData}
-                  onSelect={handleSelectCategory}
-                  selectedId={selectedCategory?.id}
-                  idKey="category_id"
+                <CategoryNavigator
+                  categories={navCats}
+                  path={catPath}
+                  selectedId={selectedCat?.category_id ?? null}
+                  onCatClick={handleCatClick}
+                  onBreadcrumbClick={handleBreadcrumbClick}
+                  loading={navLoading}
                 />
-              </Grid>
+              </Paper>
             </Grid>
-          )}
 
-          {/* ======== メーカータブ ======== */}
-          {tab === 1 && (
-            <Grid container spacing={3}>
-              {/* 横棒グラフ（top10） */}
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  メーカー別売上
-                  {selectedCategory && <Chip label={selectedCategory.name} size="small" sx={{ ml: 1 }} />}
-                </Typography>
-                <ResponsiveContainer width="100%" height={Math.max(200, mfrData.slice(0, 10).length * 36)}>
-                  <BarChart layout="vertical" data={mfrData.slice(0, 10)} margin={{ left: 16, right: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
-                    <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                    <Bar dataKey="total" name="売上" radius={[0, 4, 4, 0]}>
-                      {mfrData.slice(0, 10).map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                      <LabelList dataKey="count" position="right" formatter={(v: any) => `${v}件`} style={{ fontSize: 11, fill: "#666" }} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>全メーカー一覧</Typography>
-                <RankedSection data={mfrData} />
-              </Grid>
+            {/* 右：分析パネル */}
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Paper variant="outlined" sx={{ p: 2.5, minHeight: 400 }}>
+                <AnalysisPanel
+                  summary={selectedCat}
+                  mfrData={mfrData}
+                  colorData={colorData}
+                  isVehicle={isVehicle}
+                  loading={analysisLoading}
+                />
+              </Paper>
             </Grid>
-          )}
-
-          {/* ======== 色タブ ======== */}
-          {tab === 2 && (
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  車体色別（受注台数）
-                </Typography>
-                <ResponsiveContainer width="100%" height={Math.max(200, colorData.slice(0, 10).length * 36)}>
-                  <BarChart layout="vertical" data={colorData.slice(0, 10)} margin={{ left: 16, right: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="color_label" width={100} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v: any) => `${v}台`} />
-                    <Bar dataKey="count" name="台数" radius={[0, 4, 4, 0]}>
-                      {colorData.slice(0, 10).map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                      <LabelList dataKey="count" position="right" formatter={(v: any) => `${v}台`} style={{ fontSize: 11, fill: "#666" }} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>全カラー一覧</Typography>
-                <RankedSection data={colorData} nameKey="color_label" countKey="count" />
-              </Grid>
-            </Grid>
-          )}
-
+          </Grid>
         </Box>
       </Paper>
     </Box>

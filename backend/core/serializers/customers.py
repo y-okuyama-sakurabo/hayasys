@@ -15,33 +15,61 @@ from core.utils.images import compress_image
 User = get_user_model()
 
 class CustomerShopMixin:
+    """
+    初回・最終対応店舗を返すMixin。
+    views.py 側で prefetch_related("orders__shop", "...) を設定すれば
+    追加クエリなしで動作する。
+    フォールバックとして prefetch がない場合も動く（ただしN+1になる）。
+    """
+
+    def _get_actions_from_prefetch(self, obj):
+        """
+        prefetch済みの orders / estimate_parties から actions を作る。
+        prefetch がない場合は None を返す。
+        """
+        actions = []
+
+        # orders は Customer に直接紐づく
+        if hasattr(obj, "_prefetched_objects_cache") and "orders" in obj._prefetched_objects_cache:
+            for o in obj.orders.all():
+                if o.shop_id:
+                    actions.append({
+                        "shop__id":   o.shop.id   if o.shop else None,
+                        "shop__name": o.shop.name if o.shop else None,
+                        "shop__code": o.shop.code if o.shop else None,
+                        "created_at": o.created_at,
+                    })
+            return actions  # prefetch 済みなら DB追加クエリなし
+
+        return None  # fallback へ
+
     def _get_actions(self, obj):
+        prefetched = self._get_actions_from_prefetch(obj)
+        if prefetched is not None:
+            return prefetched
+
+        # fallback: prefetch なし（一覧以外の用途など）
         orders = (
             Order.objects
             .filter(customer_id=obj.id)
             .select_related("shop")
             .values("shop__id", "shop__name", "shop__code", "created_at")
         )
-
         estimates = (
             Estimate.objects
-            .filter(
-                party__source_customer_id=obj.id,
-            )
+            .filter(party__source_customer_id=obj.id)
             .select_related("shop")
             .values("shop__id", "shop__name", "shop__code", "created_at")
         )
-
         return list(orders) + list(estimates)
 
     def get_first_shop(self, obj):
         actions = self._get_actions(obj)
         if not actions:
             return None
-
         first = min(actions, key=lambda x: x["created_at"])
         return {
-            "id": first["shop__id"],
+            "id":   first["shop__id"],
             "name": first["shop__name"],
             "code": first["shop__code"],
         }
@@ -50,10 +78,9 @@ class CustomerShopMixin:
         actions = self._get_actions(obj)
         if not actions:
             return None
-
         last = max(actions, key=lambda x: x["created_at"])
         return {
-            "id": last["shop__id"],
+            "id":   last["shop__id"],
             "name": last["shop__name"],
             "code": last["shop__code"],
         }

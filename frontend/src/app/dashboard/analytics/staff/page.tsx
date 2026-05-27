@@ -5,9 +5,14 @@ import {
   Box, Paper, Typography, Stack, Chip, Grid,
   FormControl, InputLabel, Select, MenuItem, TextField,
   ToggleButton, ToggleButtonGroup, Divider, Button,
+  Table, TableHead, TableRow, TableCell, TableBody,
+  TableContainer, TablePagination, IconButton,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import WorkIcon      from "@mui/icons-material/Work";
+import ArrowBackIcon    from "@mui/icons-material/ArrowBack";
+import WorkIcon         from "@mui/icons-material/Work";
+import SearchIcon       from "@mui/icons-material/Search";
+import ExpandMoreIcon   from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon   from "@mui/icons-material/ExpandLess";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LabelList,
@@ -23,11 +28,11 @@ const CHART_COLORS = [
   "#4caf50", "#2196f3", "#ff9800", "#f44336",
   "#9c27b0", "#00bcd4", "#795548", "#e91e63",
 ];
-const fmt   = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
-const fmtK  = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(0)}万` : String(n);
+const fmt  = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
+const fmtK = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(0)}万` : String(n);
 
 // ========================
-// KPIカード（個人詳細用）
+// KPIカード
 // ========================
 function KpiMini({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -45,35 +50,68 @@ function KpiMini({ label, value, sub }: { label: string; value: string; sub?: st
 export default function StaffAnalyticsPage() {
   const today = dayjs();
 
-  // フィルター
-  const [mode,   setMode]   = useState<"order" | "estimate">("order");
-  const [shopId, setShopId] = useState<number | "all">("all");
-  const [start,  setStart]  = useState(today.startOf("month").format("YYYY-MM-DD"));
-  const [end,    setEnd]    = useState(today.format("YYYY-MM-DD"));
-  const [shops,  setShops]  = useState<any[]>([]);
+  // ── 共通フィルター ──
+  const [mode,        setMode]        = useState<"order" | "estimate">("order");
+  const [shopId,      setShopId]      = useState<number | "all">("all");
+  const [shops,       setShops]       = useState<any[]>([]);
+  const [initLoading, setInitLoading] = useState(true);
 
-  // データ
+  // ── 期間 ──
+  const [periodMode,    setPeriodMode]    = useState<"month" | "range">("month");
+  const [selectedMonth, setSelectedMonth] = useState(today.format("YYYY-MM"));
+  const [rangeFrom,     setRangeFrom]     = useState(today.startOf("month").format("YYYY-MM-DD"));
+  const [rangeTo,       setRangeTo]       = useState(today.format("YYYY-MM-DD"));
+
+  const initStart = dayjs(today.format("YYYY-MM") + "-01").startOf("month").format("YYYY-MM-DD");
+  const [appliedStart, setAppliedStart] = useState(initStart);
+  const [appliedEnd,   setAppliedEnd]   = useState(today.format("YYYY-MM-DD"));
+
+  // 月単位モード：月選択が変わったら即 apply
+  useEffect(() => {
+    if (periodMode === "month") {
+      setAppliedStart(dayjs(selectedMonth + "-01").startOf("month").format("YYYY-MM-DD"));
+      setAppliedEnd(dayjs(selectedMonth + "-01").endOf("month").format("YYYY-MM-DD"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodMode, selectedMonth]);
+
+  // ── データ ──
   const [data,          setData]          = useState<any[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
+  const [metric,        setMetric]        = useState<"total" | "count">("total");
 
-  // 棒グラフのメトリクス切替
-  const [metric, setMetric] = useState<"total" | "count">("total");
+  // ── 内訳テーブル ──
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailPage, setDetailPage] = useState(0);
+  const DETAIL_ROWS = 20;
 
-  // 初期ロード
+  // 初期ロード（自店舗デフォルト）
   useEffect(() => {
-    apiClient.get("/masters/shops/")
-      .then((r) => setShops(r.data.results || r.data || []))
-      .catch(console.error);
+    const init = async () => {
+      try {
+        const [meRes, shopRes] = await Promise.all([
+          apiClient.get("/auth/user/"),
+          apiClient.get("/masters/shops/"),
+        ]);
+        const myShopId = meRes.data?.shop_id ?? "all";
+        setShopId(myShopId);
+        setShops(shopRes.data.results || shopRes.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setInitLoading(false);
+      }
+    };
+    init();
   }, []);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await apiClient.get("/analytics/product/", {
-        params: { mode, type: "staff_work", start, end, shop_id: shopId },
+        params: { mode, type: "staff_work", start: appliedStart, end: appliedEnd, shop_id: shopId },
       });
       const d = res.data || [];
       setData(d);
-      // 選択中スタッフが存在すれば最新データで更新
       if (selectedStaff) {
         const updated = d.find((s: any) => s.name === selectedStaff.name);
         setSelectedStaff(updated ?? null);
@@ -81,19 +119,28 @@ export default function StaffAnalyticsPage() {
     } catch (e) {
       console.error(e);
     }
-  }, [mode, start, end, shopId]);
+  }, [mode, appliedStart, appliedEnd, shopId]); // eslint-disable-line
 
-  useEffect(() => { if (start && end) fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (initLoading) return;
+    fetchData();
+  }, [fetchData, initLoading]);
+
+  // 月オプション（直近24ヶ月）
+  const monthOptions = Array.from({ length: 24 }, (_, i) => {
+    const m = today.subtract(i, "month");
+    return { value: m.format("YYYY-MM"), label: m.format("YYYY年MM月") };
+  });
 
   // 個人詳細の派生データ
-  const avgPrice    = selectedStaff && selectedStaff.count > 0
+  const avgPrice   = selectedStaff && selectedStaff.count > 0
     ? Math.round(selectedStaff.total / selectedStaff.count) : 0;
-  const breadth     = selectedStaff?.category_breadth ?? 0;
-  const itemTypes   = selectedStaff?.item_types  ?? [];
-  const monthly     = selectedStaff?.monthly     ?? [];
-  const categories  = selectedStaff?.categories  ?? [];
+  const breadth    = selectedStaff?.category_breadth ?? 0;
+  const itemTypes  = selectedStaff?.item_types  ?? [];
+  const monthly    = selectedStaff?.monthly     ?? [];
+  const categories = selectedStaff?.categories  ?? [];
+  const detailItems = selectedStaff?.items       ?? [];
 
-  // グラフ用：棒グラフデータ（メトリクス切替）
   const barData = [...data].sort((a, b) => b[metric] - a[metric]).slice(0, 15);
 
   // ========================
@@ -104,25 +151,63 @@ export default function StaffAnalyticsPage() {
       <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>作業分析</Typography>
 
       {/* ── フィルター ── */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setMode(v)}>
-            <ToggleButton value="order">受注</ToggleButton>
-            <ToggleButton value="estimate">見積</ToggleButton>
-          </ToggleButtonGroup>
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setMode(v)}>
+              <ToggleButton value="order">受注</ToggleButton>
+              <ToggleButton value="estimate">見積</ToggleButton>
+            </ToggleButtonGroup>
 
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>店舗</InputLabel>
-            <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
-              <MenuItem value="all">全店舗</MenuItem>
-              {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>店舗</InputLabel>
+              <Select value={shopId} label="店舗" onChange={(e) => setShopId(e.target.value as any)}>
+                <MenuItem value="all">全店舗</MenuItem>
+                {shops.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+              </Select>
+            </FormControl>
 
-          <TextField label="開始日" type="date" size="small" value={start}
-            onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
-          <TextField label="終了日" type="date" size="small" value={end}
-            onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 155 }} />
+            <ToggleButtonGroup size="small" exclusive value={periodMode} onChange={(_, v) => v && setPeriodMode(v)}>
+              <ToggleButton value="month">月単位</ToggleButton>
+              <ToggleButton value="range">日付範囲</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+
+          {periodMode === "month" ? (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>月選択</InputLabel>
+              <Select value={selectedMonth} label="月選択" onChange={(e) => setSelectedMonth(e.target.value)}>
+                {monthOptions.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <TextField
+                label="開始日" type="date" size="small"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 155 }}
+              />
+              <Typography variant="body2" color="text.secondary">〜</Typography>
+              <TextField
+                label="終了日" type="date" size="small"
+                value={rangeTo}
+                onChange={(e) => setRangeTo(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 155 }}
+              />
+              <Button
+                variant="contained" size="small"
+                startIcon={<SearchIcon />}
+                onClick={() => { setAppliedStart(rangeFrom); setAppliedEnd(rangeTo); }}
+              >
+                検索
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Paper>
 
@@ -145,30 +230,26 @@ export default function StaffAnalyticsPage() {
             </Typography>
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(200, barData.length * 44)}>
-              <BarChart
-                layout="vertical"
-                data={barData}
-                margin={{ left: 16, right: 80 }}
-                onClick={(state: any) => {
-                  if (state?.activePayload?.[0]) {
-                    const name = state.activePayload[0].payload.name;
-                    setSelectedStaff(data.find((s: any) => s.name === name) ?? null);
-                  }
-                }}
-              >
+              <BarChart layout="vertical" data={barData} margin={{ left: 16, right: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis
                   type="number"
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v) => metric === "total" ? fmtK(v) : `${v}件`}
                 />
-                <YAxis
-                  type="category" dataKey="name" width={100} tick={{ fontSize: 12 }}
-                />
-                <Tooltip
-                  formatter={(v: any) => metric === "total" ? fmt(Number(v)) : `${v} 件`}
-                />
-                <Bar dataKey={metric} name={metric === "total" ? "売上金額" : "件数"} cursor="pointer" radius={[0, 4, 4, 0]}>
+                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(v: any) => metric === "total" ? fmt(Number(v)) : `${v} 件`} />
+                <Bar
+                  dataKey={metric}
+                  name={metric === "total" ? "売上金額" : "件数"}
+                  cursor="pointer"
+                  radius={[0, 4, 4, 0]}
+                  onClick={(entry: any) => {
+                    setSelectedStaff(data.find((s: any) => s.name === entry.name) ?? null);
+                    setDetailOpen(false);
+                    setDetailPage(0);
+                  }}
+                >
                   {barData.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
@@ -202,7 +283,7 @@ export default function StaffAnalyticsPage() {
               startIcon={<ArrowBackIcon />}
               size="small"
               variant="outlined"
-              onClick={() => setSelectedStaff(null)}
+              onClick={() => { setSelectedStaff(null); setDetailOpen(false); setDetailPage(0); }}
             >
               一覧に戻る
             </Button>
@@ -298,7 +379,7 @@ export default function StaffAnalyticsPage() {
           </Grid>
 
           {/* カテゴリランキング */}
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
               担当カテゴリ一覧
             </Typography>
@@ -331,6 +412,82 @@ export default function StaffAnalyticsPage() {
                     </Stack>
                   </Stack>
                 ))}
+              </Box>
+            )}
+          </Paper>
+
+          {/* 内訳明細 */}
+          <Paper sx={{ p: 2 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ flex: 1, cursor: "pointer" }}
+                onClick={() => { setDetailOpen(!detailOpen); setDetailPage(0); }}
+              >
+                内訳明細 ({detailItems.length}件)
+              </Typography>
+              <IconButton size="small" onClick={() => { setDetailOpen(!detailOpen); setDetailPage(0); }}>
+                {detailOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </Stack>
+
+            {detailOpen && (
+              <Box sx={{ mt: 1 }}>
+                <Divider sx={{ mb: 1 }} />
+                {detailItems.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                    明細データがありません
+                  </Typography>
+                ) : (
+                  <>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ "& th": { fontWeight: "bold", bgcolor: "#fafafa", fontSize: 12 } }}>
+                            <TableCell>日付</TableCell>
+                            <TableCell>{mode === "order" ? "受注No" : "見積No"}</TableCell>
+                            <TableCell>商品名</TableCell>
+                            <TableCell>カテゴリ</TableCell>
+                            <TableCell>種別</TableCell>
+                            <TableCell align="right">金額</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {detailItems
+                            .slice(detailPage * DETAIL_ROWS, (detailPage + 1) * DETAIL_ROWS)
+                            .map((it: any, i: number) => (
+                              <TableRow key={i} hover sx={{ "& td": { fontSize: 12 } }}>
+                                <TableCell sx={{ whiteSpace: "nowrap" }}>{it.date}</TableCell>
+                                <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
+                                  {it.ref_no || it.ref_id ? `#${it.ref_no || it.ref_id}` : "-"}
+                                </TableCell>
+                                <TableCell>{it.name || "（名称なし）"}</TableCell>
+                                <TableCell sx={{ color: "text.secondary" }}>{it.category || "-"}</TableCell>
+                                <TableCell>
+                                  <Chip label={it.item_type} size="small" variant="outlined" sx={{ fontSize: 10 }} />
+                                </TableCell>
+                                <TableCell align="right" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>
+                                  {fmt(it.subtotal)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    {detailItems.length > DETAIL_ROWS && (
+                      <TablePagination
+                        component="div"
+                        count={detailItems.length}
+                        page={detailPage}
+                        rowsPerPage={DETAIL_ROWS}
+                        rowsPerPageOptions={[DETAIL_ROWS]}
+                        onPageChange={(_, p) => setDetailPage(p)}
+                        labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}件`}
+                      />
+                    )}
+                  </>
+                )}
               </Box>
             )}
           </Paper>

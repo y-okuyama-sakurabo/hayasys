@@ -129,7 +129,6 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
         return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
-        print("📦 perform_create 呼ばれました")
 
         user = self.request.user
         staff = getattr(user, "staff", None)
@@ -181,13 +180,21 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         staff = getattr(user, "staff", None)
         user_shop = getattr(staff, "shop", None)
 
-        shop_id = self.request.data.get("shop")
-        if shop_id:
-            try:
-                shop = Shop.objects.get(id=shop_id)
-            except Shop.DoesNotExist:
-                shop = user_shop
-        else:
+        shop_id = self.request.data.get("shop", None)
+
+        # shop が未送信（None）なら既存の値を維持（上書きしない）
+        if shop_id is None:
+            serializer.save()
+            return
+
+        # shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
+        if shop_id == "":
+            serializer.save(shop=user_shop)
+            return
+
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except Shop.DoesNotExist:
             shop = user_shop
 
         serializer.save(shop=shop)
@@ -308,6 +315,7 @@ class OrderFromEstimateAPIView(APIView):
                 postal_code=party.postal_code,
                 address=party.address,
                 customer_class=party.customer_class,
+                staff=party.staff,           # 見積パーティのstaffを引き継ぐ
                 gender=party.gender,
                 region=party.region,
                 first_shop=party.first_shop or estimate.shop,
@@ -408,7 +416,6 @@ class OrderFromEstimateAPIView(APIView):
             Payment.objects.create(
                 content_type=order_ct,
                 object_id=order.id,
-                payment_method=p.payment_method,
                 credit_company=p.credit_company,
                 credit_first_payment=p.credit_first_payment,
                 credit_second_payment=p.credit_second_payment,

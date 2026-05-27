@@ -7,7 +7,10 @@ from core.views.auth.logout import LogoutView
 
 # === Masters ===
 from core.views.masters.customer_classes import CustomerClassListView
-from core.views.masters.staffs import StaffListView
+from core.views.masters.staffs import (
+    StaffListView, StaffDetailView,
+    StaffCSVExportView, StaffCSVImportView,
+)
 from core.views.masters.regions import RegionListView
 from core.views.masters.genders import GenderListView
 from core.views.masters.shops import ShopListView
@@ -193,7 +196,10 @@ urlpatterns = [
     # Masters
     # =========================
     path("masters/customer_classes/", CustomerClassListView.as_view()),
-    path("masters/staffs/", StaffListView.as_view()),
+    path("masters/staffs/",              StaffListView.as_view()),
+    path("masters/staffs/<int:pk>/",     StaffDetailView.as_view()),
+    path("masters/staffs/csv-export/",   StaffCSVExportView.as_view()),
+    path("masters/staffs/csv-import/",   StaffCSVImportView.as_view()),
     path("masters/regions/", RegionListView.as_view()),
     path("masters/genders/", GenderListView.as_view()),
     path("masters/shops/", ShopListView.as_view()),
