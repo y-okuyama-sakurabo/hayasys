@@ -182,6 +182,9 @@ from core.views.analytics.views import (
     ProductAnalyticsAPIView,
 )
 
+# === Reports ===
+from core.views.reports.views import ReportAPIView
+
 urlpatterns = [
 
     # =========================
@@ -305,6 +308,11 @@ urlpatterns = [
     path("analytics/sales-daily/", SalesDailyAPIView.as_view()),
     path("analytics/sales-list/", SalesListAPIView.as_view()),
     path("analytics/product/", ProductAnalyticsAPIView.as_view()),
+
+    # =========================
+    # Reports（帳票）
+    # =========================
+    path("reports/", ReportAPIView.as_view()),
 
 
     # =========================

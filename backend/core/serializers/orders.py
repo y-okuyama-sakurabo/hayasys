@@ -70,6 +70,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     # 書き込み
     insurance_payload = serializers.DictField(write_only=True, required=False)
+    payment = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     target_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)
     trade_in_vehicle = serializers.JSONField(write_only=True, required=False, allow_null=True)

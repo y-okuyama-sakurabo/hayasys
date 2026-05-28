@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import MailIcon from "@mui/icons-material/Mail";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import ArticleIcon from "@mui/icons-material/Article";
 
 const drawerWidth = 240;
 
@@ -117,6 +118,11 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     },
 
     
+    {
+      text: "帳票管理",
+      icon: <ArticleIcon />,
+      path: "/dashboard/reports",
+    },
     {
       text: "スタッフ管理",
       icon: <AdminPanelSettings />,
