@@ -2,26 +2,27 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Typography,
-  Paper,
-  Box,
-  Grid,
-  Chip,
-  Button,
-  Stack,
-  IconButton,
+  Typography, Paper, Box, Grid, Chip, Button, Stack,
+  IconButton, Tooltip, TextField, Divider, TableContainer,
+  Table, TableHead, TableRow, TableCell, TableBody,
+  CircularProgress, Pagination,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
+import AddIcon              from "@mui/icons-material/Add";
+import EditIcon             from "@mui/icons-material/Edit";
+import MailOutlineIcon      from "@mui/icons-material/MailOutline";
+import CalendarTodayIcon    from "@mui/icons-material/CalendarToday";
+import ReceiptLongIcon      from "@mui/icons-material/ReceiptLong";
+import ClearIcon            from "@mui/icons-material/Clear";
+import LocalShippingIcon    from "@mui/icons-material/LocalShipping";
 import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 
-import BusinessCommunicationCreateDialog from "@/components/business-communications/BusinessCommunicationCreateDialog";
-import BusinessCommunicationThreadDialog from "@/components/business-communications/BusinessCommunicationThreadDialog";
-import ScheduleQuickCreateDialog from "@/components/schedules/ScheduleQuickCreateDialog";
-import ScheduleEditDialog from "@/components/schedules/ScheduleEditDialog";
-import ScheduleDetailDialog from "@/components/schedules/ScheduleDetailDialog";
+import BusinessCommunicationCreateDialog  from "@/components/business-communications/BusinessCommunicationCreateDialog";
+import BusinessCommunicationThreadDialog  from "@/components/business-communications/BusinessCommunicationThreadDialog";
+import ScheduleQuickCreateDialog          from "@/components/schedules/ScheduleQuickCreateDialog";
+import ScheduleEditDialog                 from "@/components/schedules/ScheduleEditDialog";
+import ScheduleDetailDialog               from "@/components/schedules/ScheduleDetailDialog";
 
 type Thread = {
   id: number;
@@ -34,25 +35,27 @@ type Thread = {
   messages?: any[];
 };
 
+const PAGE_SIZE = 10;
+
 export default function DashboardPage() {
   const router = useRouter();
 
-  // 業務連絡
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+  const [threads,            setThreads]            = useState<Thread[]>([]);
+  const [createOpen,         setCreateOpen]         = useState(false);
+  const [selectedThread,     setSelectedThread]     = useState<Thread | null>(null);
   const [scheduleCreateOpen, setScheduleCreateOpen] = useState(false);
-  const [detailScheduleId, setDetailScheduleId] = useState<number | null>(null);
-  const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
+  const [detailScheduleId,   setDetailScheduleId]   = useState<number | null>(null);
+  const [editingScheduleId,  setEditingScheduleId]  = useState<number | null>(null);
 
-  // ダッシュボード（スケジュール・見積）
-  const [data, setData] = useState<{
-    schedules: any[];
-    estimates: any[];
-  }>({ schedules: [], estimates: [] });
-  const [page, setPage] = useState(1);
+  const [data,      setData]      = useState<{ schedules: any[]; estimates: any[]; total: number }>({
+    schedules: [], estimates: [], total: 0,
+  });
+  const [loading,   setLoading]   = useState(true);
+  const [page,      setPage]      = useState(1);
   const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [endDate,   setEndDate]   = useState("");
+
+  const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
 
   const fetchThreads = useCallback(async () => {
     try {
@@ -65,280 +68,311 @@ export default function DashboardPage() {
   }, []);
 
   const fetchDashboard = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await apiClient.get("/dashboard/", {
-        params: { page, start: startDate, end: endDate },
+        params: { page, start: startDate || undefined, end: endDate || undefined },
       });
       setData({
         schedules: res.data.schedules ?? [],
         estimates: res.data.estimates ?? [],
+        total:     res.data.total     ?? res.data.estimates?.length ?? 0,
       });
     } catch {
       // ignore
+    } finally {
+      setLoading(false);
     }
   }, [page, startDate, endDate]);
 
-  useEffect(() => {
-    fetchThreads();
-  }, [fetchThreads]);
+  useEffect(() => { fetchThreads(); },   [fetchThreads]);
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+  const resetFilter = () => { setStartDate(""); setEndDate(""); setPage(1); };
 
   return (
     <Box>
-      <Grid container spacing={3}>
-        {/* ========================= 業務連絡 ========================= */}
+      <Grid container spacing={2}>
+
+        {/* ── 業務連絡 ── */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper
-            sx={{
-              p: 2,
-              height: "100%",
-              maxHeight: 400,
-              overflow: "auto",
-              borderLeft: "4px solid #f44336",
-            }}
-          >
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-              <Typography variant="h6">
-                業務連絡（未対応 {threads.length}）
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateOpen(true)}
-              >
+          <Paper variant="outlined" sx={{ p: 2.5, height: "100%", maxHeight: 420, display: "flex", flexDirection: "column" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <MailOutlineIcon fontSize="small" color="error" />
+                <Typography variant="subtitle1" fontWeight="bold">
+                  業務連絡
+                </Typography>
+                {threads.length > 0 && (
+                  <Chip size="small" label={`未対応 ${threads.length}`} color="error" />
+                )}
+              </Stack>
+              <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
                 新規
               </Button>
             </Stack>
 
-            {threads.length === 0 && (
-              <Typography color="text.secondary" fontSize={13}>
-                未対応の業務連絡はありません
-              </Typography>
-            )}
+            <Divider sx={{ mb: 1.5 }} />
 
-            {threads.map((t) => (
-              <Box
-                key={t.id}
-                sx={{
-                  py: 1.5,
-                  borderBottom: "1px solid #eee",
-                  cursor: "pointer",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-                onClick={() => setSelectedThread(t)}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                  <Box minWidth={0} flex={1}>
-                    <Typography fontWeight="bold" noWrap>
-                      {t.title}
-                    </Typography>
-                    <Typography fontSize={12} color="text.secondary" noWrap>
-                      {t.sender_name} → {t.receiver_name}
-                      {t.customer && `　顧客：${t.customer.name}`}
-                    </Typography>
-                    {t.messages?.[0]?.content && (
-                      <Typography fontSize={12} color="text.secondary" noWrap>
-                        {t.messages[0].content}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Chip size="small" label="未対応" color="warning" sx={{ ml: 1, flexShrink: 0 }} />
+            <Box sx={{ flex: 1, overflowY: "auto" }}>
+              {threads.length === 0 ? (
+                <Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
+                  未対応の業務連絡はありません
+                </Typography>
+              ) : (
+                <Stack divider={<Divider />}>
+                  {threads.map((t) => (
+                    <Box
+                      key={t.id}
+                      sx={{ py: 1.5, px: 0.5, cursor: "pointer", borderRadius: 1, "&:hover": { bgcolor: "action.hover" } }}
+                      onClick={() => setSelectedThread(t)}
+                    >
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                        <Box minWidth={0} flex={1}>
+                          <Typography variant="body2" fontWeight="bold" noWrap>{t.title}</Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap display="block">
+                            {t.sender_name} → {t.receiver_name}
+                            {t.customer && `　顧客：${t.customer.name}`}
+                          </Typography>
+                          {t.messages?.[0]?.content && (
+                            <Typography variant="caption" color="text.disabled" noWrap display="block">
+                              {t.messages[0].content}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Chip size="small" label="未対応" color="warning" sx={{ flexShrink: 0 }} />
+                      </Stack>
+                    </Box>
+                  ))}
                 </Stack>
-              </Box>
-            ))}
+              )}
+            </Box>
           </Paper>
         </Grid>
 
-        {/* ========================= スケジュール ========================= */}
+        {/* ── 本日の予定 ── */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper
-            sx={{
-              p: 2,
-              height: "100%",
-              maxHeight: 400,
-              overflow: "auto",
-              borderLeft: "4px solid #2196f3",
-            }}
-          >
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-              <Typography variant="h6">
-                本日の予定（{data.schedules.length}）
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setScheduleCreateOpen(true)}
-              >
+          <Paper variant="outlined" sx={{ p: 2.5, height: "100%", maxHeight: 420, display: "flex", flexDirection: "column" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <CalendarTodayIcon fontSize="small" color="primary" />
+                <Typography variant="subtitle1" fontWeight="bold">
+                  本日の予定
+                </Typography>
+                {data.schedules.length > 0 && (
+                  <Chip size="small" label={`${data.schedules.length} 件`} color="primary" variant="outlined" />
+                )}
+              </Stack>
+              <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setScheduleCreateOpen(true)}>
                 追加
               </Button>
             </Stack>
 
-            {data.schedules.length === 0 && (
-              <Typography color="text.secondary" fontSize={13}>
-                本日の予定はありません
-              </Typography>
-            )}
+            <Divider sx={{ mb: 1.5 }} />
 
-            {data.schedules.map((s: any) => (
-              <Box
-                key={s.id}
-                sx={{ py: 1, borderBottom: "1px solid #eee" }}
-              >
-                <Stack direction="row" alignItems="flex-start">
-                  <Box
-                    flex={1}
-                    minWidth={0}
-                    sx={{ cursor: "pointer", "&:hover": { opacity: 0.75 } }}
-                    onClick={() => setDetailScheduleId(s.id)}
-                  >
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography fontWeight="bold" fontSize={13}>
-                        {dayjs(s.start_at).format("HH:mm")}
-                      </Typography>
-                      {s.type === "delivery" && (
-                        <Chip size="small" label="納車" color="primary" />
-                      )}
+            <Box sx={{ flex: 1, overflowY: "auto" }}>
+              {data.schedules.length === 0 ? (
+                <Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
+                  本日の予定はありません
+                </Typography>
+              ) : (
+                <Stack divider={<Divider />}>
+                  {data.schedules.map((s: any) => (
+                    <Stack
+                      key={s.id}
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ py: 1.5, px: 0.5 }}
+                    >
+                      <Box
+                        flex={1}
+                        minWidth={0}
+                        sx={{ cursor: "pointer", "&:hover": { opacity: 0.75 } }}
+                        onClick={() => setDetailScheduleId(s.id)}
+                      >
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="body2" fontWeight="bold" sx={{ minWidth: 36 }}>
+                            {dayjs(s.start_at).format("HH:mm")}
+                          </Typography>
+                          {s.type === "delivery" && (
+                            <Chip size="small" icon={<LocalShippingIcon />} label="納車" color="primary" />
+                          )}
+                          <Typography variant="body2" noWrap>{s.title}</Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ pl: "44px" }}>
+                          {s.customer ?? "社内予定"}
+                          {s.staff && ` · ${s.staff}`}
+                        </Typography>
+                      </Box>
+                      <Tooltip title="編集">
+                        <IconButton size="small" onClick={() => setEditingScheduleId(s.id)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Stack>
-                    <Typography noWrap>{s.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {s.customer || "社内予定"}
-                      {s.staff && ` · ${s.staff}`}
-                    </Typography>
-                  </Box>
-                  <IconButton
-                    size="small"
-                    onClick={() => setEditingScheduleId(s.id)}
-                    sx={{ flexShrink: 0, mt: 0.5 }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
+                  ))}
                 </Stack>
-              </Box>
-            ))}
+              )}
+            </Box>
           </Paper>
         </Grid>
 
-        {/* ========================= 未受注見積 ========================= */}
+        {/* ── 未受注見積 ── */}
         <Grid size={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" mb={2}>
-              未受注見積（{data.estimates.length}）
-            </Typography>
+          <Paper variant="outlined" sx={{ p: 2.5 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5} flexWrap="wrap" gap={1}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <ReceiptLongIcon fontSize="small" color="action" />
+                <Typography variant="subtitle1" fontWeight="bold">未受注見積</Typography>
+                {data.total > 0 && (
+                  <Chip size="small" label={`${data.total} 件`} variant="outlined" />
+                )}
+              </Stack>
 
-            <Box display="flex" gap={2} mb={2} alignItems="center">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-              />
-              <Typography>〜</Typography>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-              />
-              <button onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }}>
-                リセット
-              </button>
-            </Box>
+              {/* 日付フィルター */}
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                <TextField
+                  type="date"
+                  size="small"
+                  label="開始日"
+                  value={startDate}
+                  onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 160 }}
+                />
+                <Typography variant="body2" color="text.secondary">〜</Typography>
+                <TextField
+                  type="date"
+                  size="small"
+                  label="終了日"
+                  value={endDate}
+                  onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 160 }}
+                />
+                {(startDate || endDate) && (
+                  <Tooltip title="フィルターをリセット">
+                    <IconButton size="small" onClick={resetFilter}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
+            </Stack>
 
-            {data.estimates.map((e: any) => (
-              <Box
-                key={e.id}
-                sx={{ py: 1.5, borderBottom: "1px solid #eee", cursor: "pointer" }}
-                onClick={() => router.push(`/dashboard/estimates/${e.id}`)}
-              >
-                <Box display="flex" justifyContent="space-between">
-                  <Typography fontWeight="bold">{e.estimate_no}</Typography>
-                  <Typography fontWeight="bold">
-                    ¥{Number(e.total).toLocaleString()}
-                  </Typography>
-                </Box>
-                <Typography variant="body2">{e.customer || "顧客なし"}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {e.staff} / {e.date}
-                </Typography>
+            <Divider sx={{ mb: 0 }} />
+
+            {loading ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress size={28} />
               </Box>
-            ))}
+            ) : data.estimates.length === 0 ? (
+              <Typography variant="body2" color="text.disabled" sx={{ py: 3, textAlign: "center" }}>
+                未受注の見積はありません
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>見積番号</TableCell>
+                      <TableCell>顧客名</TableCell>
+                      <TableCell>見積日</TableCell>
+                      <TableCell>担当</TableCell>
+                      <TableCell align="right">金額</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.estimates.map((e: any) => (
+                      <TableRow
+                        key={e.id}
+                        hover
+                        sx={{ cursor: "pointer" }}
+                        onClick={() => router.push(`/dashboard/estimates/${e.id}`)}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="bold" color="primary">
+                            {e.estimate_no}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{e.customer ?? "顧客なし"}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {e.date ? new Date(e.date).toLocaleDateString("ja-JP") : "-"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{e.staff ?? "-"}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight="bold">
+                            ¥{Number(e.total).toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
 
-            <Box display="flex" justifyContent="center" mt={2} gap={2}>
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                前へ
-              </button>
-              <Typography>{page}</Typography>
-              <button
-                disabled={data.estimates.length < 10}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                次へ
-              </button>
-            </Box>
+            {totalPages > 1 && (
+              <Box display="flex" justifyContent="center" mt={2}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={(_, v) => setPage(v)}
+                  size="small"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>
 
-      {/* 新規作成ダイアログ */}
+      {/* ダイアログ類 */}
       <BusinessCommunicationCreateDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false);
-          fetchThreads();
-        }}
+        onCreated={() => { setCreateOpen(false); fetchThreads(); }}
       />
 
-      {/* スケジュール詳細ダイアログ */}
       {detailScheduleId !== null && (
         <ScheduleDetailDialog
           scheduleId={detailScheduleId}
           open={detailScheduleId !== null}
           onClose={() => setDetailScheduleId(null)}
           onEdit={() => setEditingScheduleId(detailScheduleId)}
-          onDeleted={() => {
-            setDetailScheduleId(null);
-            fetchDashboard();
-          }}
+          onDeleted={() => { setDetailScheduleId(null); fetchDashboard(); }}
         />
       )}
 
-      {/* スケジュール編集・削除ダイアログ */}
       {editingScheduleId !== null && (
         <ScheduleEditDialog
           scheduleId={editingScheduleId}
           open={editingScheduleId !== null}
           onClose={() => setEditingScheduleId(null)}
-          onChanged={() => {
-            setEditingScheduleId(null);
-            fetchDashboard();
-          }}
+          onChanged={() => { setEditingScheduleId(null); fetchDashboard(); }}
         />
       )}
 
-      {/* スケジュール追加ダイアログ */}
       <ScheduleQuickCreateDialog
         open={scheduleCreateOpen}
         onClose={() => setScheduleCreateOpen(false)}
-        onCreated={() => {
-          setScheduleCreateOpen(false);
-          fetchDashboard();
-        }}
+        onCreated={() => { setScheduleCreateOpen(false); fetchDashboard(); }}
       />
 
-      {/* スレッド詳細ダイアログ */}
       {selectedThread && (
         <BusinessCommunicationThreadDialog
           thread={selectedThread}
           open={!!selectedThread}
           onClose={() => setSelectedThread(null)}
-          onChanged={() => {
-            setSelectedThread(null);
-            fetchThreads();
-          }}
+          onChanged={() => { setSelectedThread(null); fetchThreads(); }}
         />
       )}
     </Box>

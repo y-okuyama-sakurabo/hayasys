@@ -31,6 +31,7 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import SearchIcon from "@mui/icons-material/Search";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import apiClient from "@/lib/apiClient";
+import PhoneField from "@/components/ui/PhoneField";
 import debounce from "lodash/debounce";
 import DatePartsSelector, {
   DateParts,
@@ -54,25 +55,6 @@ const formatZip = (val: string) => {
   return raw.length <= 3 ? raw : `${raw.slice(0, 3)}-${raw.slice(3)}`;
 };
 
-/** 電話番号フォーマット: 携帯 090-xxxx-xxxx, 固定 etc. */
-const formatPhone = (val: string) => {
-  const raw = val.replace(/[^0-9]/g, "").slice(0, 11);
-  if (raw.length <= 3) return raw;
-  // 携帯・IP電話 (090/080/070/050)
-  if (/^0[5789]0/.test(raw)) {
-    if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
-    return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7)}`;
-  }
-  // フリーダイヤル (0120/0800)
-  if (/^0(120|800)/.test(raw)) {
-    if (raw.length <= 7) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
-    return `${raw.slice(0, 4)}-${raw.slice(4, 7)}-${raw.slice(7)}`;
-  }
-  // 固定電話
-  if (raw.length <= 6) return `${raw.slice(0, 2)}-${raw.slice(2)}`;
-  if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
-  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7)}`;
-};
 
 /** ひらがな → カタカナ変換 */
 const hiraganaToKatakana = (str: string) =>
@@ -203,10 +185,6 @@ export default function PartySelector({
     });
   };
 
-  // ── 電話番号フォーマット (改善①) ──
-  const handlePhoneChange = (field: string, val: string) => {
-    handleChange(field, formatPhone(val));
-  };
 
   // ── フリガナ自動入力 (改善②) ──
   const handleNameCompositionUpdate = (
@@ -563,23 +541,21 @@ export default function PartySelector({
         <SectionLabel>連絡先</SectionLabel>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
+            <PhoneField
               fullWidth
               size="small"
               label="電話番号（自宅・固定）"
-              value={newData?.phone || ""}
-              onChange={(e) => handlePhoneChange("phone", e.target.value)}
+              value={newData?.phone}
+              onChange={(v) => handleChange("phone", v)}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
+            <PhoneField
               fullWidth
               size="small"
               label="携帯電話番号"
-              value={newData?.mobile_phone || ""}
-              onChange={(e) =>
-                handlePhoneChange("mobile_phone", e.target.value)
-              }
+              value={newData?.mobile_phone}
+              onChange={(v) => handleChange("mobile_phone", v)}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
@@ -690,14 +666,12 @@ export default function PartySelector({
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
+            <PhoneField
               fullWidth
               size="small"
               label="会社電話番号"
-              value={newData?.company_phone || ""}
-              onChange={(e) =>
-                handlePhoneChange("company_phone", e.target.value)
-              }
+              value={newData?.company_phone}
+              onChange={(v) => handleChange("company_phone", v)}
             />
           </Grid>
         </Grid>

@@ -1,18 +1,20 @@
 "use client";
 
-import { Box, Chip, Divider, Stack, Typography } from "@mui/material";
+import { Box, Chip, Divider, Link, Stack, Typography } from "@mui/material";
 import AccessTimeIcon      from "@mui/icons-material/AccessTime";
 import PersonIcon          from "@mui/icons-material/Person";
 import StoreIcon           from "@mui/icons-material/Store";
 import BadgeIcon           from "@mui/icons-material/Badge";
 import NotesIcon           from "@mui/icons-material/Notes";
 import CalendarTodayIcon   from "@mui/icons-material/CalendarToday";
+import OpenInNewIcon       from "@mui/icons-material/OpenInNew";
 
 type Schedule = {
   title: string;
   description?: string;
   start_at: string;
   end_at?: string | null;
+  customer_id?: number | null;
   customer_name?: string | null;
   shop_name?: string | null;
   staff_name?: string | null;
@@ -62,11 +64,35 @@ export default function ScheduleView({ schedule }: { schedule: Schedule }) {
 
       {/* 顧客・担当・店舗 */}
       <Stack spacing={1.8} mb={2.5}>
-        <InfoRow
-          icon={<PersonIcon fontSize="small" />}
-          label="顧客"
-          value={schedule.customer_name}
-        />
+        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+          <Box sx={{ color: "text.disabled", mt: 0.1, flexShrink: 0 }}>
+            <PersonIcon fontSize="small" />
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+              顧客
+            </Typography>
+            <Box sx={{ mt: 0.2 }}>
+              {schedule.customer_name ? (
+                schedule.customer_id ? (
+                  <Link
+                    href={`/dashboard/customers/${schedule.customer_id}`}
+                    underline="hover"
+                    variant="body2"
+                    sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                  >
+                    {schedule.customer_name}
+                    <OpenInNewIcon sx={{ fontSize: 13 }} />
+                  </Link>
+                ) : (
+                  <Typography variant="body2">{schedule.customer_name}</Typography>
+                )
+              ) : (
+                <Typography variant="body2" sx={{ color: "#aaa" }}>—</Typography>
+              )}
+            </Box>
+          </Box>
+        </Stack>
         <InfoRow
           icon={<BadgeIcon fontSize="small" />}
           label="担当"

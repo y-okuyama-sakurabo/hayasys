@@ -16,7 +16,6 @@ import ExpandLessIcon   from "@mui/icons-material/ExpandLess";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LabelList,
-  PieChart, Pie, Legend,
 } from "recharts";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
@@ -38,8 +37,14 @@ function KpiMini({ label, value, sub }: { label: string; value: string; sub?: st
   return (
     <Paper variant="outlined" sx={{ p: 2, textAlign: "center" }}>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.3 }}>{value}</Typography>
-      {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
+      <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.3, whiteSpace: "nowrap" }}>
+        {value}
+        {sub && (
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+            {sub}
+          </Typography>
+        )}
+      </Typography>
     </Paper>
   );
 }
@@ -135,8 +140,6 @@ export default function StaffAnalyticsPage() {
   // 個人詳細の派生データ
   const avgPrice   = selectedStaff && selectedStaff.count > 0
     ? Math.round(selectedStaff.total / selectedStaff.count) : 0;
-  const breadth    = selectedStaff?.category_breadth ?? 0;
-  const itemTypes  = selectedStaff?.item_types  ?? [];
   const monthly    = selectedStaff?.monthly     ?? [];
   const categories = selectedStaff?.categories  ?? [];
   const detailItems = selectedStaff?.items       ?? [];
@@ -293,64 +296,18 @@ export default function StaffAnalyticsPage() {
 
           {/* KPIカード */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid size={{ xs: 6, sm: 3 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <KpiMini label="担当件数" value={`${selectedStaff.count} 件`} />
             </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <KpiMini label="合計金額" value={fmt(selectedStaff.total)} />
             </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <KpiMini label="平均単価" value={fmt(avgPrice)} sub="/ 件" />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <KpiMini
-                label="作業種別の幅"
-                value={`${breadth} 種`}
-                sub={itemTypes.map((t: any) => t.name).join(" / ") || "-"}
-              />
             </Grid>
           </Grid>
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            {/* 作業種別ドーナツ */}
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Paper sx={{ p: 2, height: "100%" }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  作業種別の内訳
-                </Typography>
-                {itemTypes.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-                    データなし
-                  </Typography>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                      <Pie
-                        data={itemTypes}
-                        cx="50%" cy="50%"
-                        innerRadius={60} outerRadius={95}
-                        dataKey="total"
-                        nameKey="name"
-                        paddingAngle={2}
-                      >
-                        {itemTypes.map((_: any, i: number) => (
-                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: any, _: any, props: any) =>
-                          [`${fmt(Number(v))} (${props.payload.count}件)`, props.payload.name]
-                        }
-                      />
-                      <Legend iconSize={10} formatter={(value, entry: any) =>
-                        `${value} ${entry.payload.count}件`
-                      } />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </Paper>
-            </Grid>
-
             {/* 月次棒グラフ */}
             <Grid size={{ xs: 12, md: 7 }}>
               <Paper sx={{ p: 2, height: "100%" }}>
@@ -376,45 +333,47 @@ export default function StaffAnalyticsPage() {
                 )}
               </Paper>
             </Grid>
-          </Grid>
 
-          {/* カテゴリランキング */}
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              担当カテゴリ一覧
-            </Typography>
-            <Divider sx={{ mb: 1 }} />
-            {categories.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                カテゴリ情報がありません
-              </Typography>
-            ) : (
-              <Box>
-                {categories.map((c: any, i: number) => (
-                  <Stack
-                    key={i}
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ py: 1, borderBottom: "1px solid #f0f0f0" }}
-                  >
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        label={i + 1}
-                        size="small"
-                        sx={{ bgcolor: CHART_COLORS[i % CHART_COLORS.length], color: "white", minWidth: 28 }}
-                      />
-                      <Typography variant="body2">{c.name}</Typography>
-                    </Stack>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography variant="body2" fontWeight="bold">{fmt(c.total)}</Typography>
-                      <Typography variant="caption" color="text.secondary">{c.count}件</Typography>
-                    </Stack>
-                  </Stack>
-                ))}
-              </Box>
-            )}
-          </Paper>
+            {/* カテゴリランキング */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Paper sx={{ p: 2, height: "100%" }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  担当カテゴリ一覧
+                </Typography>
+                <Divider sx={{ mb: 1 }} />
+                {categories.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                    カテゴリ情報がありません
+                  </Typography>
+                ) : (
+                  <Box>
+                    {categories.map((c: any, i: number) => (
+                      <Stack
+                        key={i}
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ py: 1, borderBottom: "1px solid #f0f0f0" }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip
+                            label={i + 1}
+                            size="small"
+                            sx={{ bgcolor: CHART_COLORS[i % CHART_COLORS.length], color: "white", minWidth: 28 }}
+                          />
+                          <Typography variant="body2">{c.name}</Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Typography variant="body2" fontWeight="bold">{fmt(c.total)}</Typography>
+                          <Typography variant="caption" color="text.secondary">{c.count}件</Typography>
+                        </Stack>
+                      </Stack>
+                    ))}
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
 
           {/* 内訳明細 */}
           <Paper sx={{ p: 2 }}>

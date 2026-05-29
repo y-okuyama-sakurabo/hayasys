@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
-  Paper,
-  Typography,
-  Box,
-  Button,
-  Grid,
-  IconButton,
-  CircularProgress,
+  Paper, Typography, Box, Button, IconButton, Tooltip,
+  CircularProgress, Stack, Alert,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
+import PhotoLibraryIcon  from "@mui/icons-material/PhotoLibrary";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import FileUploadIcon    from "@mui/icons-material/FileUpload";
 import apiClient from "@/lib/apiClient";
 
 type CustomerImage = {
@@ -21,64 +19,42 @@ type CustomerImage = {
   bytes?: number;
 };
 
-type Props = {
-  customerId: number;
-};
-
-export default function CustomerImages({ customerId }: Props) {
-  const [images, setImages] = useState<CustomerImage[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function CustomerImages({ customerId }: { customerId: number }) {
+  const [images,    setImages]    = useState<CustomerImage[]>([]);
+  const [loading,   setLoading]   = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
+  const [error,     setError]     = useState<string | null>(null);
 
-  // ============================
-  // 画像一覧取得
-  // ============================
+  const [deleteTarget, setDeleteTarget] = useState<CustomerImage | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
+
   const fetchImages = async () => {
     setLoading(true);
     try {
       const res = await apiClient.get(`/customers/${customerId}/images/`);
-      setImages(res.data.results || res.data || []);
-    } catch (e) {
-      console.error(e);
+      setImages(res.data.results ?? res.data ?? []);
+    } catch {
       setError("画像の取得に失敗しました");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchImages();
-  }, [customerId]);
+  useEffect(() => { fetchImages(); }, [customerId]);
 
-  // ============================
-  // アップロード
-  // ============================
-  const handleUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setError("");
+    setError(null);
     setUploading(true);
-
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      await apiClient.post(
-        `/customers/${customerId}/images/`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const formData = new FormData();
+      formData.append("image", file);
+      await apiClient.post(`/customers/${customerId}/images/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       await fetchImages();
-    } catch (e) {
-      console.error(e);
+    } catch {
       setError("アップロードに失敗しました");
     } finally {
       setUploading(false);
@@ -86,96 +62,113 @@ export default function CustomerImages({ customerId }: Props) {
     }
   };
 
-  // ============================
-  // 削除
-  // ============================
-  const handleDelete = async (imageId: number) => {
-    if (!confirm("この画像を削除しますか？")) return;
-
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await apiClient.delete(
-        `/customers/${customerId}/images/${imageId}/`
-      );
-      setImages((prev) => prev.filter((i) => i.id !== imageId));
-    } catch (e) {
-      console.error(e);
-      alert("削除に失敗しました");
+      await apiClient.delete(`/customers/${customerId}/images/${deleteTarget.id}/`);
+      setImages((prev) => prev.filter((i) => i.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setError("削除に失敗しました");
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
-    <Paper sx={{ p: 2, mb: 3 }}>
-      <Typography variant="h6" mb={2}>
-        顧客画像
-      </Typography>
-
-      {/* === アップロード === */}
-      <Box mb={2}>
-        <Button variant="outlined" component="label" disabled={uploading}>
-          {uploading ? "アップロード中..." : "画像をアップロード"}
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={handleUpload}
-          />
+    <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <PhotoLibraryIcon fontSize="small" color="action" />
+          <Typography variant="subtitle1" fontWeight="bold">顧客画像</Typography>
+        </Stack>
+        <Button
+          variant="outlined"
+          size="small"
+          component="label"
+          disabled={uploading}
+          startIcon={uploading ? <CircularProgress size={13} color="inherit" /> : <FileUploadIcon />}
+        >
+          {uploading ? "アップロード中..." : "画像を追加"}
+          <input type="file" accept="image/*" hidden onChange={handleUpload} />
         </Button>
+      </Stack>
 
-        {error && (
-          <Typography color="error" variant="body2" mt={1}>
-            {error}
-          </Typography>
-        )}
-      </Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
+      )}
 
-      {/* === 一覧 === */}
       {loading ? (
-        <CircularProgress size={24} />
+        <Box display="flex" justifyContent="center" py={3}>
+          <CircularProgress size={24} />
+        </Box>
       ) : images.length === 0 ? (
-        <Typography color="text.secondary">
+        <Typography variant="body2" color="text.disabled" sx={{ py: 1 }}>
           画像はありません
         </Typography>
       ) : (
-        <Grid container spacing={2}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
           {images.map((img) => (
-            <Grid key={img.id}>
+            <Box
+              key={img.id}
+              sx={{
+                position: "relative",
+                width: 140,
+                height: 140,
+                borderRadius: 1,
+                overflow: "hidden",
+                border: "1px solid",
+                borderColor: "divider",
+                "&:hover .delete-btn": { opacity: 1 },
+              }}
+            >
+              <img
+                src={img.image}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
               <Box
+                className="delete-btn"
                 sx={{
-                  position: "relative",
-                  width: 160,
-                  height: 160,
-                  border: "1px solid #ddd",
-                  borderRadius: 1,
-                  overflow: "hidden",
+                  position: "absolute",
+                  inset: 0,
+                  bgcolor: "rgba(0,0,0,0.35)",
+                  opacity: 0,
+                  transition: "opacity 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                <img
-                  src={img.image}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-
-                <IconButton
-                  size="small"
-                  onClick={() => handleDelete(img.id)}
-                  sx={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    backgroundColor: "rgba(255,255,255,0.8)",
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="削除">
+                  <IconButton
+                    size="small"
+                    onClick={() => setDeleteTarget(img)}
+                    sx={{ color: "white", bgcolor: "rgba(0,0,0,0.4)", "&:hover": { bgcolor: "error.main" } }}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
+
+      {/* 削除確認ダイアログ */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>画像の削除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>この画像を削除しますか？この操作は取り消せません。</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleting}>キャンセル</Button>
+          <Button color="error" variant="contained" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "削除中..." : "削除する"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }

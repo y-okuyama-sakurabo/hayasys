@@ -24,6 +24,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import PhoneField from "@/components/ui/PhoneField";
 import apiClient from "@/lib/apiClient";
 
 type CustomerClass = { id: number; code: string; name: string; is_wholesale: boolean };
@@ -492,8 +493,8 @@ export default function CustomerNewPage() {
             </Stack>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField label="電話番号（自宅・固定）" value={form.phone ?? ""} onChange={setField("phone")} fullWidth />
-              <TextField label="携帯電話番号" value={form.mobile_phone ?? ""} onChange={setField("mobile_phone")} fullWidth />
+              <PhoneField label="電話番号（自宅・固定）" value={form.phone} onChange={(v) => setForm((p) => ({ ...p, phone: v }))} fullWidth />
+              <PhoneField label="携帯電話番号" value={form.mobile_phone} onChange={(v) => setForm((p) => ({ ...p, mobile_phone: v }))} fullWidth />
             </Stack>
 
             <TextField label="メール" value={form.email ?? ""} onChange={setField("email")} fullWidth />
@@ -507,7 +508,7 @@ export default function CustomerNewPage() {
 
           <Stack direction={{ md: "row" }} spacing={2}>
             <TextField label="会社名（勤務先・法人名）" value={form.company ?? ""} onChange={setField("company")} fullWidth />
-            <TextField label="会社電話番号" value={form.company_phone ?? ""} onChange={setField("company_phone")} fullWidth />
+            <PhoneField label="会社電話番号" value={form.company_phone} onChange={(v) => setForm((p) => ({ ...p, company_phone: v }))} fullWidth />
           </Stack>
         </Paper>
      

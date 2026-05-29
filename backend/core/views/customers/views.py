@@ -6,7 +6,8 @@ from core.serializers.customers import (
     CustomerDetailSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Value
+from django.db.models.functions import Replace
 from rest_framework.pagination import PageNumberPagination
 import jaconv
 import csv
@@ -15,6 +16,20 @@ from urllib.parse import quote
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.views import APIView
+
+
+def _apply_phone_search(qs, q_norm):
+    """
+    電話番号をハイフンなしで比較するためのアノテーションを付与して返す。
+    DB側・検索クエリ側の両方からハイフン・スペースを除去して icontains 比較する。
+    """
+    q_phone = q_norm.replace("-", "").replace(" ", "").replace("　", "")
+    qs = qs.annotate(
+        _phone_clean=Replace(Replace("phone", Value("-"), Value("")), Value(" "), Value("")),
+        _mobile_clean=Replace(Replace("mobile_phone", Value("-"), Value("")), Value(" "), Value("")),
+        _company_phone_clean=Replace(Replace("company_phone", Value("-"), Value("")), Value(" "), Value("")),
+    )
+    return qs, q_phone
 
 class DefaultPagination(PageNumberPagination):
     page_size = 20
@@ -34,13 +49,13 @@ class CustomerListCreateView(ListCreateAPIView):
 
     def get_queryset(self):
         qs = Customer.objects.all()
-        q = self.request.query_params.get("search") 
+        q = self.request.query_params.get("search")
 
         if q:
-    
             q_norm = jaconv.normalize(q, "NFKC")
             q_hira = jaconv.kata2hira(q_norm)
             q_kata = jaconv.hira2kata(q_norm)
+            qs, q_phone = _apply_phone_search(qs, q_norm)
 
             qs = qs.filter(
                 Q(name__icontains=q_norm)
@@ -50,7 +65,9 @@ class CustomerListCreateView(ListCreateAPIView):
                 | Q(kana__icontains=q_hira)
                 | Q(kana__icontains=q_kata)
                 | Q(phone__icontains=q_norm)
+                | Q(_phone_clean__icontains=q_phone)
                 | Q(mobile_phone__icontains=q_norm)
+                | Q(_mobile_clean__icontains=q_phone)
                 | Q(address__icontains=q_norm)
                 | Q(postal_code__icontains=q_norm)
                 | Q(email__icontains=q_norm)
@@ -97,6 +114,7 @@ class CustomerCSVExportAPIView(APIView):
             q_norm = jaconv.normalize(search, "NFKC")
             q_hira = jaconv.kata2hira(q_norm)
             q_kata = jaconv.hira2kata(q_norm)
+            qs, q_phone = _apply_phone_search(qs, q_norm)
 
             qs = qs.filter(
                 Q(name__icontains=q_norm)
@@ -106,8 +124,11 @@ class CustomerCSVExportAPIView(APIView):
                 | Q(kana__icontains=q_hira)
                 | Q(kana__icontains=q_kata)
                 | Q(phone__icontains=q_norm)
+                | Q(_phone_clean__icontains=q_phone)
                 | Q(mobile_phone__icontains=q_norm)
+                | Q(_mobile_clean__icontains=q_phone)
                 | Q(company_phone__icontains=q_norm)
+                | Q(_company_phone_clean__icontains=q_phone)
                 | Q(address__icontains=q_norm)
                 | Q(postal_code__icontains=q_norm)
                 | Q(email__icontains=q_norm)

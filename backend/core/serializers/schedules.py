@@ -3,7 +3,8 @@ from rest_framework import serializers
 from core.models import Schedule, Shop, Estimate, Order
 
 class ScheduleSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(source="customer.name", read_only=True, allow_null=True, default=None)
+    customer_id   = serializers.IntegerField(source="customer.id",   read_only=True, allow_null=True, default=None)
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     staff_name = serializers.SerializerMethodField()
 
@@ -44,6 +45,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "order",
             "delivery_method",
             "customer",
+            "customer_id",
             "customer_name",
             "shop",
             "shop_name",

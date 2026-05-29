@@ -36,6 +36,7 @@ type Schedule = {
   end_at?: string | null;
   description?: string;
   customer?: number | null;
+  customer_id?: number | null;
   customer_name?: string | null;
   shop?: number | null;
   shop_name?: string | null;

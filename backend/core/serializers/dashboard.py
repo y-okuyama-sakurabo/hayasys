@@ -17,6 +17,7 @@ class DashboardScheduleSerializer(serializers.Serializer):
     start_at = serializers.DateTimeField()
     customer = serializers.CharField(allow_null=True)
     type = serializers.CharField()
+    staff = serializers.CharField(allow_null=True)
 
 class DashboardEstimateSerializer(serializers.Serializer):
     id = serializers.IntegerField()
@@ -30,3 +31,4 @@ class DashboardSerializer(serializers.Serializer):
     communications = DashboardCommunicationSerializer(many=True)
     schedules = DashboardScheduleSerializer(many=True)
     estimates = DashboardEstimateSerializer(many=True)
+    total = serializers.IntegerField(default=0)

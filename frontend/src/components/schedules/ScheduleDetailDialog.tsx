@@ -24,6 +24,8 @@ type ScheduleDetail = {
   description?: string;
   start_at: string;
   end_at?: string | null;
+  customer?: number | null;
+  customer_id?: number | null;
   customer_name?: string;
   staff_name?: string;
   shop_name?: string;
@@ -127,7 +129,18 @@ export default function ScheduleDetailDialog({
               {schedule.customer_name && (
                 <Box>
                   <Typography fontSize={12} color="text.secondary">顧客</Typography>
-                  <Typography>{schedule.customer_name}</Typography>
+                  {schedule.customer_id ? (
+                    <Link
+                      href={`/dashboard/customers/${schedule.customer_id}`}
+                      underline="hover"
+                      sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      {schedule.customer_name}
+                      <OpenInNewIcon fontSize="inherit" />
+                    </Link>
+                  ) : (
+                    <Typography>{schedule.customer_name}</Typography>
+                  )}
                 </Box>
               )}
               {schedule.staff_name && (

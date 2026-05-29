@@ -107,6 +107,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://52.193.197.122",
     "http://162.43.7.137",
     "https://hayasys.vercel.app",
+    "http://links.hayasaka.co.jp",
+    "https://links.hayasaka.co.jp",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -115,13 +117,15 @@ CSRF_TRUSTED_ORIGINS = [
     "http://52.193.197.122",
     "http://162.43.7.137",
     "https://hayasys.vercel.app",
+    "http://links.hayasaka.co.jp",
+    "https://links.hayasaka.co.jp",
 ]
 
-SESSION_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
-SESSION_COOKIE_SECURE = False #httpsのときはtrue
-CSRF_COOKIE_SECURE = False #httpsのときはtrue
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 
 MEDIA_URL = '/media/'

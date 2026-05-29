@@ -90,7 +90,7 @@ class DashboardAPIView(APIView):
 
         estimates = (
             Estimate.objects
-            .filter(shop=shop, orders__isnull=True)
+            .filter(shop=shop, status__in=["draft", "issued"])
             .select_related("party", "created_by")
             .order_by("-created_at")
         )
@@ -127,6 +127,7 @@ class DashboardAPIView(APIView):
             "communications": communication_data,
             "schedules": schedule_data,
             "estimates": estimate_data,
+            "total": total,
         }
 
         serializer = DashboardSerializer(data)
