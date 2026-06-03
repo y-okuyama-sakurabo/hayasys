@@ -9,24 +9,21 @@ export function SaleOrderDocument({ order }: { order: any }) {
   const format = (v: any) =>
     v == null || isNaN(Number(v)) ? "" : `¥${Number(v).toLocaleString()}`;
 
+  // 保存済みsubtotal（税抜）を使用。nullの場合はrawフィールドで再計算
   const calcLine = (item: any) => {
-    const qty = Number(item.quantity ?? 0);
-    const unit = Number(item.unit_price ?? 0);
-    const labor = Number(item.labor_cost ?? 0);
-    const discount = Number(item.discount ?? 0);
-
-    const subtotal = qty * unit + labor - discount;
-
-    const tax =
-      item.tax_type === "taxable"
-        ? Math.floor(subtotal * 0.1)
-        : 0;
-
-    return {
-      subtotal,
-      tax,
-      total: subtotal + tax,
-    };
+    const stored = Number(item.subtotal ?? 0);
+    let subtotal: number;
+    if (stored > 0) {
+      subtotal = stored;
+    } else {
+      const qty   = Number(item.quantity   ?? 0);
+      const unit  = Number(item.unit_price ?? 0);
+      const labor = Number(item.labor_cost ?? 0);
+      const disc  = Number(item.discount   ?? 0);
+      subtotal = Math.max(0, qty * unit + labor - disc);
+    }
+    const tax = item.tax_type === "taxable" ? Math.round(subtotal * 0.1) : 0;
+    return { subtotal, tax, total: subtotal + tax };
   };
 
   function chunkItems(items: any[], size: number) {
@@ -126,7 +123,15 @@ export function SaleOrderDocument({ order }: { order: any }) {
               fontSize: "10px",
               padding: "20px 40px",
               pageBreakAfter: "always",
+              pageBreakInside: "avoid",
               "&:last-of-type": { pageBreakAfter: "auto" },
+              mx: "auto",
+              mb: 2,
+              "@media print": {
+                mb: 0,
+                height: "297mm",
+                overflow: "hidden",
+              },
             }}
           >
             {pageIndex === 0 && (
@@ -321,7 +326,6 @@ export function SaleOrderDocument({ order }: { order: any }) {
                 <tbody>
                   {items.map((item: any, i: number) => {
                     const line = calcLine(item);
-                    const unitWithTax = Math.round(line.total / Number(item.quantity ?? 1));
 
                     return (
                       <tr key={i}>
@@ -330,8 +334,8 @@ export function SaleOrderDocument({ order }: { order: any }) {
                         <Td align="right">
                           {item.unit_detail?.name || ""}
                         </Td>
-                        <Td align="right">{format(unitWithTax)}</Td>
-                        <Td align="right">{format(item.labor_cost)}</Td>
+                        <Td align="right">{format(item.unit_price)}</Td>
+                        <Td align="right">{item.labor_cost ? format(item.labor_cost) : ""}</Td>
                         <Td align="right">{format(line.total)}</Td>
                       </tr>
                     );
@@ -393,17 +397,14 @@ export function SaleOrderDocument({ order }: { order: any }) {
                   <tbody>
                     {nonTaxFeeItems.map((item: any, i: number) => {
                       const line = calcLine(item);
-                      const unitWithTax = Math.round(
-                        line.total / Number(item.quantity ?? 1)
-                      );
 
                       return (
                         <tr key={`non-tax-${i}`}>
                           <Td>{item.name}</Td>
                           <Td align="right">{item.quantity}</Td>
                           <Td align="right">{item.unit_detail?.name || ""}</Td>
-                          <Td align="right">{format(unitWithTax)}</Td>
-                          <Td align="right">{format(item.labor_cost)}</Td>
+                          <Td align="right">{format(item.unit_price)}</Td>
+                          <Td align="right">{item.labor_cost ? format(item.labor_cost) : ""}</Td>
                           <Td align="right">{format(line.total)}</Td>
                         </tr>
                       );

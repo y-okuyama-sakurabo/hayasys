@@ -394,7 +394,7 @@ export default function SalesAnalyticsPage() {
   // ========================
   return (
     <Box>
-      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>売上分析</Typography>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>売上分析</Typography>
 
       {/* ── フィルター ── */}
       <Paper sx={{ p: 2, mb: 2 }}>

@@ -33,9 +33,6 @@ export default function CategorySelector({
 }) {
   const [rootCategories, setRootCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [laborCost, setLaborCost] = useState<number | "">("");
-  const [manufacturerId, setManufacturerId] = useState<number | null>(null);
-  const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [searchText, setSearchText] = useState("");
 
 

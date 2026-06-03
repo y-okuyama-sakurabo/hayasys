@@ -932,14 +932,14 @@ export default function OrderForm({ mode, orderId }: Props) {
         <Box>
           {/* 基本情報 */}
           <Paper id="ord-basic" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📋 基本情報</SectionHeader>
+            <SectionHeader>基本情報</SectionHeader>
             <BasicInfoForm basic={state.basic} dispatch={dispatch} type="order" />
           </Paper>
 
           {/* 車両情報 */}
           {state.basic.vehicle_mode !== "none" && (
             <Paper id="ord-vehicle" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-              <SectionHeader>🚗 車両情報</SectionHeader>
+              <SectionHeader>車両情報</SectionHeader>
               <VehicleStep
                 vehicle={state.vehicle}
                 tradeInVehicle={state.tradeInVehicle}
@@ -954,25 +954,25 @@ export default function OrderForm({ mode, orderId }: Props) {
 
           {/* その他費用 */}
           <Paper id="ord-items" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📦 その他費用</SectionHeader>
+            <SectionHeader>その他費用</SectionHeader>
             <OtherStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* 課税費用 */}
           <Paper id="ord-expenses" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>💴 課税費用</SectionHeader>
+            <SectionHeader>課税費用</SectionHeader>
             <ExpenseStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* 非課税費用 */}
           <Paper id="ord-insurance" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>🧾 非課税費用</SectionHeader>
+            <SectionHeader>非課税費用</SectionHeader>
             <InsuranceStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* 支払い */}
           <Paper id="ord-payment" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>💳 支払い</SectionHeader>
+            <SectionHeader>支払い</SectionHeader>
 
             <Box mb={3}>
               <Typography fontWeight="bold" mb={1} fontSize={14} color="text.secondary">
@@ -982,10 +982,11 @@ export default function OrderForm({ mode, orderId }: Props) {
                 type="number"
                 size="small"
                 value={state.global_discount}
+                inputProps={{ step: 1, min: 0, style: { textAlign: "right" } }}
                 onChange={(e) =>
                   dispatch({
                     type: "SET_GLOBAL_DISCOUNT",
-                    payload: e.target.value === "" ? 0 : Number(e.target.value),
+                    payload: e.target.value === "" ? 0 : Math.round(Number(e.target.value)),
                   })
                 }
                 sx={{ width: 200 }}
@@ -1003,7 +1004,7 @@ export default function OrderForm({ mode, orderId }: Props) {
 
           {/* メモ */}
           <Paper id="ord-memo" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📝 メモ</SectionHeader>
+            <SectionHeader>メモ</SectionHeader>
 
             <Box mb={3}>
               <Typography fontWeight="bold" mb={1} fontSize={14}>

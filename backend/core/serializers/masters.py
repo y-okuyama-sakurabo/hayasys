@@ -28,7 +28,16 @@ class ShopSerializer(serializers.ModelSerializer):
             "fax",
             "email",
             "opening_hours",
+            "note",
         ]
+
+    def validate_code(self, value):
+        qs = Shop.objects.filter(code=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("このコードはすでに使用されています。")
+        return value
 
 
 class RegionSerializer(serializers.ModelSerializer):

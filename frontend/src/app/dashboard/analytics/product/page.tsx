@@ -484,7 +484,7 @@ export default function ProductAnalyticsPage() {
   // ========================
   return (
     <Box>
-      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>商品分析</Typography>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>商品分析</Typography>
 
       {/* ── 共通フィルター ── */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>

@@ -622,9 +622,9 @@ export default function VehicleStep({
           <Grid container spacing={2} mb={1}>
             <Grid size={{ xs: 12, sm: 5 }}>
               <TextField
-                fullWidth size="small" type="number" label="車両本体価格"
+                fullWidth size="small" type="number" label="車両本体価格（税込）"
                 value={currentVehicle.unit_price || ""}
-                inputProps={{ style: { textAlign: "right" } }}
+                inputProps={{ step: 1, style: { textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                 }}
@@ -637,7 +637,7 @@ export default function VehicleStep({
               <TextField
                 fullWidth size="small" type="number" label="値引き"
                 value={currentVehicle.discount ?? 0}
-                inputProps={{ style: { textAlign: "right" } }}
+                inputProps={{ step: 1, style: { textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                 }}
@@ -649,7 +649,7 @@ export default function VehicleStep({
             {(currentVehicle.unit_price > 0) && (
               <Grid size={{ xs: 12 }}>
                 <Typography variant="body2" color="text.secondary">
-                  本体価格（値引後）:{" "}
+                  本体価格（税込・値引後）:{" "}
                   <strong>
                     ¥{(currentVehicle.unit_price - (currentVehicle.discount ?? 0)).toLocaleString()}
                   </strong>

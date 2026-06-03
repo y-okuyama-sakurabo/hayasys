@@ -36,6 +36,7 @@ import MoreVertIcon    from "@mui/icons-material/MoreVert";
 import OpenInNewIcon   from "@mui/icons-material/OpenInNew";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import SearchIcon      from "@mui/icons-material/Search";
+import DownloadIcon    from "@mui/icons-material/Download";
 import apiClient from "@/lib/apiClient";
 
 // ========================
@@ -283,17 +284,40 @@ export default function ManagementPage() {
     router.push(`/dashboard/management/${orderId}`);
 
   // ========================
+  // CSV出力
+  // ========================
+  const handleCsvExport = async () => {
+    const params = new URLSearchParams();
+    if (selectedShop && selectedShop !== "all") params.set("shop_id", selectedShop);
+    if (periodMode === "month" && selectedMonth) {
+      params.set("month", selectedMonth);
+    } else if (periodMode === "range") {
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo)   params.set("date_to",   dateTo);
+    }
+    const url = `/api/management/orders/csv/?${params.toString()}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.click();
+  };
+
+  // ========================
   // UI
   // ========================
   return (
     <Box>
+
+      {/* ページタイトル */}
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+        納品入金管理
+      </Typography>
 
       {/* ════════════════════════════════
           期間・店舗フィルターエリア
       ════════════════════════════════ */}
       <Paper sx={{ p: 2, mb: 2 }}>
 
-        {/* 1行目：店舗 ＋ 期間モード切り替え */}
+        {/* 1行目：店舗 ＋ 期間モード切り替え ＋ CSV出力 */}
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>店舗</InputLabel>
@@ -369,6 +393,19 @@ export default function ManagementPage() {
               </Button>
             </>
           )}
+
+          {/* CSV出力ボタン（右寄せ） */}
+          <Box sx={{ ml: "auto" }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleCsvExport}
+              disabled={!selectedShop}
+            >
+              CSV出力
+            </Button>
+          </Box>
         </Stack>
 
         <Divider sx={{ mb: 2 }} />

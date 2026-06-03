@@ -69,8 +69,12 @@ export default function CustomerInfo({
   editMode: boolean;
   setEditMode: (v: boolean) => void;
 }) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
   const [saving,        setSaving]        = useState(false);
   const [error,         setError]         = useState<string | null>(null);
+  const [emailError,    setEmailError]    = useState<string | null>(null);
+  const [birthdateError,setBirthdateError]= useState<string | null>(null);
   const [loadingMasters, setLoadingMasters] = useState(false);
   const [customerClasses, setCustomerClasses] = useState<any[]>([]);
   const [regions,       setRegions]       = useState<IdName[]>([]);
@@ -135,6 +139,27 @@ export default function CustomerInfo({
 
   const save = async () => {
     setError(null);
+    setEmailError(null);
+    setBirthdateError(null);
+
+    // メール形式チェック
+    if (form.email && form.email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+        setEmailError("正しいメールアドレスの形式で入力してください（例: name@example.com）");
+        return;
+      }
+    }
+
+    // 生年月日・未来日チェック
+    if (form.birthdate) {
+      const picked = new Date(form.birthdate);
+      const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+      if (picked > todayDate) {
+        setBirthdateError("生年月日は今日以前の日付を入力してください");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await apiClient.patch(`/customers/${customer.id}/`, {
@@ -266,8 +291,12 @@ export default function CustomerInfo({
           <TextField fullWidth size="small" label="フリガナ" value={form.kana ?? ""} onChange={setField("kana")} sx={{ mb: 1.5 }} />
           <TextField
             fullWidth size="small" label="誕生日" type="date"
-            value={form.birthdate ?? ""} onChange={setField("birthdate")}
-            InputLabelProps={{ shrink: true }} sx={{ mb: 0 }}
+            value={form.birthdate ?? ""} onChange={(e) => { setBirthdateError(null); setField("birthdate")(e); }}
+            InputLabelProps={{ shrink: true }}
+            inputProps={{ max: today }}
+            error={!!birthdateError}
+            helperText={birthdateError ?? ""}
+            sx={{ mb: 0 }}
           />
 
           <Divider sx={{ my: 2 }} />
@@ -275,7 +304,14 @@ export default function CustomerInfo({
 
           <PhoneField fullWidth size="small" label="電話" value={form.phone} onChange={(v) => setForm((p: any) => ({ ...p, phone: v }))} sx={{ mb: 1.5 }} />
           <PhoneField fullWidth size="small" label="携帯" value={form.mobile_phone} onChange={(v) => setForm((p: any) => ({ ...p, mobile_phone: v }))} sx={{ mb: 1.5 }} />
-          <TextField fullWidth size="small" label="メール" value={form.email ?? ""} onChange={setField("email")} sx={{ mb: 1.5 }} />
+          <TextField
+            fullWidth size="small" label="メール" type="email"
+            value={form.email ?? ""}
+            onChange={(e) => { setEmailError(null); setField("email")(e); }}
+            error={!!emailError}
+            helperText={emailError ?? ""}
+            sx={{ mb: 1.5 }}
+          />
           <TextField fullWidth size="small" label="郵便番号" value={form.postal_code ?? ""} onChange={setField("postal_code")} sx={{ mb: 1.5 }} />
           <TextField fullWidth size="small" label="住所" value={form.address ?? ""} onChange={setField("address")} />
         </Grid>

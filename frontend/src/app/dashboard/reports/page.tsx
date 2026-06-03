@@ -249,7 +249,7 @@ export default function ReportsPage() {
       <Box>
         {/* タイトル */}
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} className="no-print">
-          <Typography variant="h6" fontWeight="bold">帳票管理</Typography>
+          <Typography variant="h5" fontWeight="bold">帳票管理</Typography>
           {searched && data && (
             <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => window.print()}>
               印刷

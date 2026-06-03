@@ -9,7 +9,6 @@ export default function SchedulePage() {
     <Box>
       {/* ページヘッダー */}
       <Box display="flex" alignItems="center" gap={1} mb={2.5}>
-        <CalendarMonthIcon color="primary" />
         <Typography variant="h5" fontWeight="bold">
           スケジュール
         </Typography>

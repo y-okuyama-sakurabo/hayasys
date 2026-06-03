@@ -169,7 +169,7 @@ export default function PaymentForm({
               label={t.label}
               type="number"
               value={settlements[t.key] || ""}
-              inputProps={{ min: 0, max: grandTotal, style: { textAlign: "right" } }}
+              inputProps={{ min: 0, max: grandTotal, step: 1, style: { textAlign: "right" } }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -268,7 +268,7 @@ export default function PaymentForm({
                 label="初回支払額"
                 type="number"
                 value={basic.credit_first_payment || ""}
-                inputProps={{ style: { textAlign: "right" } }}
+                inputProps={{ step: 1, style: { textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                 }}
@@ -285,7 +285,7 @@ export default function PaymentForm({
                 label="2回目以降支払額"
                 type="number"
                 value={basic.credit_second_payment || ""}
-                inputProps={{ style: { textAlign: "right" } }}
+                inputProps={{ step: 1, style: { textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                 }}
@@ -302,7 +302,7 @@ export default function PaymentForm({
                 label="ボーナス支払い額"
                 type="number"
                 value={basic.credit_bonus_payment || ""}
-                inputProps={{ style: { textAlign: "right" } }}
+                inputProps={{ step: 1, style: { textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                 }}

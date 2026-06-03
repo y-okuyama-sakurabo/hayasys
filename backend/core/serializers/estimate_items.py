@@ -120,6 +120,7 @@ class EstimateItemSerializer(serializers.ModelSerializer):
     # バリデーション（subtotal計算）
     # =========================
     def validate(self, data):
+        """単価（税込）× 数量 − 値引 から税抜小計を算出"""
         try:
             qty = Decimal(str(data.get("quantity") or "1"))
             price = Decimal(str(data.get("unit_price") or "0"))
@@ -128,7 +129,18 @@ class EstimateItemSerializer(serializers.ModelSerializer):
         except InvalidOperation:
             raise serializers.ValidationError("数量・単価・工賃・値引の値が不正です")
 
-        data["subtotal"] = (qty * price) + labor - discount
+        # 税込合計
+        total = qty * price + labor - discount
+
+        tax_type = data.get("tax_type", "taxable")
+        if tax_type == "taxable":
+            # 税抜小計（税込合計 ÷ 1.10）
+            data["subtotal"] = (total / Decimal("1.10")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        else:
+            data["subtotal"] = total
+
         return data
 
     # =========================

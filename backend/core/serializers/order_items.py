@@ -1,4 +1,4 @@
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from core.models import OrderItem, Category, Product
@@ -149,16 +149,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
     # バリデーション & 小計計算
     # ==================================================
     def validate(self, data):
-        """数量 × 単価 − 値引 で小計を自動計算"""
+        """単価（税込）× 数量 − 値引 から税抜小計を算出"""
         try:
             qty = Decimal(str(data.get("quantity") or "1"))
             price = Decimal(str(data.get("unit_price") or "0"))
             discount = Decimal(str(data.get("discount") or "0"))
+            labor = Decimal(str(data.get("labor_cost") or "0"))
         except InvalidOperation:
             raise serializers.ValidationError("数量・単価・値引の値が不正です")
 
-        labor = Decimal(str(data.get("labor_cost") or "0"))
-        data["subtotal"] = (qty * price) + labor - discount
+        # 税込合計
+        total = qty * price + labor - discount
+
+        tax_type = data.get("tax_type", "taxable")
+        if tax_type == "taxable":
+            # 税抜小計（税込合計 ÷ 1.10）
+            data["subtotal"] = (total / Decimal("1.10")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        else:
+            data["subtotal"] = total
+
         return data
 
     # ==================================================

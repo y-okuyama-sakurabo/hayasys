@@ -260,10 +260,13 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
         return v.replace("-", "").strip() if v else v
 
     def validate_phone(self, v):
-        return v.replace("-", "").strip() if v else v
+        return v.strip() if v else v
 
     def validate_mobile_phone(self, v):
-        return v.replace("-", "").strip() if v else v
+        return v.strip() if v else v
+
+    def validate_company_phone(self, v):
+        return v.strip() if v else v
 
     def create(self, validated_data):
         vehicles_data = validated_data.pop("vehicles", [])

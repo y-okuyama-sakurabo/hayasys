@@ -66,6 +66,12 @@ export default function OrderDetailPage() {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `order_${order?.order_no || id}`,
+    pageStyle: `
+      @page { size: A4 portrait; margin: 0mm; }
+      @media print {
+        html, body { margin: 0; padding: 0; background: #fff; }
+      }
+    `,
   });
 
   const handleConfirm = async () => {
@@ -150,20 +156,18 @@ export default function OrderDetailPage() {
       </Box>
 
       {/* ===== 印刷対象 ===== */}
-      <div ref={printRef}>
-        <Paper
-          elevation={0}
-          sx={{
-            width: "210mm",
-            minHeight: "297mm",
-            mx: "auto",
-            p: 0,
-            backgroundColor: "#fff",
-          }}
-        >
+      <Box
+        sx={{
+          overflowX: "auto",
+          bgcolor: "#e8e8e8",
+          py: 2,
+          "@media print": { bgcolor: "transparent", p: 0 },
+        }}
+      >
+        <div ref={printRef}>
           <SaleOrderDocument order={order} />
-        </Paper>
-      </div>
+        </div>
+      </Box>
       {order.internal_memo && (
         <Paper
           sx={{

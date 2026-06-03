@@ -31,37 +31,50 @@ class LoginView(TokenObtainPairView):
     カスタムログインAPI
     - JWT を HttpOnly Cookie に保存
     - レスポンスも token + user を返す
+    - 成功時に操作ログを記録する
     """
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-        # 通常の JWT 発行処理
         response = super().post(request, *args, **kwargs)
 
-        access = response.data.get("access")
+        access  = response.data.get("access")
         refresh = response.data.get("refresh")
 
-        # ==== Cookie に保存 ====
-        # 開発中なので secure=False ／ 本番にしたら True にしてね！
-
         response.set_cookie(
-            "access_token",
-            access,
-            httponly=True,
-            secure=False,        # ← ★変更
-            samesite="Lax",      # ← ★変更
-            max_age=60 * 60,
-            path="/",
+            "access_token", access,
+            httponly=True, secure=False, samesite="Lax",
+            max_age=60 * 60, path="/",
+        )
+        response.set_cookie(
+            "refresh_token", refresh,
+            httponly=True, secure=False, samesite="Lax",
+            max_age=60 * 60 * 24 * 7, path="/",
         )
 
-        response.set_cookie(
-            "refresh_token",
-            refresh,
-            httponly=True,
-            secure=False,        # ← ★変更
-            samesite="Lax",      # ← ★変更
-            max_age=60 * 60 * 24 * 7,
-            path="/",
-        )
+        # ── 操作ログ ──
+        if response.status_code == 200:
+            user_info = response.data.get("user", {})
+            user_id   = user_info.get("id")
+            if user_id:
+                try:
+                    from django.contrib.auth import get_user_model
+                    from core.models import AuditLog
+                    from core.services.audit import get_client_ip
+
+                    User  = get_user_model()
+                    actor = User.objects.get(id=user_id)
+                    AuditLog.objects.create(
+                        actor=actor,
+                        shop=getattr(actor, "shop", None),
+                        action="auth.login",
+                        target_type="user",
+                        target_id=actor.id,
+                        summary=f"{actor.display_name or actor.login_id} がログインしました",
+                        ip=get_client_ip(request),
+                        user_agent=request.META.get("HTTP_USER_AGENT", "")[:2000],
+                    )
+                except Exception:
+                    pass  # ログ失敗でもログイン自体は成功させる
 
         return response

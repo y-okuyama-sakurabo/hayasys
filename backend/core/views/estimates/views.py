@@ -16,6 +16,7 @@ from core.serializers.estimates import (
     EstimateDetailSerializer,
     EstimateItemSerializer,
 )
+from core.services.audit import write_audit_log
 
 
 # ==================================================
@@ -103,13 +104,24 @@ class EstimateListCreateAPIView(generics.ListCreateAPIView):
 
         try:
             with transaction.atomic():
-                serializer.save(
+                estimate = serializer.save(
                     created_by=user,
                     shop=shop,
                     estimate_no=estimate_no,
                 )
         except IntegrityError as e:
             raise serializers.ValidationError({"detail": str(e)})
+
+        try:
+            write_audit_log(
+                request=self.request,
+                action="estimate.create",
+                target_type="estimate",
+                target_id=estimate.id,
+                summary=f"見積 #{estimate.estimate_no} を作成しました",
+            )
+        except Exception:
+            pass
 
     def _generate_next_estimate_no(self):
         year_prefix = date.today().strftime("%y")  # 2026 -> 26
@@ -163,29 +175,50 @@ class EstimateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         - shop を送らない場合は既存の値を維持（上書きしない）
         - shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
         - shop=<id> は指定店舗に更新
+        items / vehicles_payload を含む一括更新をアトミックに処理する。
         """
         staff = getattr(self.request.user, "staff", None)
         user_shop = getattr(staff, "shop", None)
 
         shop_id = self.request.data.get("shop", None)
 
-        # shop が未送信（None）なら既存維持
-        if shop_id is None:
-            serializer.save()
-            return
+        with transaction.atomic():
+            if shop_id is None:
+                estimate = serializer.save()
+            elif shop_id == "":
+                estimate = serializer.save(shop=user_shop)
+            else:
+                try:
+                    shop = Shop.objects.get(id=shop_id)
+                except Shop.DoesNotExist:
+                    shop = user_shop
+                estimate = serializer.save(shop=shop)
 
-        # shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
-        if shop_id == "":
-            serializer.save(shop=user_shop)
-            return
-
-        # shop=<id> で送ってきた時だけ解決して更新
         try:
-            shop = Shop.objects.get(id=shop_id)
-        except Shop.DoesNotExist:
-            shop = user_shop
+            write_audit_log(
+                request=self.request,
+                action="estimate.update",
+                target_type="estimate",
+                target_id=estimate.id,
+                summary=f"見積 #{estimate.estimate_no} を更新しました",
+            )
+        except Exception:
+            pass
 
-        serializer.save(shop=shop)
+    def perform_destroy(self, instance):
+        no = instance.estimate_no
+        eid = instance.id
+        instance.delete()
+        try:
+            write_audit_log(
+                request=self.request,
+                action="estimate.delete",
+                target_type="estimate",
+                target_id=eid,
+                summary=f"見積 #{no} を削除しました",
+            )
+        except Exception:
+            pass
 
 
 # ==================================================
@@ -292,8 +325,20 @@ class EstimateStatusUpdateAPIView(APIView):
                 status=400,
             )
 
+        old_status_display = estimate.get_status_display()
         estimate.status = new_status
         estimate.save(update_fields=["status"])
+
+        try:
+            write_audit_log(
+                request=request,
+                action="estimate.status_change",
+                target_type="estimate",
+                target_id=estimate.id,
+                summary=f"見積 #{estimate.estimate_no} のステータスを「{old_status_display}」→「{estimate.get_status_display()}」に変更しました",
+            )
+        except Exception:
+            pass
 
         return Response({
             "status": estimate.status,

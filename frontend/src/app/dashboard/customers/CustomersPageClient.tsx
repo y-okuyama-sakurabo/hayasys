@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, InputAdornment, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  Snackbar, Alert, CircularProgress, Pagination, Avatar, Chip,
+  Snackbar, Alert, CircularProgress, Pagination, Chip,
 } from "@mui/material";
 import SearchIcon      from "@mui/icons-material/Search";
 import ClearIcon       from "@mui/icons-material/Clear";
@@ -29,17 +29,7 @@ type Customer = {
   address?: string;
 };
 
-function initials(name: string) {
-  return name?.slice(0, 1) ?? "?";
-}
 
-const AVATAR_COLORS = [
-  "#1976d2", "#388e3c", "#f57c00", "#7b1fa2",
-  "#c62828", "#00838f", "#558b2f", "#ad1457",
-];
-function avatarColor(id: number) {
-  return AVATAR_COLORS[id % AVATAR_COLORS.length];
-}
 
 export default function CustomerListPage() {
   const router       = useRouter();
@@ -142,7 +132,7 @@ export default function CustomerListPage() {
       {/* ── ヘッダー ── */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h6" fontWeight="bold">顧客管理</Typography>
+          <Typography variant="h5" fontWeight="bold">顧客管理</Typography>
           {!loading && (
             <Typography variant="caption" color="text.secondary">
               全 {count.toLocaleString()} 件
@@ -230,7 +220,6 @@ export default function CustomerListPage() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ "& th": { fontWeight: "bold", bgcolor: "#fafafa", fontSize: 12 } }}>
-                  <TableCell sx={{ width: 48 }} />
                   <TableCell>氏名 / フリガナ</TableCell>
                   <TableCell>連絡先</TableCell>
                   <TableCell>住所</TableCell>
@@ -245,19 +234,6 @@ export default function CustomerListPage() {
                     sx={{ cursor: "pointer", "& td": { py: 1.2 } }}
                     onClick={() => router.push(`/dashboard/customers/${c.id}`)}
                   >
-                    {/* アバター */}
-                    <TableCell sx={{ pl: 2 }}>
-                      <Avatar
-                        sx={{
-                          width: 32, height: 32,
-                          fontSize: 13, fontWeight: "bold",
-                          bgcolor: avatarColor(c.id),
-                        }}
-                      >
-                        {initials(c.name)}
-                      </Avatar>
-                    </TableCell>
-
                     {/* 氏名・フリガナ・メール */}
                     <TableCell>
                       <Typography variant="body2" fontWeight={600} lineHeight={1.4}>

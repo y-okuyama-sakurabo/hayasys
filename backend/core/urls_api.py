@@ -13,7 +13,11 @@ from core.views.masters.staffs import (
 )
 from core.views.masters.regions import RegionListView
 from core.views.masters.genders import GenderListView
-from core.views.masters.shops import ShopListView
+from core.views.masters.shops import (
+    ShopListCreateView,
+    ShopRetrieveUpdateDestroyView,
+    ShopUsageAPIView,
+)
 from core.views.masters.colors import ColorListView
 from core.views.masters.manufacturers import ManufacturerListView
 from core.views.masters.vehiclecategories import VehicleCategoryListView
@@ -116,7 +120,11 @@ from core.views.categories.views import (
     CategoryTreeAPIView,
     ProductListAPIView,
     ProductSearchAPIView,
-    LeafCategoryListAPIView,  # ← 追加
+    LeafCategoryListAPIView,
+    CategoryAdminTreeAPIView,
+    CategoryCreateAPIView,
+    CategoryUpdateDestroyAPIView,
+    CategoryUsageAPIView,
 )
 
 # === Payments ===
@@ -153,6 +161,7 @@ from core.views.management.management_detail_view import (
     ManagementOrderDetailAPIView,
     ManagementMonthlySummaryAPIView
 )
+from core.views.management.management_csv_export import ManagementCSVExportView
 from core.views.payments.payment_management_views import (
     PaymentManagementDetailAPIView,
     PaymentRecordCreateAPIView,
@@ -173,7 +182,7 @@ from core.views.management.management_list_view import (
 )
 
 # === Audit Logs ===
-from core.views.audit_logs.views import AuditLogViewSet
+from core.views.audit_logs.views import AuditLogViewSet, AuditLogListAPIView
 
 # === Analytics ===
 from core.views.analytics.views import (
@@ -205,7 +214,9 @@ urlpatterns = [
     path("masters/staffs/csv-import/",   StaffCSVImportView.as_view()),
     path("masters/regions/", RegionListView.as_view()),
     path("masters/genders/", GenderListView.as_view()),
-    path("masters/shops/", ShopListView.as_view()),
+    path("masters/shops/",              ShopListCreateView.as_view()),
+    path("masters/shops/<int:pk>/",     ShopRetrieveUpdateDestroyView.as_view()),
+    path("masters/shops/<int:pk>/usage/", ShopUsageAPIView.as_view()),
     path("masters/colors/", ColorListView.as_view()),
     path("masters/manufacturers/", ManufacturerListView.as_view()),
     path("masters/vehiclecategories/", VehicleCategoryListView.as_view()),
@@ -262,12 +273,15 @@ urlpatterns = [
     # =========================
     # Categories & Products
     # =========================
-    path("categories/", CategoryListAPIView.as_view()),
-    path("categories/leaf/", LeafCategoryListAPIView.as_view()),  # ←追加
-    path("categories/<int:pk>/", CategoryRetrieveAPIView.as_view()),
-    path("categories/tree/", CategoryTreeAPIView.as_view()),
-    path("products/", ProductListAPIView.as_view()),
-    path("products/search/", ProductSearchAPIView.as_view()),
+    path("categories/",                    CategoryListAPIView.as_view()),
+    path("categories/create/",             CategoryCreateAPIView.as_view()),
+    path("categories/leaf/",               LeafCategoryListAPIView.as_view()),
+    path("categories/tree/",               CategoryTreeAPIView.as_view()),
+    path("categories/admin-tree/",         CategoryAdminTreeAPIView.as_view()),
+    path("categories/<int:pk>/",           CategoryUpdateDestroyAPIView.as_view()),
+    path("categories/<int:pk>/usage/",     CategoryUsageAPIView.as_view()),
+    path("products/",                      ProductListAPIView.as_view()),
+    path("products/search/",               ProductSearchAPIView.as_view()),
 
     # =========================
     # Estimates
@@ -331,6 +345,10 @@ urlpatterns = [
         "management/orders/monthly/",
         ManagementMonthlySummaryAPIView.as_view(),
     ),
+    path(
+        "management/orders/csv/",
+        ManagementCSVExportView.as_view(),
+    ),
 
     # Payment management
     path(
@@ -381,5 +399,11 @@ urlpatterns = [
         "communication-threads/<int:pk>/",
         BusinessCommunicationThreadRetrieveDestroyAPIView.as_view(),
     ),
-                
+
+    # =========================
+    # Audit Logs（操作ログ）
+    # =========================
+    path("audit-logs/", AuditLogListAPIView.as_view()),
+    path("audit-logs/<int:pk>/", AuditLogViewSet.as_view({"get": "retrieve"})),
+
 ]

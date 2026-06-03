@@ -1,6 +1,8 @@
+from decimal import Decimal, ROUND_HALF_UP
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
+from django.db.models import Sum
 
 from core.models.estimates import Estimate
 from core.models.base import Shop
@@ -13,6 +15,7 @@ from core.models import (
     Schedule,
     Settlement,
     Insurance,
+    Product,
 )
 from core.models.masters import Gender, CustomerClass, Region
 from core.models import EstimateVehicleRegistration
@@ -56,6 +59,15 @@ class EstimatePartySerializer(serializers.ModelSerializer):
     class Meta:
         model = EstimateParty
         fields = "__all__"
+
+    def validate_phone(self, v):
+        return v.strip() if v else v
+
+    def validate_mobile_phone(self, v):
+        return v.strip() if v else v
+
+    def validate_company_phone(self, v):
+        return v.strip() if v else v
 
 
 class EstimateSerializer(serializers.ModelSerializer):
@@ -118,6 +130,51 @@ class EstimateSerializer(serializers.ModelSerializer):
         model = Estimate
         fields = "__all__"
         read_only_fields = ["created_at"]
+
+    # =========================================
+    # estimate 合計再計算
+    # =========================================
+    def _recalculate_estimate(self, estimate):
+        """全アイテムの subtotal から grand_total を再計算して保存する"""
+        items = estimate.items.all()
+        subtotal = items.aggregate(total=Sum("subtotal"))["total"] or Decimal("0.00")
+        taxable_subtotal = items.filter(tax_type="taxable").aggregate(
+            total=Sum("subtotal")
+        )["total"] or Decimal("0.00")
+        tax_total = (taxable_subtotal * Decimal("0.10")).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+        estimate.subtotal = subtotal
+        estimate.tax_total = tax_total
+        estimate.grand_total = subtotal + tax_total + (estimate.final_adjustment or Decimal("0"))
+        estimate.save(update_fields=["subtotal", "tax_total", "grand_total"])
+
+    # =========================================
+    # items 一括生成（saveAsProduct 対応 + 合計再計算）
+    # =========================================
+    def _create_items(self, estimate, items_data):
+        """
+        items_data（EstimateItemSerializer の validated_data リスト）から
+        EstimateItem を一括生成し、saveAsProduct フラグがあれば Product も作成する。
+        最後に estimate の合計を再計算する。
+        """
+        for item in items_data:
+            save_flag = item.pop("saveAsProduct", False)
+            created_item = EstimateItem.objects.create(estimate=estimate, **item)
+
+            if save_flag and created_item.name and created_item.category_id:
+                Product.objects.get_or_create(
+                    name=created_item.name,
+                    category=created_item.category,
+                    manufacturer=created_item.manufacturer,
+                    defaults={
+                        "unit_price": created_item.unit_price,
+                        "tax_type": created_item.tax_type,
+                        "is_active": True,
+                    },
+                )
+
+        self._recalculate_estimate(estimate)
 
     # =========================================
     # settlements
@@ -260,10 +317,7 @@ class EstimateSerializer(serializers.ModelSerializer):
                 **insurance_data
             )
 
-        for item in items_data:
-            item.pop("saveAsProduct", None)
-            EstimateItem.objects.create(estimate=estimate, **item)
-
+        self._create_items(estimate, items_data)
         self._upsert_vehicle(estimate, vehicles_data)
         self._create_settlements(estimate, settlements_data)
         self._upsert_payment(estimate, payment_data, settlements_data)
@@ -305,12 +359,7 @@ class EstimateSerializer(serializers.ModelSerializer):
 
         if items_data is not None:
             instance.items.all().delete()
-            for item in items_data:
-                item.pop("saveAsProduct", None)
-                EstimateItem.objects.create(
-                    estimate=instance,
-                    **item,
-                )
+            self._create_items(instance, items_data)
 
         if vehicles_data is not None:
             self._upsert_vehicle(instance, vehicles_data)

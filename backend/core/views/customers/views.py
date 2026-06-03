@@ -16,6 +16,7 @@ from urllib.parse import quote
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.views import APIView
+from core.services.audit import write_audit_log
 
 
 def _apply_phone_search(qs, q_norm):
@@ -46,6 +47,19 @@ class CustomerListCreateView(ListCreateAPIView):
         if self.request.method == "POST":
             return CustomerWriteSerializer
         return CustomerListSerializer
+
+    def perform_create(self, serializer):
+        customer = serializer.save()
+        try:
+            write_audit_log(
+                request=self.request,
+                action="customer.create",
+                target_type="customer",
+                target_id=customer.id,
+                summary=f"顧客「{customer.name}」を登録しました",
+            )
+        except Exception:
+            pass
 
     def get_queryset(self):
         qs = Customer.objects.all()
@@ -95,6 +109,34 @@ class CustomerRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
         if self.request.method in ["PUT", "PATCH"]:
             return CustomerWriteSerializer
         return CustomerDetailSerializer
+
+    def perform_update(self, serializer):
+        customer = serializer.save()
+        try:
+            write_audit_log(
+                request=self.request,
+                action="customer.update",
+                target_type="customer",
+                target_id=customer.id,
+                summary=f"顧客「{customer.name}」を更新しました",
+            )
+        except Exception:
+            pass
+
+    def perform_destroy(self, instance):
+        name = instance.name or f"顧客ID:{instance.id}"
+        cid  = instance.id
+        instance.delete()
+        try:
+            write_audit_log(
+                request=self.request,
+                action="customer.delete",
+                target_type="customer",
+                target_id=cid,
+                summary=f"顧客「{name}」を削除しました",
+            )
+        except Exception:
+            pass
     
 class CustomerCSVExportAPIView(APIView):
     permission_classes = [IsAuthenticated]

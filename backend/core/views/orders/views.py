@@ -26,6 +26,7 @@ from core.models import (
 from core.models.base import Shop
 from core.serializers.order_detail import OrderDetailSerializer
 from core.serializers.orders import OrderSerializer
+from core.services.audit import write_audit_log
 
 
 # ====================================================
@@ -149,12 +150,24 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
         if not order_no or Order.objects.filter(order_no=order_no).exists():
             order_no = generate_next_order_no(shop)
 
-        order = serializer.save(
-            created_by=user,
-            shop=shop,
-            order_no=order_no,
-        )
-        serializer._recalculate_order(order)
+        with transaction.atomic():
+            order = serializer.save(
+                created_by=user,
+                shop=shop,
+                order_no=order_no,
+            )
+            serializer._recalculate_order(order)
+
+        try:
+            write_audit_log(
+                request=self.request,
+                action="order.create",
+                target_type="order",
+                target_id=order.id,
+                summary=f"受注 #{order.order_no} を作成しました",
+            )
+        except Exception:
+            pass
 
 # ======================================
 # 受注単体
@@ -182,22 +195,28 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         shop_id = self.request.data.get("shop", None)
 
-        # shop が未送信（None）なら既存の値を維持（上書きしない）
-        if shop_id is None:
-            serializer.save()
-            return
-
-        # shop="" は未選択扱い → ユーザーの所属店舗にフォールバック
-        if shop_id == "":
-            serializer.save(shop=user_shop)
-            return
+        with transaction.atomic():
+            if shop_id is None:
+                order = serializer.save()
+            elif shop_id == "":
+                order = serializer.save(shop=user_shop)
+            else:
+                try:
+                    shop = Shop.objects.get(id=shop_id)
+                except Shop.DoesNotExist:
+                    shop = user_shop
+                order = serializer.save(shop=shop)
 
         try:
-            shop = Shop.objects.get(id=shop_id)
-        except Shop.DoesNotExist:
-            shop = user_shop
-
-        serializer.save(shop=shop)
+            write_audit_log(
+                request=self.request,
+                action="order.update",
+                target_type="order",
+                target_id=order.id,
+                summary=f"受注 #{order.order_no} を更新しました",
+            )
+        except Exception:
+            pass
 
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
@@ -228,7 +247,20 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
             ).update(status="issued")
 
         # ⑦ Order
+        order_no = order.order_no
+        order_id = order.id
         order.delete()
+
+        try:
+            write_audit_log(
+                request=request,
+                action="order.delete",
+                target_type="order",
+                target_id=order_id,
+                summary=f"受注 #{order_no} を削除しました",
+            )
+        except Exception:
+            pass
 
         return Response(status=204)
 
@@ -432,6 +464,17 @@ class OrderFromEstimateAPIView(APIView):
         estimate.save(update_fields=["status"])
 
         create_customer_vehicle_from_order(order)
+
+        try:
+            write_audit_log(
+                request=request,
+                action="order.from_estimate",
+                target_type="order",
+                target_id=order.id,
+                summary=f"見積 #{estimate.estimate_no} から受注 #{order.order_no} を作成しました",
+            )
+        except Exception:
+            pass
 
         serializer = OrderDetailSerializer(order, context={"request": request})
         return Response(serializer.data, status=201)
@@ -658,16 +701,27 @@ class OrderStatusUpdateAPIView(APIView):
                 status=400,
             )
 
+        old_status_display = order.get_status_display()
         order.status = new_status
 
         update_fields = ["status"]
 
-        # 受注確定時に order_date が未設定なら今日の日付をセット
         if new_status == "ordered" and not order.order_date:
             order.order_date = date.today()
             update_fields.append("order_date")
 
         order.save(update_fields=update_fields)
+
+        try:
+            write_audit_log(
+                request=request,
+                action="order.status_change",
+                target_type="order",
+                target_id=order.id,
+                summary=f"受注 #{order.order_no} のステータスを「{old_status_display}」→「{order.get_status_display()}」に変更しました",
+            )
+        except Exception:
+            pass
 
         return Response({
             "status": order.status,

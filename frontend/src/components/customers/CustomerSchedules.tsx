@@ -2,33 +2,23 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Box,
-  Typography,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableContainer,
-  Paper,
-  TextField,
-  IconButton,
-  Menu,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Stack,
+  Box, Typography, Button, Paper, Stack, Chip, IconButton,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, FormControl, InputLabel, Select, MenuItem,
+  CircularProgress, Divider, Tooltip,
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import EventNoteIcon       from "@mui/icons-material/EventNote";
+import AddIcon             from "@mui/icons-material/Add";
+import EditIcon            from "@mui/icons-material/Edit";
+import DeleteOutlineIcon   from "@mui/icons-material/DeleteOutline";
+import CalendarTodayIcon   from "@mui/icons-material/CalendarToday";
+import StorefrontIcon      from "@mui/icons-material/Storefront";
+import PersonOutlineIcon   from "@mui/icons-material/PersonOutline";
+import OpenInNewIcon       from "@mui/icons-material/OpenInNew";
 import apiClient from "@/lib/apiClient";
 import ScheduleEditDialog from "@/components/schedules/ScheduleEditDialog";
 
-type Shop = {
-  id: number;
-  name: string;
-};
+type Shop = { id: number; name: string };
 
 type Schedule = {
   id: number;
@@ -43,45 +33,46 @@ type Schedule = {
   order?: number | null;
 };
 
-export default function CustomerSchedules({
-  customerId,
-}: {
-  customerId: number;
-}) {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [shopId, setShopId] = useState<number | "">("");
-  const [loading, setLoading] = useState(true);
+const initForm = { title: "", start_at: "", end_at: "", description: "" };
 
-  const [form, setForm] = useState({
-    title: "",
-    start_at: "",
-    end_at: "",
-    description: "",
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("ja-JP", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    weekday: "short",
   });
+}
 
-  // 編集ダイアログ
-  const [editScheduleId, setEditScheduleId] = useState<number | null>(null);
+function fmtTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+}
 
-  const [menuAnchor, setMenuAnchor] =
-    useState<Record<number, HTMLElement | null>>({});
+export default function CustomerSchedules({ customerId }: { customerId: number }) {
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [shops, setShops]         = useState<Shop[]>([]);
+  const [shopId, setShopId]       = useState<number | "">("");
+  const [loading, setLoading]     = useState(true);
+  const [addOpen, setAddOpen]     = useState(false);
+  const [form, setForm]           = useState(initForm);
+  const [saving, setSaving]       = useState(false);
+  const [editId, setEditId]       = useState<number | null>(null);
 
   useEffect(() => {
-    const init = async () => {
+    (async () => {
       try {
-        const me = await apiClient.get("/auth/user/");
+        const [me, shopRes] = await Promise.all([
+          apiClient.get("/auth/user/"),
+          apiClient.get("/masters/shops/"),
+        ]);
         setShopId(me.data.shop_id ?? "");
-
-        const shopRes = await apiClient.get("/masters/shops/");
         setShops(shopRes.data.results || shopRes.data || []);
-
         await fetchSchedules();
       } finally {
         setLoading(false);
       }
-    };
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSchedules = async () => {
@@ -91,15 +82,19 @@ export default function CustomerSchedules({
 
   const handleAdd = async () => {
     if (!form.title || !form.start_at) return;
-
-    await apiClient.post(`/customers/${customerId}/schedules/`, {
-      ...form,
-      end_at: form.end_at || null,
-      shop: shopId === "" ? null : shopId,
-    });
-
-    setForm({ title: "", start_at: "", end_at: "", description: "" });
-    await fetchSchedules();
+    setSaving(true);
+    try {
+      await apiClient.post(`/customers/${customerId}/schedules/`, {
+        ...form,
+        end_at: form.end_at || null,
+        shop: shopId === "" ? null : shopId,
+      });
+      setForm(initForm);
+      setAddOpen(false);
+      await fetchSchedules();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -108,198 +103,237 @@ export default function CustomerSchedules({
     await fetchSchedules();
   };
 
-  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, id: number) => {
-    e.stopPropagation();
-    setMenuAnchor((prev) => ({ ...prev, [id]: e.currentTarget }));
-  };
-
-  const closeMenu = (id: number) => {
-    setMenuAnchor((prev) => ({ ...prev, [id]: null }));
-  };
-
   if (loading) {
     return (
-      <Box mt={4}>
-        <Typography variant="h6" mb={2}>
-          スケジュール
-        </Typography>
-        <Paper sx={{ p: 2 }}>読み込み中...</Paper>
+      <Box display="flex" justifyContent="center" mt={6}>
+        <CircularProgress size={28} />
       </Box>
     );
   }
 
   return (
-    <Box mt={4}>
-      <Typography variant="h6" mb={2}>
-        スケジュール
-      </Typography>
-
-      {/* === 追加フォーム === */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box display="flex" gap={2} flexWrap="wrap">
-          <TextField
-            label="タイトル"
+    <Box>
+      {/* ヘッダー */}
+      <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <EventNoteIcon fontSize="small" color="action" />
+            <Typography variant="subtitle1" fontWeight="bold">スケジュール</Typography>
+            {schedules.length > 0 && (
+              <Chip label={schedules.length} size="small" sx={{ height: 20, fontSize: 11 }} />
+            )}
+          </Stack>
+          <Button
             size="small"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-          <TextField
-            type="datetime-local"
-            size="small"
-            label="開始"
-            InputLabelProps={{ shrink: true }}
-            value={form.start_at}
-            onChange={(e) => setForm({ ...form, start_at: e.target.value })}
-          />
-          <TextField
-            type="datetime-local"
-            size="small"
-            label="終了"
-            InputLabelProps={{ shrink: true }}
-            value={form.end_at}
-            onChange={(e) => setForm({ ...form, end_at: e.target.value })}
-          />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>店舗</InputLabel>
-            <Select
-              label="店舗"
-              value={shopId}
-              onChange={(e) => setShopId(e.target.value as number)}
-            >
-              {shops.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button variant="contained" onClick={handleAdd}>
-            追加
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setAddOpen(true)}
+          >
+            スケジュールを追加
           </Button>
-        </Box>
-
-        <TextField
-          label="内容"
-          size="small"
-          multiline
-          fullWidth
-          sx={{ mt: 2 }}
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
+        </Stack>
       </Paper>
 
-      {/* === 一覧 === */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>タイトル</TableCell>
-              <TableCell>担当</TableCell>
-              <TableCell>店舗</TableCell>
-              <TableCell>開始</TableCell>
-              <TableCell>終了</TableCell>
-              <TableCell align="center">操作</TableCell>
-            </TableRow>
-          </TableHead>
+      {/* スケジュール一覧 */}
+      {schedules.length === 0 ? (
+        <Paper variant="outlined" sx={{ py: 6, textAlign: "center" }}>
+          <EventNoteIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
+          <Typography variant="body2" color="text.disabled">
+            スケジュールはありません
+          </Typography>
+        </Paper>
+      ) : (
+        <Stack spacing={1.5}>
+          {schedules.map((s) => (
+            <Paper key={s.id} variant="outlined" sx={{ overflow: "hidden" }}>
+              {/* カードヘッダー */}
+              <Box
+                sx={{
+                  px: 2, py: 1,
+                  bgcolor: "grey.50",
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 1,
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                  <CalendarTodayIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                  <Typography variant="body2" fontWeight="bold">
+                    {fmtDate(s.start_at)} {fmtTime(s.start_at)}
+                  </Typography>
+                  {s.end_at && (
+                    <Typography variant="caption" color="text.secondary">
+                      〜 {fmtTime(s.end_at)}
+                    </Typography>
+                  )}
+                  {/* 見積・受注リンク */}
+                  {s.estimate && (
+                    <Chip
+                      size="small"
+                      label="見積"
+                      color="primary"
+                      variant="outlined"
+                      icon={<OpenInNewIcon style={{ fontSize: 11 }} />}
+                      component="a"
+                      href={`/dashboard/estimates/${s.estimate}`}
+                      target="_blank"
+                      clickable
+                      sx={{ fontSize: 11, height: 20 }}
+                    />
+                  )}
+                  {s.order && (
+                    <Chip
+                      size="small"
+                      label="受注"
+                      color="success"
+                      variant="outlined"
+                      icon={<OpenInNewIcon style={{ fontSize: 11 }} />}
+                      component="a"
+                      href={`/dashboard/orders/${s.order}`}
+                      target="_blank"
+                      clickable
+                      sx={{ fontSize: 11, height: 20 }}
+                    />
+                  )}
+                </Stack>
 
-          <TableBody>
-            {schedules.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <span>{s.title}</span>
-                    {s.estimate && (
-                      <Typography
-                        component="a"
-                        href={`/dashboard/estimates/${s.estimate}`}
-                        target="_blank"
-                        fontSize={12}
-                        color="primary"
-                        sx={{ textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
-                      >
-                        見積
+                {/* 操作ボタン */}
+                <Stack direction="row" spacing={0.5}>
+                  <Tooltip title="編集">
+                    <IconButton size="small" onClick={() => setEditId(s.id)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="削除">
+                    <IconButton size="small" color="error" onClick={() => handleDelete(s.id)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Box>
+
+              {/* カードボディ */}
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography variant="body2" fontWeight="bold" mb={0.5}>
+                  {s.title}
+                </Typography>
+
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  {(s.shop_name || s.shop) && (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <StorefrontIcon sx={{ fontSize: 13, color: "text.secondary" }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {s.shop_name ?? shops.find((x) => x.id === s.shop)?.name ?? ""}
                       </Typography>
-                    )}
-                    {s.order && (
-                      <Typography
-                        component="a"
-                        href={`/dashboard/orders/${s.order}`}
-                        target="_blank"
-                        fontSize={12}
-                        color="primary"
-                        sx={{ textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
-                      >
-                        受注
+                    </Stack>
+                  )}
+                  {s.staff_name && (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <PersonOutlineIcon sx={{ fontSize: 13, color: "text.secondary" }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {s.staff_name}
                       </Typography>
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>{s.staff_name || "-"}</TableCell>
-                <TableCell>
-                  {s.shop_name ??
-                    (s.shop
-                      ? shops.find((x) => x.id === s.shop)?.name ?? "-"
-                      : "-")}
-                </TableCell>
-                <TableCell>
-                  {new Date(s.start_at).toLocaleString("ja-JP")}
-                </TableCell>
-                <TableCell>
-                  {s.end_at
-                    ? new Date(s.end_at).toLocaleString("ja-JP")
-                    : "-"}
-                </TableCell>
-                <TableCell align="center">
-                  <IconButton onClick={(e) => openMenu(e, s.id)}>
-                    <MoreVertIcon />
-                  </IconButton>
+                    </Stack>
+                  )}
+                </Stack>
 
-                  <Menu
-                    anchorEl={menuAnchor[s.id]}
-                    open={Boolean(menuAnchor[s.id])}
-                    onClose={() => closeMenu(s.id)}
-                  >
-                    <MenuItem
-                      onClick={() => {
-                        closeMenu(s.id);
-                        setEditScheduleId(s.id);
-                      }}
-                    >
-                      編集
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        closeMenu(s.id);
-                        handleDelete(s.id);
-                      }}
-                    >
-                      削除
-                    </MenuItem>
-                  </Menu>
-                </TableCell>
-              </TableRow>
-            ))}
+                {s.description && (
+                  <>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                      {s.description}
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            </Paper>
+          ))}
+        </Stack>
+      )}
 
-            {schedules.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  スケジュールはありません
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* 追加ダイアログ */}
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pb: 1 }}>スケジュールを追加</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="タイトル"
+              size="small"
+              fullWidth
+              required
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                type="datetime-local"
+                size="small"
+                label="開始日時"
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                value={form.start_at}
+                onChange={(e) => setForm({ ...form, start_at: e.target.value })}
+              />
+              <TextField
+                type="datetime-local"
+                size="small"
+                label="終了日時"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={form.end_at}
+                onChange={(e) => setForm({ ...form, end_at: e.target.value })}
+              />
+            </Stack>
+            <FormControl size="small" fullWidth>
+              <InputLabel>店舗</InputLabel>
+              <Select
+                label="店舗"
+                value={shopId}
+                onChange={(e) => setShopId(e.target.value as number)}
+              >
+                <MenuItem value="">未選択</MenuItem>
+                {shops.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="内容・メモ"
+              size="small"
+              multiline
+              rows={3}
+              fullWidth
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddOpen(false)} disabled={saving}>
+            キャンセル
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleAdd}
+            disabled={saving || !form.title || !form.start_at}
+          >
+            {saving ? "保存中..." : "追加"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 編集ダイアログ */}
-      {editScheduleId !== null && (
+      {editId !== null && (
         <ScheduleEditDialog
-          scheduleId={editScheduleId}
-          open={editScheduleId !== null}
-          onClose={() => setEditScheduleId(null)}
+          scheduleId={editId}
+          open
+          onClose={() => setEditId(null)}
           onChanged={() => {
-            setEditScheduleId(null);
+            setEditId(null);
             fetchSchedules();
           }}
         />

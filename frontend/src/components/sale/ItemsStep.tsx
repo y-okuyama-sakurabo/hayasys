@@ -15,7 +15,6 @@ import {
   Stack,
   InputAdornment,
   Tooltip,
-  Alert,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -70,10 +69,14 @@ function calcLine(item: any) {
   const unit = Number(item.unit_price ?? 0);
   const labor = Number(item.labor_cost ?? 0);
   const discount = Number(item.discount ?? 0);
-  const subtotal = Math.max(0, qty * unit + labor - discount);
   const taxType = item.tax_type ?? item.category?.tax_type ?? "taxable";
-  const tax = taxType === "taxable" ? Math.floor(subtotal * 0.1) : 0;
-  return { subtotal, tax, total: subtotal + tax };
+  const total = Math.max(0, qty * unit + labor - discount);
+  if (taxType === "taxable") {
+    const subtotal = Math.round(total / 1.1);
+    const tax = total - subtotal;
+    return { subtotal, tax, total };
+  }
+  return { subtotal: total, tax: 0, total };
 }
 
 export default function ItemsStep({ type, items, dispatch }: Props) {
@@ -124,9 +127,8 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
         const map: Record<number, any> = {};
         const flatten = (nodes: any[], parent: any | null = null) => {
           nodes.forEach((node) => {
-            const enrichedNode = { ...node, parent };
-            map[node.id] = enrichedNode;
-            if (node.children?.length) flatten(node.children, enrichedNode);
+            map[node.id] = { ...node, parent };
+            if (node.children?.length) flatten(node.children, { ...node, parent });
           });
         };
         flatten(data);
@@ -159,13 +161,9 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
     );
   }, [filteredItems]);
 
-  const handleRemove = (index: number) => {
-    dispatch({ type: "REMOVE_ITEM", index });
-  };
-
-  const handleChange = (index: number, field: string, value: any) => {
+  const handleRemove = (index: number) => dispatch({ type: "REMOVE_ITEM", index });
+  const handleChange = (index: number, field: string, value: any) =>
     dispatch({ type: "UPDATE_ITEM", index, payload: { [field]: value } });
-  };
 
   const VEHICLE_SALE_TYPES = [
     { value: "new", label: "新車" },
@@ -247,6 +245,7 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
           const categoryId = item?.category_id ?? item?.category?.id ?? null;
           const categoryPath = categoryPathById(categoryId);
           const saleTypeOptions = getSaleTypeOptions(item);
+          const itemName = item?.name?.trim();
 
           return (
             <Paper
@@ -268,28 +267,41 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                   gap: 1,
                 }}
               >
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                {/* 左：番号・商品名・カテゴリ */}
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" minWidth={0}>
                   <Typography
                     variant="caption"
                     color="text.disabled"
                     fontWeight="bold"
+                    sx={{ flexShrink: 0 }}
                   >
                     #{listIdx + 1}
                   </Typography>
+                  {itemName ? (
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      noWrap
+                      sx={{ maxWidth: { xs: 120, sm: 200, md: 300 } }}
+                    >
+                      {itemName}
+                    </Typography>
+                  ) : null}
                   {categoryPath && (
                     <Chip
                       size="small"
                       label={categoryPath}
                       variant="outlined"
-                      sx={{ fontSize: 11, height: 22 }}
+                      sx={{ fontSize: 11, height: 20 }}
                     />
                   )}
                 </Stack>
 
-                <Stack direction="row" alignItems="center" spacing={1}>
+                {/* 右：金額・削除 */}
+                <Stack direction="row" alignItems="center" spacing={1} flexShrink={0}>
                   <Box textAlign="right">
                     {config.taxable && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="text.secondary" display="block" lineHeight={1.2}>
                         税込
                       </Typography>
                     )}
@@ -319,9 +331,7 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                       size="small"
                       label={config.nameLabel}
                       value={item?.name ?? ""}
-                      onChange={(e) =>
-                        handleChange(originalIndex, "name", e.target.value)
-                      }
+                      onChange={(e) => handleChange(originalIndex, "name", e.target.value)}
                     />
                   </Grid>
 
@@ -334,18 +344,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         label="区分"
                         value={item?.sale_type || ""}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "sale_type",
-                            e.target.value === "" ? null : e.target.value
-                          )
+                          handleChange(originalIndex, "sale_type", e.target.value === "" ? null : e.target.value)
                         }
                       >
                         <MenuItem value="">未選択</MenuItem>
                         {saleTypeOptions.map((opt) => (
-                          <MenuItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </MenuItem>
+                          <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                         ))}
                       </TextField>
                     </Grid>
@@ -358,13 +362,9 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                       type="number"
                       label="数量"
                       value={item?.quantity ?? 1}
-                      inputProps={{ min: 1, style: { textAlign: "right" } }}
+                      inputProps={{ min: 1, step: 1, style: { textAlign: "right" } }}
                       onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "quantity",
-                          Math.round(Number(e.target.value))
-                        )
+                        handleChange(originalIndex, "quantity", Math.round(Number(e.target.value)))
                       }
                     />
                   </Grid>
@@ -377,18 +377,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                       label="単位"
                       value={item?.unit ?? ""}
                       onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "unit",
-                          e.target.value === "" ? null : Number(e.target.value)
-                        )
+                        handleChange(originalIndex, "unit", e.target.value === "" ? null : Number(e.target.value))
                       }
                     >
                       <MenuItem value="">-</MenuItem>
                       {units.map((u) => (
-                        <MenuItem key={u.id} value={u.id}>
-                          {u.name}
-                        </MenuItem>
+                        <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
                       ))}
                     </TextField>
                   </Grid>
@@ -398,20 +392,14 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                       fullWidth
                       size="small"
                       type="number"
-                      label="単価"
+                      label={config.taxable ? "単価（税込）" : "単価"}
                       value={item?.unit_price ?? 0}
-                      inputProps={{ style: { textAlign: "right" } }}
+                      inputProps={{ step: 1, style: { textAlign: "right" } }}
                       InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">¥</InputAdornment>
-                        ),
+                        startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                       }}
                       onChange={(e) =>
-                        handleChange(
-                          originalIndex,
-                          "unit_price",
-                          Math.round(Number(e.target.value))
-                        )
+                        handleChange(originalIndex, "unit_price", Math.round(Number(e.target.value)))
                       }
                     />
                   </Grid>
@@ -428,18 +416,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         label="メーカー"
                         value={item?.manufacturer ?? ""}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "manufacturer",
-                            e.target.value === "" ? null : Number(e.target.value)
-                          )
+                          handleChange(originalIndex, "manufacturer", e.target.value === "" ? null : Number(e.target.value))
                         }
                       >
                         <MenuItem value="">未選択</MenuItem>
                         {manufacturers.map((m) => (
-                          <MenuItem key={m.id} value={m.id}>
-                            {m.name}
-                          </MenuItem>
+                          <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                         ))}
                       </TextField>
                     </Grid>
@@ -451,18 +433,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         type="number"
                         label="工賃"
                         value={item?.labor_cost ?? 0}
-                        inputProps={{ style: { textAlign: "right" } }}
+                        inputProps={{ step: 1, style: { textAlign: "right" } }}
                         InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">¥</InputAdornment>
-                          ),
+                          startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                         }}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "labor_cost",
-                            Math.round(Number(e.target.value))
-                          )
+                          handleChange(originalIndex, "labor_cost", Math.round(Number(e.target.value)))
                         }
                       />
                     </Grid>
@@ -474,18 +450,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         type="number"
                         label="割引"
                         value={item?.discount ?? 0}
-                        inputProps={{ style: { textAlign: "right" } }}
+                        inputProps={{ step: 1, style: { textAlign: "right" } }}
                         InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">¥</InputAdornment>
-                          ),
+                          startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                         }}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "discount",
-                            Math.round(Number(e.target.value))
-                          )
+                          handleChange(originalIndex, "discount", Math.round(Number(e.target.value)))
                         }
                       />
                     </Grid>
@@ -498,11 +468,7 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         label="担当"
                         value={item?.staff_id != null ? String(item.staff_id) : ""}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "staff_id",
-                            e.target.value === "" ? null : Number(e.target.value)
-                          )
+                          handleChange(originalIndex, "staff_id", e.target.value === "" ? null : Number(e.target.value))
                         }
                       >
                         <MenuItem value="">未選択</MenuItem>
@@ -527,18 +493,12 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         type="number"
                         label="割引"
                         value={item?.discount ?? 0}
-                        inputProps={{ style: { textAlign: "right" } }}
+                        inputProps={{ step: 1, style: { textAlign: "right" } }}
                         InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">¥</InputAdornment>
-                          ),
+                          startAdornment: <InputAdornment position="start">¥</InputAdornment>,
                         }}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "discount",
-                            Math.round(Number(e.target.value))
-                          )
+                          handleChange(originalIndex, "discount", Math.round(Number(e.target.value)))
                         }
                       />
                     </Grid>
@@ -551,11 +511,7 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         label="担当"
                         value={item?.staff_id != null ? String(item.staff_id) : ""}
                         onChange={(e) =>
-                          handleChange(
-                            originalIndex,
-                            "staff_id",
-                            e.target.value === "" ? null : Number(e.target.value)
-                          )
+                          handleChange(originalIndex, "staff_id", e.target.value === "" ? null : Number(e.target.value))
                         }
                       >
                         <MenuItem value="">未選択</MenuItem>
@@ -567,28 +523,26 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
                         ))}
                       </TextField>
                     </Grid>
-
-                    {/* 小計サマリ */}
-                    {(item?.discount > 0) && (
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            gap: 2,
-                            alignItems: "center",
-                            pt: 1,
-                            fontSize: 12,
-                            color: "text.secondary",
-                          }}
-                        >
-                          <span>税抜: ¥{line.subtotal.toLocaleString()}</span>
-                          {config.taxable && (
-                            <span>消費税: ¥{line.tax.toLocaleString()}</span>
-                          )}
-                        </Box>
-                      </Grid>
-                    )}
                   </Grid>
+                )}
+
+                {/* 小計内訳（課税のみ常時表示） */}
+                {config.taxable && (
+                  <Box
+                    sx={{
+                      mt: 1.5,
+                      pt: 1,
+                      borderTop: "1px dashed",
+                      borderColor: "divider",
+                      display: "flex",
+                      gap: 3,
+                      fontSize: 12,
+                      color: "text.secondary",
+                    }}
+                  >
+                    <span>税抜: ¥{line.subtotal.toLocaleString()}</span>
+                    <span>消費税: ¥{line.tax.toLocaleString()}</span>
+                  </Box>
                 )}
               </Box>
             </Paper>
@@ -600,33 +554,19 @@ export default function ItemsStep({ type, items, dispatch }: Props) {
       {filteredItems.length > 0 && (
         <>
           <Divider sx={{ my: 2 }} />
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Paper
-              variant="outlined"
-              sx={{ px: 3, py: 1.5, minWidth: 240, bgcolor: "grey.50" }}
-            >
-              <Box display="flex" justifyContent="space-between" gap={4} mb={0.5}>
-                <Typography variant="body2" color="text.secondary">
-                  小計（税抜）
-                </Typography>
-                <Typography variant="body2">
-                  ¥{totals.subtotal.toLocaleString()}
-                </Typography>
-              </Box>
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Paper variant="outlined" sx={{ px: 3, py: 1.5, minWidth: 240, bgcolor: "grey.50" }}>
               {config.taxable && (
-                <Box display="flex" justifyContent="space-between" gap={4} mb={0.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    消費税（10%）
-                  </Typography>
-                  <Typography variant="body2">
-                    ¥{totals.tax.toLocaleString()}
-                  </Typography>
-                </Box>
+                <>
+                  <Box display="flex" justifyContent="space-between" gap={4} mb={0.5}>
+                    <Typography variant="body2" color="text.secondary">小計（税抜）</Typography>
+                    <Typography variant="body2">¥{totals.subtotal.toLocaleString()}</Typography>
+                  </Box>
+                  <Box display="flex" justifyContent="space-between" gap={4} mb={0.5}>
+                    <Typography variant="body2" color="text.secondary">消費税（10%）</Typography>
+                    <Typography variant="body2">¥{totals.tax.toLocaleString()}</Typography>
+                  </Box>
+                </>
               )}
               <Divider sx={{ my: 1 }} />
               <Box display="flex" justifyContent="space-between" gap={4}>

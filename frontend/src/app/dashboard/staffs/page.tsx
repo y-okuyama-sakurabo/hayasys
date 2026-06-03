@@ -141,7 +141,7 @@ export default function StaffListPage() {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6" fontWeight="bold">スタッフ管理</Typography>
+        <Typography variant="h5" fontWeight="bold">スタッフ管理</Typography>
         {canManage && (
           <Stack direction="row" spacing={1}>
             <Tooltip title="CSVダウンロード">

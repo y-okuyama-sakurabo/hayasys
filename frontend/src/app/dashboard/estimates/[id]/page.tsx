@@ -66,6 +66,12 @@ export default function EstimateDetailPage() {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `estimate_${estimate?.estimate_no || id}`,
+    pageStyle: `
+      @page { size: A4 portrait; margin: 0mm; }
+      @media print {
+        html, body { margin: 0; padding: 0; background: #fff; }
+      }
+    `,
   });
 
   const handleSubmit = async () => {
@@ -165,20 +171,18 @@ export default function EstimateDetailPage() {
       </Box>
 
       {/* 印刷対象 */}
-      <div ref={printRef}>
-        <Paper
-          elevation={0}
-          sx={{
-            width: "210mm",
-            minHeight: "297mm",
-            mx: "auto",
-            p: 0,
-            backgroundColor: "#fff",
-          }}
-        >
+      <Box
+        sx={{
+          overflowX: "auto",
+          bgcolor: "#e8e8e8",
+          py: 2,
+          "@media print": { bgcolor: "transparent", p: 0 },
+        }}
+      >
+        <div ref={printRef}>
           <SaleEstimateDocument estimate={estimate} />
-        </Paper>
-      </div>
+        </div>
+      </Box>
       {estimate.internal_memo && (
         <Paper
           sx={{

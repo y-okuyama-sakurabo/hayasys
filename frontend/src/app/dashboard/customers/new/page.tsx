@@ -196,10 +196,37 @@ export default function CustomerNewPage() {
     month: "",
     day: "",
   });
+  const [birthdateError, setBirthdateError] = useState<string | null>(null);
+  const [emailError,     setEmailError]     = useState<string | null>(null);
 
   const submit = async () => {
     setTouched(true);
     if (!canSubmit) return;
+
+    // ── バリデーション（API送信前） ──────────────────────────
+    setBirthdateError(null);
+    setEmailError(null);
+
+    // メール形式チェック
+    if (form.email && form.email.trim()) {
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+      if (!emailOk) {
+        setEmailError("正しいメールアドレスの形式で入力してください（例: name@example.com）");
+        return;
+      }
+    }
+
+    // 生年月日・未来日チェック
+    if (birth.year && birth.month && birth.day) {
+      const m = String(birth.month).padStart(2, "0");
+      const d = String(birth.day).padStart(2, "0");
+      const picked = new Date(`${birth.year}-${m}-${d}`);
+      const today  = new Date(); today.setHours(0, 0, 0, 0);
+      if (picked > today) {
+        setBirthdateError("生年月日は今日以前の日付を入力してください");
+        return;
+      }
+    }
 
     setSaving(true);
 
@@ -429,8 +456,12 @@ export default function CustomerNewPage() {
                 </FormControl>
 
                 <Typography>日</Typography>
-                
               </Stack>
+              {birthdateError && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
+                  {birthdateError}
+                </Typography>
+              )}
             </Box>
           </Stack>
         </Paper>
@@ -497,7 +528,15 @@ export default function CustomerNewPage() {
               <PhoneField label="携帯電話番号" value={form.mobile_phone} onChange={(v) => setForm((p) => ({ ...p, mobile_phone: v }))} fullWidth />
             </Stack>
 
-            <TextField label="メール" value={form.email ?? ""} onChange={setField("email")} fullWidth />
+            <TextField
+              label="メール"
+              type="email"
+              value={form.email ?? ""}
+              onChange={(e) => { setEmailError(null); setField("email")(e); }}
+              fullWidth
+              error={!!emailError}
+              helperText={emailError ?? ""}
+            />
           </Stack>
         </Paper>
 

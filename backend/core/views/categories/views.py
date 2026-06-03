@@ -1,12 +1,26 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.models.categories import Category, Product
-from core.serializers.categories import CategorySerializer, CategoryTreeSerializer
+from core.serializers.categories import (
+    CategorySerializer,
+    CategoryTreeSerializer,
+    CategoryAdminSerializer,
+    CategoryWriteSerializer,
+)
 from core.serializers.products import ProductSerializer
 from core.utils.text import normalize_japanese
 
 from django.db.models import Q
+
+
+def _get_descendant_ids(category: Category) -> list[int]:
+    """カテゴリとその全子孫のIDリストを返す（再帰）"""
+    ids = [category.id]
+    for child in category.children.all():
+        ids.extend(_get_descendant_ids(child))
+    return ids
 
 
 # ============================================
@@ -194,4 +208,102 @@ class LeafCategoryListAPIView(generics.ListAPIView):
             qs = qs.filter(category_type=category_type)
 
         return qs.order_by("sort_order", "id")
-    
+
+
+# ============================================
+# 管理画面用ツリー（全フィールド）
+# ============================================
+class CategoryAdminTreeAPIView(generics.ListAPIView):
+    serializer_class = CategoryAdminSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return (
+            Category.objects.filter(parent__isnull=True)
+            .prefetch_related(
+                "children",
+                "children__children",
+                "children__children__children",
+                "children__children__children__children",
+            )
+            .order_by("sort_order", "id")
+        )
+
+
+# ============================================
+# カテゴリ 作成
+# ============================================
+class CategoryCreateAPIView(generics.CreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategoryWriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(
+            CategoryAdminSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ============================================
+# カテゴリ 更新・削除
+# ============================================
+class CategoryUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Category.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return CategoryWriteSerializer
+        return CategoryAdminSerializer
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = CategoryWriteSerializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save()
+        return Response(CategoryAdminSerializer(updated).data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # 使用状況チェック（エラーは返さず削除を実行 — 呼び出し元が確認済みのはず）
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================
+# カテゴリ 使用状況
+# ============================================
+class CategoryUsageAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            category = Category.objects.get(pk=pk)
+        except Category.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        ids = _get_descendant_ids(category)
+
+        # 遅延インポートで循環参照を回避
+        from core.models.estimates import EstimateItem
+        from core.models.orders import OrderItem
+
+        estimate_items = EstimateItem.objects.filter(category_id__in=ids).count()
+        order_items    = OrderItem.objects.filter(category_id__in=ids).count()
+        products       = Product.objects.filter(category_id__in=ids).count()
+        children_count = category.children.count()
+
+        return Response({
+            "estimate_items": estimate_items,
+            "order_items":    order_items,
+            "products":       products,
+            "children_count": children_count,
+            "descendant_ids": ids,
+        })
+

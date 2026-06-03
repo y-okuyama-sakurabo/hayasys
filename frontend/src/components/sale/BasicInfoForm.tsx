@@ -14,7 +14,7 @@ import {
   Divider,
   Stack,
 } from "@mui/material";
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import BuildIcon from "@mui/icons-material/Build";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import StoreIcon from "@mui/icons-material/Store";
@@ -37,7 +37,7 @@ const VEHICLE_MODES = [
   {
     value: "sale",
     label: "車両購入",
-    icon: <DirectionsCarIcon />,
+    icon: <TwoWheelerIcon />,
     description: "新車・中古車の販売",
   },
   {

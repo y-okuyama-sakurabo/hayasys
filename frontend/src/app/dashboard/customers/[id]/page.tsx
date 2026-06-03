@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Box, CircularProgress, Tabs, Tab, Avatar, Typography,
+  Box, CircularProgress, Tabs, Tab, Typography,
   Stack, Chip, IconButton, Tooltip, Paper,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -27,10 +27,6 @@ const TABS: { value: CustomerTab; label: string }[] = [
   { value: "communications", label: "業務連絡" },
 ];
 
-const AVATAR_COLORS = [
-  "#1976d2","#388e3c","#f57c00","#7b1fa2",
-  "#c62828","#00838f","#558b2f","#ad1457",
-];
 
 export default function CustomerDetailPage() {
   const { id }       = useParams();
@@ -67,9 +63,6 @@ export default function CustomerDetailPage() {
   const goTab = (t: CustomerTab) =>
     router.push(`/dashboard/customers/${customer.id}?tab=${t}`);
 
-  const avatarBg   = AVATAR_COLORS[customer.id % AVATAR_COLORS.length];
-  const initials   = customer.name?.slice(0, 1) ?? "?";
-
   return (
     <Box>
       {/* ── ヘッダー ── */}
@@ -82,10 +75,6 @@ export default function CustomerDetailPage() {
             <ArrowBackIcon />
           </IconButton>
         </Tooltip>
-
-        <Avatar sx={{ width: 44, height: 44, bgcolor: avatarBg, fontWeight: "bold", fontSize: 18 }}>
-          {initials}
-        </Avatar>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">

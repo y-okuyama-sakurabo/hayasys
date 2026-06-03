@@ -437,65 +437,41 @@ export default function EstimateForm({ mode, estimateId }: Props) {
           }
         : null;
 
-    const headerPayload = {
-      estimate_no: state.basic.estimate_no,
-      shop: state.basic.shop,
-      created_by_id: state.basic.created_by_id,
-      vehicle_mode: state.basic.vehicle_mode,
-      estimate_date: state.basic.estimate_date,
-      new_party: state.basic.new_party,
-      settlements: settlementsPayload,
-      memo: state.memo,
-      internal_memo: state.internal_memo,
-      payment: paymentPayload,
-      insurance_payload: state.insurance,
-    };
+    // 車両ペイロード
+    const vehiclesPayload = state.basic.vehicle_mode !== "none"
+      ? [
+          state.vehicle
+            ? {
+                ...state.vehicle,
+                is_trade_in: false,
+                category_id: state.vehicle.category_id ?? state.vehicle.category?.id ?? null,
+              }
+            : null,
+          state.tradeInVehicle
+            ? {
+                ...state.tradeInVehicle,
+                is_trade_in: true,
+                category_id: state.tradeInVehicle.category_id ?? state.tradeInVehicle.category?.id ?? null,
+              }
+            : null,
+        ].filter((v): v is NonNullable<typeof v> => {
+          if (!v) return false;
+          return !!(
+            (v as any).category_id ||
+            (v as any).vehicle_name ||
+            (v as any).chassis_no ||
+            (v as any).model_code ||
+            (v as any).registrations?.[0]?.registration_no
+          );
+        })
+      : [];
 
-    let id = estimateId ?? state.meta.id;
+    // 明細ペイロード（id を除外して正規化・削除済みアイテムは自動除外）
+    const itemsPayload: any[] = [];
 
-    if (!id) {
-      const res = await apiClient.post("/estimates/", headerPayload);
-      id = res.data.id;
-    } else {
-      await apiClient.put(`/estimates/${id}/`, headerPayload);
-    }
-
-    // スケジュール保存は受注のみで行う（見積ではスケジュールテーブルに登録しない）
-
-    // 車両保存
-    if (state.basic.vehicle_mode !== "none") {
-      const vehiclesPayload = [
-        state.vehicle
-          ? {
-              ...state.vehicle,
-              is_trade_in: false,
-              category_id: state.vehicle.category_id ?? state.vehicle.category?.id ?? null,
-            }
-          : null,
-        state.tradeInVehicle
-          ? {
-              ...state.tradeInVehicle,
-              is_trade_in: true,
-              category_id: state.tradeInVehicle.category_id ?? state.tradeInVehicle.category?.id ?? null,
-            }
-          : null,
-      ].filter((v) => {
-        if (!v) return false;
-        return v.category_id || v.vehicle_name || v.chassis_no || v.model_code || v.registrations?.[0]?.registration_no;
-      });
-
-      if (vehiclesPayload.length > 0) {
-        await apiClient.patch(`/estimates/${id}/`, { vehicles_payload: vehiclesPayload });
-      }
-    }
-
-    // 明細保存
-    let items = [...state.items].filter(
-      (i) => i.item_type !== "vehicle" && i.item_type !== "discount"
-    );
-
+    // 車両アイテム
     if (state.vehicle && state.basic.vehicle_mode === "sale") {
-      items.unshift({
+      itemsPayload.push({
         item_type: "vehicle",
         name: state.vehicle.vehicle_name || "車両",
         quantity: 1,
@@ -509,8 +485,22 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       });
     }
 
+    // 通常アイテム（vehicle・discount以外）を正規化して追加
+    state.items
+      .filter((i) => i.item_type !== "vehicle" && i.item_type !== "discount")
+      .forEach((item) => {
+        const { id: _id, ...rest } = item; // IDを除外（バックエンドで再採番）
+        itemsPayload.push({
+          ...rest,
+          staff: item.staff_id ?? null,
+          category_id: item.category_id ?? item.category?.id ?? null,
+          unit: item.unit ?? null,
+        });
+      });
+
+    // 全体値引き
     if (state.global_discount > 0) {
-      items.push({
+      itemsPayload.push({
         item_type: "discount",
         name: "値引き調整",
         quantity: 1,
@@ -520,34 +510,36 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         tax_type: "taxable",
         category_id: null,
         manufacturer: null,
-        staff_id: null,
+        staff: null,
         unit: null,
       });
     }
 
-    for (const item of items) {
-      const payload = {
-        ...item,
-        staff: item.staff_id ?? null,
-        category_id: item.category_id ?? item.category?.id ?? null,
-        unit: item.unit ?? null,
-      };
+    // ヘッダー・車両・明細・精算・支払いをまとめて1回のAPIコールで送信
+    // → バックエンドが atomic に処理するためエラー時に空の見積が残らない
+    const fullPayload = {
+      estimate_no: state.basic.estimate_no,
+      shop: state.basic.shop,
+      created_by_id: state.basic.created_by_id,
+      vehicle_mode: state.basic.vehicle_mode,
+      estimate_date: state.basic.estimate_date,
+      new_party: state.basic.new_party,
+      settlements: settlementsPayload,
+      memo: state.memo,
+      internal_memo: state.internal_memo,
+      payment: paymentPayload,
+      insurance_payload: state.insurance,
+      vehicles_payload: vehiclesPayload,
+      items: itemsPayload,
+    };
 
-      if (item.item_type === "vehicle") {
-        const existingVehicle = state.items.find((i) => i.item_type === "vehicle" && i.id);
-        if (existingVehicle?.id) {
-          await apiClient.patch(`/estimates/${id}/items/${existingVehicle.id}/`, payload);
-        } else {
-          await apiClient.post(`/estimates/${id}/items/`, payload);
-        }
-        continue;
-      }
+    let id = estimateId ?? state.meta.id;
 
-      if ((mode === "edit" || !!state.meta.id) && item.id) {
-        await apiClient.patch(`/estimates/${id}/items/${item.id}/`, payload);
-      } else {
-        await apiClient.post(`/estimates/${id}/items/`, payload);
-      }
+    if (!id) {
+      const res = await apiClient.post("/estimates/", fullPayload);
+      id = res.data.id;
+    } else {
+      await apiClient.put(`/estimates/${id}/`, fullPayload);
     }
 
     return id!;
@@ -760,14 +752,14 @@ export default function EstimateForm({ mode, estimateId }: Props) {
         <Box>
           {/* セクション: 基本情報 */}
           <Paper id="est-basic" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📋 基本情報</SectionHeader>
+            <SectionHeader>基本情報</SectionHeader>
             <BasicInfoForm basic={state.basic} dispatch={dispatch} />
           </Paper>
 
           {/* セクション: 車両情報 */}
           {state.basic.vehicle_mode !== "none" && (
             <Paper id="est-vehicle" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-              <SectionHeader>🚗 車両情報</SectionHeader>
+              <SectionHeader>車両情報</SectionHeader>
               <VehicleStep
                 vehicle={state.vehicle}
                 tradeInVehicle={state.tradeInVehicle}
@@ -782,25 +774,25 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
           {/* セクション: その他費用 */}
           <Paper id="est-items" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📦 その他費用</SectionHeader>
+            <SectionHeader>その他費用</SectionHeader>
             <OtherStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* セクション: 課税費用 */}
           <Paper id="est-taxable" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>💴 課税費用</SectionHeader>
+            <SectionHeader>課税費用</SectionHeader>
             <TaxableExpenseStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* セクション: 非課税費用 */}
           <Paper id="est-nontaxable" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>🧾 非課税費用</SectionHeader>
+            <SectionHeader>非課税費用</SectionHeader>
             <NonTaxableExpenseStep items={state.items} dispatch={dispatch} />
           </Paper>
 
           {/* セクション: 支払い */}
           <Paper id="est-payment" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>💳 支払い</SectionHeader>
+            <SectionHeader>支払い</SectionHeader>
 
             {/* 全体値引き */}
             <Box mb={3}>
@@ -811,10 +803,11 @@ export default function EstimateForm({ mode, estimateId }: Props) {
                 type="number"
                 size="small"
                 value={state.global_discount}
+                inputProps={{ step: 1, min: 0, style: { textAlign: "right" } }}
                 onChange={(e) =>
                   dispatch({
                     type: "SET_GLOBAL_DISCOUNT",
-                    payload: e.target.value === "" ? 0 : Number(e.target.value),
+                    payload: e.target.value === "" ? 0 : Math.round(Number(e.target.value)),
                   })
                 }
                 sx={{ width: 200 }}
@@ -832,7 +825,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
           {/* セクション: メモ */}
           <Paper id="est-memo" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
-            <SectionHeader>📝 メモ</SectionHeader>
+            <SectionHeader>メモ</SectionHeader>
 
             <Box mb={3}>
               <Typography fontWeight="bold" mb={1} fontSize={14}>

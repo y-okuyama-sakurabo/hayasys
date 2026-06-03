@@ -151,7 +151,7 @@ export default function StaffAnalyticsPage() {
   // ========================
   return (
     <Box>
-      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>作業分析</Typography>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>作業分析</Typography>
 
       {/* ── フィルター ── */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
