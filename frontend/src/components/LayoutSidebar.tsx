@@ -15,6 +15,12 @@ import {
   IconButton,
   Collapse,
   Divider,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
 import { usePathname, useRouter } from "next/navigation";
@@ -85,9 +91,10 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
   const router   = useRouter();
   const pathname = usePathname();
 
-  const [displayName, setDisplayName] = React.useState("");
-  const [shopName,    setShopName]    = React.useState("");
-  const [drawerOpen,  setDrawerOpen]  = React.useState(true);
+  const [displayName,    setDisplayName]    = React.useState("");
+  const [shopName,       setShopName]       = React.useState("");
+  const [drawerOpen,     setDrawerOpen]     = React.useState(true);
+  const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false);
 
   // サブメニューの開閉状態を汎用管理
   const [openSubMenus, setOpenSubMenus] = React.useState<Record<string, boolean>>({});
@@ -121,6 +128,7 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
   // ── ログアウト ────────────────────────────
   const handleLogout = async () => {
     try { await apiClient.post("/auth/logout/"); } catch {}
+    setLogoutDialogOpen(false);
     router.push("/login");
   };
 
@@ -148,19 +156,50 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
             />
           </Box>
 
-          <Box display="flex" alignItems="center" gap={2}>
-            <Typography sx={{ color: "white", fontWeight: 500 }}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            {/* 店舗名 Chip */}
+            {shopName && (
+              <Chip
+                label={shopName}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.15)",
+                  color: "white",
+                  fontWeight: 500,
+                  fontSize: 12,
+                  maxWidth: 120,
+                  "& .MuiChip-label": {
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  },
+                }}
+              />
+            )}
+
+            {/* ユーザー名（truncation あり） */}
+            <Typography
+              sx={{
+                color: "white",
+                fontWeight: 500,
+                maxWidth: 140,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={`${displayName}さん`}
+            >
               {displayName}さん
             </Typography>
-            <Typography sx={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
-              ({shopName || "店舗未設定"})
-            </Typography>
-            <Box sx={{ width: "1px", height: 20, bgcolor: "rgba(255,255,255,0.3)" }} />
+
+            <Box sx={{ width: "1px", height: 20, bgcolor: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+
+            {/* ログアウトボタン → 確認ダイアログを開く */}
             <Button
               color="inherit"
               startIcon={<Logout />}
-              onClick={handleLogout}
-              sx={{ textTransform: "none", fontWeight: 500 }}
+              onClick={() => setLogoutDialogOpen(true)}
+              sx={{ textTransform: "none", fontWeight: 500, flexShrink: 0 }}
             >
               ログアウト
             </Button>
@@ -294,6 +333,34 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
           </List>
         </Box>
       </Drawer>
+
+      {/* ── ログアウト確認ダイアログ ─────────── */}
+      <Dialog
+        open={logoutDialogOpen}
+        onClose={() => setLogoutDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>ログアウトしますか？</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ログアウトすると、保存していない変更は失われます。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setLogoutDialogOpen(false)} color="inherit">
+            キャンセル
+          </Button>
+          <Button
+            onClick={handleLogout}
+            variant="contained"
+            color="error"
+            startIcon={<Logout />}
+          >
+            ログアウト
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── メインコンテンツ ──────────────────── */}
       <Box

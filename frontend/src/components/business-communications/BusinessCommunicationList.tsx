@@ -7,9 +7,9 @@ export type BusinessCommunicationMessage = {
   id: number;
   content?: string;
   created_at?: string;
-  sender_staff?: { id: number; display_name?: string; login_id?: string };
+  sender_staff?: { id: number; full_name?: string; login_id?: string };
   sender_shop?: { id: number; name: string };
-  receiver_staff?: { id: number; display_name?: string };
+  receiver_staff?: { id: number; full_name?: string };
   receiver_shop?: { id: number; name: string };
   attachments?: { id: number; file: string }[];
 };

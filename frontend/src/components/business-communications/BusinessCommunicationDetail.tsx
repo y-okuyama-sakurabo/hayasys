@@ -40,7 +40,7 @@ export default function BusinessCommunicationDetail({ item }: any) {
           <Paper key={m.id} sx={{p:2}}>
 
             <Typography fontSize={13} color="text.secondary">
-              {m.sender_shop?.name}
+              {m.sender_staff?.full_name ?? m.sender_shop?.name ?? "—"}
             </Typography>
 
             <Typography>

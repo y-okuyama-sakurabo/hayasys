@@ -15,7 +15,7 @@ export default function BusinessCommunicationReplyList({replies}:any){
         <Paper key={r.id} sx={{p:1,background:"#fafafa"}}>
 
           <Typography fontSize={13} color="text.secondary">
-            {r.sender_shop?.name}
+            {r.sender_staff?.full_name ?? r.sender_shop?.name ?? "—"}
           </Typography>
 
           <Typography>

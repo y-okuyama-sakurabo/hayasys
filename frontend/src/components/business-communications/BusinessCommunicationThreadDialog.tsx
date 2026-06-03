@@ -27,9 +27,9 @@ type Message = {
   id: number;
   content: string;
   created_at: string;
-  sender_staff?: { id: number; display_name?: string; login_id?: string };
+  sender_staff?: { id: number; full_name?: string; login_id?: string };
   sender_shop?: { id: number; name: string };
-  receiver_staff?: { id: number; display_name?: string };
+  receiver_staff?: { id: number; full_name?: string };
   receiver_shop?: { id: number; name: string };
   attachments?: { id: number; file: string }[];
 };
@@ -122,7 +122,6 @@ export default function BusinessCommunicationThreadDialog({
       );
       setContent("");
       await fetchMessages();
-      onChanged();
     } finally {
       setSending(false);
     }
@@ -176,8 +175,7 @@ export default function BusinessCommunicationThreadDialog({
   };
 
   const senderName = (m: Message) =>
-    m.sender_staff?.display_name ||
-    m.sender_staff?.login_id ||
+    m.sender_staff?.full_name ||
     m.sender_shop?.name ||
     "不明";
 

@@ -68,7 +68,6 @@ export default function BusinessCommunicationCard({
           open={dialogOpen}
           onClose={() => setDialogOpen(false)}
           onChanged={() => {
-            setDialogOpen(false);
             refresh?.();
           }}
         />
