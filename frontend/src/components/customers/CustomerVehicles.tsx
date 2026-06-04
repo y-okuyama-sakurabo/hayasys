@@ -605,7 +605,7 @@ function VehicleTableRow({
           <MoreVertIcon fontSize="small" />
         </IconButton>
         <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={onMenuClose}>
-          <MenuItem onClick={() => { onMenuClose(); onAction("detail", v); }}>
+          <MenuItem onClick={() => { onMenuClose(); router.push(`/dashboard/customers/${customerId}/vehicles/${v.id}`); }}>
             <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
             <ListItemText>詳細</ListItemText>
           </MenuItem>
@@ -636,6 +636,9 @@ export default function CustomerVehicles({ customerId }: Props) {
   const [menuAnchor, setMenuAnchor] = useState<{ [key: number]: HTMLElement | null }>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [releaseTarget, setReleaseTarget] = useState<OwnedVehicle | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OwnedVehicle | null>(null);
+  const [deleteError,  setDeleteError]  = useState<string | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -658,19 +661,28 @@ export default function CustomerVehicles({ customerId }: Props) {
 
   const handleAction = async (action: string, v: OwnedVehicle) => {
     switch (action) {
-      case "detail": break; // VehicleTableRow 内の onClick で処理済み
+      case "detail": break; // VehicleTableRow の MenuItem が直接 router.push するため不要
       case "release":
         setReleaseTarget(v);
         break;
       case "delete":
-        if (!confirm(`「${v.vehicle?.vehicle_name || "この車両"}」の所有記録を削除しますか？`)) return;
-        try {
-          await apiClient.delete(`/customers/${customerId}/vehicles/${v.id}/`);
-          setVehicles(prev => prev.filter(x => x.id !== v.id));
-        } catch {
-          alert("削除に失敗しました");
-        }
+        setDeleteTarget(v);
         break;
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiClient.delete(`/customers/${customerId}/vehicles/${deleteTarget.id}/`);
+      setVehicles(prev => prev.filter(x => x.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError("削除に失敗しました");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -688,8 +700,14 @@ export default function CustomerVehicles({ customerId }: Props) {
   const thead = (cols: string[]) => (
     <TableHead sx={{ bgcolor: "#f5f7fa" }}>
       <TableRow>
-        {cols.map(c => (
-          <TableCell key={c} sx={{ fontWeight: "bold", fontSize: 12 }}>{c}</TableCell>
+        {cols.map((c, i) => (
+          <TableCell
+            key={c}
+            align={i === cols.length - 1 ? "center" : "left"}
+            sx={{ fontWeight: "bold", fontSize: 12 }}
+          >
+            {c}
+          </TableCell>
         ))}
       </TableRow>
     </TableHead>
@@ -778,6 +796,26 @@ export default function CustomerVehicles({ customerId }: Props) {
         target={releaseTarget}
         onReleased={() => { setReleaseTarget(null); fetchVehicles(); }}
       />
+
+      {/* 削除確認ダイアログ */}
+      <Dialog open={!!deleteTarget} onClose={() => { setDeleteTarget(null); setDeleteError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle>車両の削除</DialogTitle>
+        <DialogContent>
+          {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
+          <Typography>
+            「<strong>{deleteTarget?.vehicle?.vehicle_name || "この車両"}</strong>」の所有記録を削除しますか？
+            この操作は取り消せません。
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setDeleteTarget(null); setDeleteError(null); }} disabled={deleting}>
+            キャンセル
+          </Button>
+          <Button color="error" variant="contained" onClick={handleDeleteConfirm} disabled={deleting}>
+            {deleting ? "削除中…" : "削除する"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

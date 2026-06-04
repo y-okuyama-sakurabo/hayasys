@@ -1,6 +1,7 @@
 "use client";
 
-import { CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, CircularProgress, Stack, Typography } from "@mui/material";
+import ForumOutlinedIcon from "@mui/icons-material/ForumOutlined";
 import BusinessCommunicationCard from "./BusinessCommunicationCard";
 
 export type BusinessCommunicationMessage = {
@@ -32,21 +33,32 @@ type Props = {
   onChanged?: () => void;
 };
 
-export default function BusinessCommunicationList({
-  items,
-  loading,
-  emptyText,
-  onChanged,
-}: Props) {
-  if (loading) return <CircularProgress />;
+export default function BusinessCommunicationList({ items, loading, emptyText, onChanged }: Props) {
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" mt={6}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (!items || items.length === 0) {
-    return <Typography>{emptyText ?? "データがありません"}</Typography>;
+    return (
+      <Box
+        sx={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          py: 10, color: "text.disabled", gap: 1.5,
+        }}
+      >
+        <ForumOutlinedIcon sx={{ fontSize: 52, opacity: 0.35 }} />
+        <Typography variant="body2">{emptyText ?? "データがありません"}</Typography>
+      </Box>
+    );
   }
 
   return (
-    <Stack spacing={2}>
-      {items.map((item) => (
+    <Stack spacing={1.5}>
+      {items.map(item => (
         <BusinessCommunicationCard key={item.id} item={item} refresh={onChanged} />
       ))}
     </Stack>
