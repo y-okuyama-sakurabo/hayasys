@@ -6,12 +6,12 @@ import { Box, Typography, Grid } from "@mui/material";
 // ─── ページあたりの行数（多ページ時） ────────────────────────────
 const ITEMS_PER_FIRST_PAGE = 6;   // 1ページ目（ヘッダーあり）
 const ITEMS_PER_PAGE       = 13;  // 続ページ
-const FEE_MIN_ROWS         = 5;   // 費用テーブルの最小行数
+const FEE_MIN_ROWS         = 4;   // 費用テーブルの最小行数
 const FEE_ROWS_PER_PAGE    = 10;  // 費用テーブルの最大行数/ページ
 
 // 1ページにまとめられる最大明細行数（ヘッダーの高さによる）
-const SINGLE_PAGE_MAX_SALE        = 1; // 販売モード（ヘッダー大）
-const SINGLE_PAGE_MAX_MAINTENANCE = 5; // 整備・その他（ヘッダー小）
+const SINGLE_PAGE_MAX_SALE        = 6; // 販売モード（ヘッダー大）
+const SINGLE_PAGE_MAX_MAINTENANCE = 8; // 整備・その他（ヘッダー小）
 
 // ─── ユーティリティ ───────────────────────────────────────────
 const fmt = (v: any) =>
@@ -73,6 +73,7 @@ const PAGE_SX = {
   boxSizing: "border-box" as const,
   bgcolor: "#fff",
   fontSize: "9pt",
+  fontFamily: "var(--font-noto-sans-jp), 'Noto Sans JP', sans-serif",
   p: "10mm 12mm",
   display: "flex",
   flexDirection: "column" as const,
@@ -156,11 +157,11 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
 
   /** 1ページ目ヘッダー */
   const headerJSX = (
-    <Grid container spacing={1} sx={{ mb: 1.5, flexShrink: 0 }}>
+    <Grid container spacing={1} sx={{ mb: 0.8, flexShrink: 0 }}>
       {/* 左列 */}
       <Grid size={{ xs: 6 }}>
         {/* 顧客情報 */}
-        <Box sx={{ mb: 1.2, pl: 1 }}>
+        <Box sx={{ mb: 0.8, pl: 1 }}>
           <Typography sx={{ fontSize: "10pt", color: "#555" }}>
             〒{estimate.party?.postal_code}　{estimate.party?.address}
           </Typography>
@@ -209,7 +210,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
       {/* 右列 */}
       <Grid size={{ xs: 6 }}>
         {/* タイトル + 伝票情報 */}
-        <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, mb: 1.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, mb: 2.1 }}>
           <Box sx={{ textAlign: "right", fontSize: "8pt", color: "#444", lineHeight: 1.4 }}>
             <div>伝票No.　{estimate.estimate_no}</div>
             <div>見積日　{estimate.estimate_date || estimate.created_at?.slice(0, 10)}</div>
@@ -246,13 +247,13 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   /** 通常明細テーブル */
   const renderNormalTable = (items: any[], emptyRows: number) => (
     <Box>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt", border: "1px solid #000" }}>
         <thead>
           <tr>
-            <Th align="left"   width="30%">商品名</Th>
+            <Th align="left"   width="36%">商品名</Th>
             <Th align="right"  width="6%">数量</Th>
-            <Th align="center" width="7%">単位</Th>
-            <Th align="right"  width="13%">単価</Th>
+            <Th align="center" width="4%">単位</Th>
+            <Th align="right"  width="10%">単価</Th>
             <Th align="right"  width="11%">工賃</Th>
             <Th align="right"  width="11%">値引</Th>
             <Th align="right"  width="14%">金額（税込）</Th>
@@ -281,13 +282,13 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
           {/* 合計行 */}
           <tr>
             <td colSpan={5}
-              style={{ border: "1px solid #000", padding: "3px 6px", background: "#f5f5f5" }}
+              style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", background: "#f5f5f5" }}
             />
-            <td style={{ border: "1px solid #000", padding: "3px 6px", textAlign: "right",
+            <td style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", textAlign: "right",
               fontWeight: "bold", background: "#f5f5f5", fontSize: "8.5pt" }}>
               小計
             </td>
-            <td style={{ border: "1px solid #000", padding: "3px 6px", textAlign: "right",
+            <td style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", textAlign: "right",
               fontWeight: "bold", background: "#f5f5f5", fontSize: "8.5pt" }}>
               {fmt(normalTableTotal)}
             </td>
@@ -326,9 +327,9 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   // ══════════════════════════════════════════════════════════
   if (useSinglePage) {
     return (
-      <Box sx={{ ...PAGE_SX, gap: "5mm", pageBreakAfter: "auto" }}>
+      <Box sx={{ ...PAGE_SX, gap: "2mm", pageBreakAfter: "auto" }}>
         {headerJSX}
-        {renderNormalTable(normalItems, 0)}
+        {renderNormalTable(normalItems, Math.max(0, SINGLE_PAGE_MAX_SALE - normalItems.length))}
         {renderFeeSection(tRowsAll, ntRowsAll)}
       </Box>
     );
@@ -463,7 +464,7 @@ function FeeTable({ title, rows }: { title: string; rows: (any | null)[] }) {
             sx={{
               display: "grid", gridTemplateColumns: "1fr 100px",
               minHeight: "22px",
-              borderBottom: i === rows.length - 1 ? "none" : "1px solid #ddd",
+              borderBottom: "none",
               fontSize: "8.5pt",
             }}
           >
@@ -490,7 +491,7 @@ function ScheduleSection({ estimate }: any) {
   ];
   return (
     <Box sx={{ display: "flex", alignItems: "stretch" }}>
-      <VerticalLabel>納車予定</VerticalLabel>
+      <VerticalLabel withRight>納車予定</VerticalLabel>
       <Box sx={{ flex: 1, border: "1px solid #000", borderLeft: "none" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt" }}>
           <tbody>
@@ -526,7 +527,7 @@ function InsuranceSection({ estimate }: any) {
   ];
   return (
     <Box sx={{ display: "flex", alignItems: "stretch" }}>
-      <VerticalLabel>任意保険</VerticalLabel>
+      <VerticalLabel withRight>任意保険</VerticalLabel>
       <Box sx={{ flex: 1, border: "1px solid #000", borderLeft: "none" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt" }}>
           <tbody>
@@ -552,35 +553,43 @@ function InsuranceSection({ estimate }: any) {
 // ─── フッター ────────────────────────────────────────────────
 function Footer({ estimate }: any) {
   return (
-    <Box sx={{ border: "1px solid #000", display: "flex", minHeight: "90px", mt: 1 }}>
-      <Box sx={{ width: "50%", borderRight: "1px solid #000", p: 1.5, whiteSpace: "pre-wrap", fontSize: "8.5pt" }}>
-        <Box sx={{ fontWeight: "bold", mb: 0.5 }}>メモ</Box>
-        <Box>{estimate.memo || ""}</Box>
+    <Box>
+      <Box sx={{ border: "1px solid #000", display: "flex", minHeight: "90px", mt: 1 }}>
+        <Box sx={{ width: "50%", borderRight: "1px solid #000", p: 1.5, whiteSpace: "pre-wrap", fontSize: "8.5pt" }}>
+          <Box sx={{ fontWeight: "bold", mb: 0.5 }}>メモ</Box>
+          <Box>{estimate.memo || ""}</Box>
+        </Box>
+        <Box sx={{ width: "50%", p: 1.5, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <Box sx={{ fontSize: "8.5pt", lineHeight: 1.5, color: "#444" }}>
+            <div>{estimate.shop?.location || ""}</div>
+            <div>営業：{estimate.shop?.opening_hours || ""}</div>
+            <div>登録番号：T7370001009807</div>
+          </Box>
+          <Box
+            component="img"
+            src="/logo_doc.png"
+            alt="早坂サイクル商会"
+            sx={{ display: "block" }}
+          />
+          <Box sx={{ fontSize: "8.5pt", color: "#444", lineHeight: 1.5 }}>
+            <div>TEL {estimate.shop?.phone || ""}　Fax {estimate.shop?.fax || ""}</div>
+            <div>担当：{estimate.created_by?.display_name || ""}　{estimate.shop?.name || ""}</div>
+          </Box>
+        </Box>
       </Box>
-      <Box sx={{ width: "50%", p: 1.5, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <Box sx={{ fontSize: "8.5pt", lineHeight: 1.5, color: "#444" }}>
-          <div>{estimate.shop?.location || ""}</div>
-          <div>営業：{estimate.shop?.opening_hours || ""}</div>
-          <div>登録番号：T7370001009807</div>
-        </Box>
-        <Box sx={{ fontSize: "15pt", fontWeight: "bold" }}>
-          (株) 早坂サイクル商会 {estimate.shop?.name}
-        </Box>
-        <Box sx={{ fontSize: "8.5pt", color: "#444", lineHeight: 1.5 }}>
-          <div>TEL {estimate.shop?.phone || ""}　Fax {estimate.shop?.fax || ""}</div>
-          <div>担当：{estimate.created_by?.display_name || ""}</div>
-        </Box>
+      <Box sx={{ mt: 0.5, fontSize: "6.5pt", color: "#666", lineHeight: 1.6 }}>
+        ご記入いただいているデーターは、車輛購入やご購入後のアフターおよび当店からの各種案内等に使用させていただくものであり、お客様の許可なく、第三者に譲渡、提供することはありません。
       </Box>
     </Box>
   );
 }
 
 // ─── 小さな共通コンポーネント ─────────────────────────────────
-function VerticalLabel({ children }: { children: React.ReactNode }) {
+function VerticalLabel({ children, withRight = false }: { children: React.ReactNode; withRight?: boolean }) {
   return (
     <Box sx={{
       writingMode: "vertical-rl", textOrientation: "upright",
-      border: "1px solid #000", borderRight: "none",
+      border: "1px solid #000", borderRight: withRight ? "1px solid #000" : "none",
       px: "3px", py: 0.5, fontSize: "8.5pt", fontWeight: "bold",
       display: "flex", alignItems: "center", justifyContent: "center",
       minWidth: "20px",
@@ -612,9 +621,9 @@ function Th({ children, align = "center", width }: {
 }) {
   return (
     <th style={{
-      border: "1px solid #000", padding: "3px 4px",
-      background: "#f0f0f0", textAlign: align as any,
-      whiteSpace: "nowrap", width,
+      borderTop: "1px solid #000", borderBottom: "1px solid #000",
+      padding: "3px 4px", background: "#f0f0f0",
+      textAlign: align as any, whiteSpace: "nowrap", width,
     }}>
       {children}
     </th>
@@ -625,7 +634,7 @@ function Td({ children, align = "left" }: {
   children?: React.ReactNode; align?: string;
 }) {
   return (
-    <td style={{ border: "1px solid #000", padding: "3px 4px", textAlign: align as any }}>
+    <td style={{ padding: "3px 4px", textAlign: align as any }}>
       {children}
     </td>
   );
@@ -633,7 +642,7 @@ function Td({ children, align = "left" }: {
 
 function VerticalSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ display: "flex", alignItems: "stretch", mb: 1 }}>
+    <Box sx={{ display: "flex", alignItems: "stretch", mb: 0.5 }}>
       <Box sx={{
         writingMode: "vertical-rl", textOrientation: "upright",
         border: "1px solid #000", px: "3px", py: 0.5,
@@ -677,12 +686,19 @@ function VehicleSection({ vehicle }: any) {
       borderTop: "1px solid #000", borderRight: "1px solid #000", borderBottom: "1px solid #000",
     }}>
       <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            <td style={cellL}><VCell label={row.left.label}  value={row.left.value} /></td>
-            <td style={cellR}><VCell label={row.right.label} value={row.right.value} /></td>
-          </tr>
-        ))}
+        {rows.map((row, i) => {
+          const isLast = i === rows.length - 1;
+          return (
+            <tr key={i}>
+              <td style={{ ...cellL, borderBottom: isLast ? "none" : "1px solid #ddd" }}>
+                <VCell label={row.left.label}  value={row.left.value} />
+              </td>
+              <td style={{ ...cellR, borderBottom: isLast ? "none" : "1px solid #ddd" }}>
+                <VCell label={row.right.label} value={row.right.value} />
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -718,12 +734,19 @@ function CreditSection({ estimate }: any) {
       borderTop: "1px solid #000", borderRight: "1px solid #000", borderBottom: "1px solid #000",
     }}>
       <tbody>
-        {rows.map((cols, i) => (
-          <tr key={i}>
-            <td style={cellL}><VCell label={cols[0].label} value={cols[0].value || ""} /></td>
-            <td style={cellR}><VCell label={cols[1].label} value={cols[1].value || ""} /></td>
-          </tr>
-        ))}
+        {rows.map((cols, i) => {
+          const isLast = i === rows.length - 1;
+          return (
+            <tr key={i}>
+              <td style={{ ...cellL, borderBottom: isLast ? "none" : "1px solid #ddd" }}>
+                <VCell label={cols[0].label} value={cols[0].value || ""} />
+              </td>
+              <td style={{ ...cellR, borderBottom: isLast ? "none" : "1px solid #ddd" }}>
+                <VCell label={cols[1].label} value={cols[1].value || ""} />
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

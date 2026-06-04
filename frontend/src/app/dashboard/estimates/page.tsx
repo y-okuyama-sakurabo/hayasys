@@ -181,7 +181,7 @@ function EstimateListPageInner() {
     }
   };
 
-  const fmt = (v: any) => v ? `¥${Number(v).toLocaleString()}` : "-";
+  const fmt = (v: any) => v ? `¥${Math.round(Number(v)).toLocaleString()}` : "-";
   const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString("ja-JP") : "-";
 
