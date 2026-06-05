@@ -12,6 +12,7 @@ import PrintIcon   from "@mui/icons-material/Print";
 import SearchIcon  from "@mui/icons-material/Search";
 import apiClient   from "@/lib/apiClient";
 import dayjs       from "dayjs";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ========================
 // 定数
@@ -300,16 +301,20 @@ export default function ReportsPage() {
                 />
               ) : (
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <TextField
-                    type="date" size="small" label="開始日"
-                    value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
-                    InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}
+                  <JaDatePicker
+                    label="開始日"
+                    value={rangeFrom || null}
+                    onChange={v => setRangeFrom(v ?? "")}
+                    fullWidth={false}
+                    sx={{ width: 165 }}
                   />
                   <Typography variant="body2" color="text.secondary">〜</Typography>
-                  <TextField
-                    type="date" size="small" label="終了日"
-                    value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
-                    InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}
+                  <JaDatePicker
+                    label="終了日"
+                    value={rangeTo || null}
+                    onChange={v => setRangeTo(v ?? "")}
+                    fullWidth={false}
+                    sx={{ width: 165 }}
                   />
                 </Stack>
               )}

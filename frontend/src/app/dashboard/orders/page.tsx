@@ -17,6 +17,7 @@ import DescriptionIcon   from "@mui/icons-material/Description";
 import DeleteIcon    from "@mui/icons-material/Delete";
 import ContentCopyIcon   from "@mui/icons-material/ContentCopy";
 import SearchIcon    from "@mui/icons-material/Search";
+import JaDatePicker  from "@/components/common/JaDatePicker";
 import ClearIcon     from "@mui/icons-material/Clear";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -261,30 +262,23 @@ function OrderListPageInner() {
         {/* 詳細フィルター行 */}
         <Stack direction="row" spacing={3} flexWrap="wrap" alignItems="flex-end" mb={2}>
           {/* 受注日 */}
-          <Box>
-            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-              受注日
-            </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <TextField
-                type="date"
-                size="small"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 150 }}
-              />
-              <Typography color="text.secondary">〜</Typography>
-              <TextField
-                type="date"
-                size="small"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 150 }}
-              />
-            </Stack>
-          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <JaDatePicker
+              label="受注日（開始）"
+              value={dateFrom || null}
+              onChange={v => setDateFrom(v ?? "")}
+              fullWidth={false}
+              sx={{ width: 170 }}
+            />
+            <Typography color="text.secondary">〜</Typography>
+            <JaDatePicker
+              label="受注日（終了）"
+              value={dateTo || null}
+              onChange={v => setDateTo(v ?? "")}
+              fullWidth={false}
+              sx={{ width: 170 }}
+            />
+          </Stack>
 
           {/* 金額 */}
           <Box>

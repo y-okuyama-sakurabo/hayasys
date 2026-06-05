@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ========================
 // 定数
@@ -187,20 +188,20 @@ export default function StaffAnalyticsPage() {
             </FormControl>
           ) : (
             <Stack direction="row" spacing={1.5} alignItems="center">
-              <TextField
-                label="開始日" type="date" size="small"
-                value={rangeFrom}
-                onChange={(e) => setRangeFrom(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 155 }}
+              <JaDatePicker
+                label="開始日"
+                value={rangeFrom || null}
+                onChange={v => setRangeFrom(v ?? "")}
+                fullWidth={false}
+                sx={{ width: 165 }}
               />
               <Typography variant="body2" color="text.secondary">〜</Typography>
-              <TextField
-                label="終了日" type="date" size="small"
-                value={rangeTo}
-                onChange={(e) => setRangeTo(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 155 }}
+              <JaDatePicker
+                label="終了日"
+                value={rangeTo || null}
+                onChange={v => setRangeTo(v ?? "")}
+                fullWidth={false}
+                sx={{ width: 165 }}
               />
               <Button
                 variant="contained" size="small"

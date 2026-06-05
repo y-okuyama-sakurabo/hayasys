@@ -33,17 +33,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import apiClient from "@/lib/apiClient";
 import PhoneField from "@/components/ui/PhoneField";
 import debounce from "lodash/debounce";
-import DatePartsSelector, {
-  DateParts,
-  parseDate,
-  buildDate,
-} from "./DatePartsSelector";
-
-// ─────────────────────────────────────────────────────────
-// 定数
-// ─────────────────────────────────────────────────────────
-const THIS_YEAR = new Date().getFullYear();
-const YEARS_BIRTH = Array.from({ length: 100 }, (_, i) => THIS_YEAR - i);
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ─────────────────────────────────────────────────────────
 // ユーティリティ
@@ -119,11 +109,6 @@ export default function PartySelector({
   const [regions, setRegions] = useState<any[]>([]);
   const [genders, setGenders] = useState<any[]>([]);
 
-  // ── 生年月日 ──
-  const [dateBirth, setDateBirth] = useState<DateParts>(() =>
-    parseDate(newData?.birthdate)
-  );
-
   // ── 郵便番号 ──
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError,   setZipError]   = useState<string | null>(null);
@@ -161,11 +146,6 @@ export default function PartySelector({
     }
   }, [selectedId]);
 
-  // 生年月日の外部変更を同期
-  useEffect(() => {
-    setDateBirth(parseDate(newData?.birthdate));
-  }, [newData?.birthdate]);
-
   // ── フィールド変更 ──
   const handleChange = (field: string, value: any) => {
     const normalized = value === "" ? null : value;
@@ -176,12 +156,10 @@ export default function PartySelector({
   };
 
   // ── 生年月日 ──
-  const handleDateBirth = (parts: DateParts) => {
-    setDateBirth(parts);
-    const str = buildDate(parts.year, parts.month, parts.day);
+  const handleDateBirth = (v: string | null) => {
     dispatch({
       type: "SET_BASIC",
-      payload: { [newKey]: { ...newData, birthdate: str } },
+      payload: { [newKey]: { ...newData, birthdate: v } },
     });
   };
 
@@ -292,7 +270,6 @@ export default function PartySelector({
     setSearchInput("");
     setSearchOptions([]);
     setDetailOpen(false);
-    setDateBirth({ year: "", month: "", day: "" });
     kanaAutoRef.current = true;
     setNameTouched(false);
   };
@@ -529,11 +506,10 @@ export default function PartySelector({
         </Box>
         {/* 生年月日: 単独行 */}
         <Box mb={1}>
-          <DatePartsSelector
+          <JaDatePicker
             label="生年月日"
-            value={dateBirth}
+            value={newData?.birthdate || null}
             onChange={handleDateBirth}
-            years={YEARS_BIRTH}
           />
         </Box>
 

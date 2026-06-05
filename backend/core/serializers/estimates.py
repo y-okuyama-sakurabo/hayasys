@@ -500,6 +500,7 @@ class EstimateDetailSerializer(serializers.ModelSerializer):
             return None
 
         return {
+            "id": s.id,
             "start_at": s.start_at,
             "end_at": s.end_at,
             "delivery_method": s.delivery_method,

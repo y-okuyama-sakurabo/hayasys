@@ -23,22 +23,12 @@ import {
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CategorySelector from "@/components/sale/CategorySelector";
-import DatePartsSelector, {
-  DateParts,
-  parseDate,
-  buildDate,
-} from "./DatePartsSelector";
+import JaDatePicker from "@/components/common/JaDatePicker";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
 import CurrencyField from "./CurrencyField";
 
 // ── 定数 ─────────────────────────────────────────────────────────
-const THIS_YEAR = new Date().getFullYear();
-/** 業務日付（納車・車検）: -5年〜+6年 */
-const YEARS_BIZ     = Array.from({ length: 12 }, (_, i) => THIS_YEAR + 6 - i);
-/** 初年度登録: 過去60年 */
-const YEARS_VEHICLE = Array.from({ length: 60 }, (_, i) => THIS_YEAR - i);
-
 const SALE_TYPE_OPTIONS = [
   { value: "new",         label: "新車" },
   { value: "used",        label: "中古車" },
@@ -115,12 +105,6 @@ export default function VehicleStep({
   const isFirstCategoryLoad = useRef(true);
   const prevCategoryIdRef   = useRef<number | null>(null);
 
-  // ── 日付 local state（部分選択を保持するため props から毎回 parse しない）──
-  const [firstRegParts,    setFirstRegParts]    = useState<DateParts>({ year: "", month: "", day: "" });
-  const [inspExpParts,     setInspExpParts]      = useState<DateParts>({ year: "", month: "", day: "" });
-  const [tradeInspParts,   setTradeInspParts]    = useState<DateParts>({ year: "", month: "", day: "" });
-  const [deliveryDateParts, setDeliveryDateParts] = useState<DateParts>({ year: "", month: "", day: "" });
-
   // ── 顧客所有車両の取得 ───────────────────────────────────────
   useEffect(() => {
     if (vehicleMode !== "maintenance" || !partyId) {
@@ -162,29 +146,6 @@ export default function VehicleStep({
     apiClient.get("/masters/shops/").then((res) => setShops(res.data || [])).catch(() => {});
   }, []);
 
-  // ── 日付 local state の初期同期（edit モードで API データが後から入る場合）──
-  // 「local が空 かつ props に値がある」ときだけ上書き → ユーザーの部分入力は保持
-  useEffect(() => {
-    const v = vehicle?.registrations?.[0]?.first_registration_date;
-    if (v && !firstRegParts.year) setFirstRegParts(parseDate(v));
-  }, [vehicle?.registrations?.[0]?.first_registration_date]);
-
-  useEffect(() => {
-    const v = vehicle?.registrations?.[0]?.inspection_expiration;
-    if (v && !inspExpParts.year) setInspExpParts(parseDate(v));
-  }, [vehicle?.registrations?.[0]?.inspection_expiration]);
-
-  useEffect(() => {
-    const v = tradeInVehicle?.registrations?.[0]?.inspection_expiration;
-    if (v && !tradeInspParts.year) setTradeInspParts(parseDate(v));
-  }, [tradeInVehicle?.registrations?.[0]?.inspection_expiration]);
-
-  useEffect(() => {
-    if (schedule?.start_at && !deliveryDateParts.year) {
-      setDeliveryDateParts(parseDate(dayjs(schedule.start_at).format("YYYY-MM-DD")));
-    }
-  }, [schedule?.start_at]);
-
   // ── 車台番号 重複チェック ────────────────────────────────────
   useEffect(() => {
     const chassisNo = currentVehicle.chassis_no?.trim();
@@ -215,22 +176,21 @@ export default function VehicleStep({
   const updateTradeReg = (field: string, value: string | null) =>
     updateTradeIn("registrations", [{ ...tradeReg0, [field]: value }]);
 
-  // 納車時刻は props から直接導出（local state 不要）
+  // 納車日時ヘルパー
+  const deliveryDateStr = schedule?.start_at
+    ? dayjs(schedule.start_at).format("YYYY-MM-DD")
+    : null;
   const deliveryTimeStr = schedule?.start_at
     ? dayjs(schedule.start_at).format("HH:mm")
     : "";
 
-  const handleDeliveryDate = (parts: DateParts) => {
-    setDeliveryDateParts(parts);   // ← 部分選択を local state に保持
-    const str = buildDate(parts.year, parts.month, parts.day);
-    if (!str) return;              // 完全な日付になるまで dispatch しない
+  const handleDeliveryDate = (dateStr: string | null) => {
+    if (!dateStr) return;
     const time = deliveryTimeStr || "00:00";
-    dispatch({ type: "SET_SCHEDULE", payload: { start_at: `${str}T${time}:00` } });
+    dispatch({ type: "SET_SCHEDULE", payload: { start_at: `${dateStr}T${time}:00` } });
   };
   const handleDeliveryTime = (val: string) => {
-    const date =
-      buildDate(deliveryDateParts.year, deliveryDateParts.month, deliveryDateParts.day)
-      ?? dayjs().format("YYYY-MM-DD");
+    const date = deliveryDateStr ?? dayjs().format("YYYY-MM-DD");
     dispatch({ type: "SET_SCHEDULE", payload: { start_at: `${date}T${val}:00` } });
   };
 
@@ -539,27 +499,21 @@ export default function VehicleStep({
           </Grid>
 
           {/* 初年度登録・車検満了日 */}
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={3} mb={1}>
-            <DatePartsSelector
-              label="初年度登録"
-              value={firstRegParts}
-              onChange={(parts) => {
-                setFirstRegParts(parts);
-                const str = buildDate(parts.year, parts.month, parts.day || "1");
-                updateReg("first_registration_date", str);
-              }}
-              years={YEARS_VEHICLE}
-            />
-            <DatePartsSelector
-              label="車検満了日"
-              value={inspExpParts}
-              onChange={(parts) => {
-                setInspExpParts(parts);
-                const str = buildDate(parts.year, parts.month, parts.day);
-                updateReg("inspection_expiration", str);
-              }}
-              years={YEARS_BIZ}
-            />
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={1}>
+            <Box flex={1}>
+              <JaDatePicker
+                label="初年度登録"
+                value={reg0.first_registration_date || null}
+                onChange={(v) => updateReg("first_registration_date", v)}
+              />
+            </Box>
+            <Box flex={1}>
+              <JaDatePicker
+                label="車検満了日"
+                value={reg0.inspection_expiration || null}
+                onChange={(v) => updateReg("inspection_expiration", v)}
+              />
+            </Box>
           </Stack>
 
           <Divider sx={{ my: 3 }} />
@@ -656,32 +610,23 @@ export default function VehicleStep({
       <SectionLabel>納車予定</SectionLabel>
 
       {/* 納車日・時刻 を横並び */}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={3} mb={2} alignItems="flex-end">
-        <DatePartsSelector
-          label="納車日"
-          value={deliveryDateParts}
-          onChange={handleDeliveryDate}
-          years={YEARS_BIZ}
-        />
-        <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            fontWeight={600}
-            display="block"
-            mb={0.75}
-          >
-            納車時刻
-          </Typography>
-          <TextField
-            size="small"
-            type="time"
-            value={deliveryTimeStr}
-            InputLabelProps={{ shrink: true }}
-            sx={{ width: 140 }}
-            onChange={(e) => handleDeliveryTime(e.target.value)}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2} alignItems="flex-start">
+        <Box sx={{ minWidth: 180, flex: 1, maxWidth: 240 }}>
+          <JaDatePicker
+            label="納車日"
+            value={deliveryDateStr}
+            onChange={handleDeliveryDate}
           />
         </Box>
+        <TextField
+          size="small"
+          type="time"
+          label="納車時刻"
+          value={deliveryTimeStr}
+          InputLabelProps={{ shrink: true }}
+          sx={{ width: 140 }}
+          onChange={(e) => handleDeliveryTime(e.target.value)}
+        />
       </Stack>
 
       {/* 納車方法・店舗 */}
@@ -817,16 +762,13 @@ export default function VehicleStep({
           </Grid>
 
           {/* 車検満了日 */}
-          <DatePartsSelector
-            label="車検満了日"
-            value={tradeInspParts}
-            onChange={(parts) => {
-              setTradeInspParts(parts);
-              const str = buildDate(parts.year, parts.month, parts.day);
-              updateTradeReg("inspection_expiration", str);
-            }}
-            years={YEARS_BIZ}
-          />
+          <Box sx={{ maxWidth: 240 }}>
+            <JaDatePicker
+              label="車検満了日"
+              value={tradeReg0.inspection_expiration || null}
+              onChange={(v) => updateTradeReg("inspection_expiration", v)}
+            />
+          </Box>
         </>
       )}
     </Box>

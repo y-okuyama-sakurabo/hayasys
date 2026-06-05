@@ -35,6 +35,7 @@ import AddIcon         from "@mui/icons-material/Add";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 import apiClient from "@/lib/apiClient";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ========================
 // 定数
@@ -375,14 +376,10 @@ export default function ManagementDetailPage() {
               </Grid>
 
               <Grid size={{ xs: 12, sm: 3 }}>
-                <TextField
+                <JaDatePicker
                   label="入金日"
-                  type="date"
-                  size="small"
-                  fullWidth
-                  value={payDate}
-                  onChange={(e) => setPayDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  value={payDate || null}
+                  onChange={v => setPayDate(v ?? "")}
                 />
               </Grid>
 
@@ -503,13 +500,11 @@ export default function ManagementDetailPage() {
 
             {/* 納品日 + 登録ボタン */}
             <Stack direction="row" spacing={2} alignItems="center">
-              <TextField
+              <JaDatePicker
                 label="納品日"
-                type="date"
-                size="small"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                value={deliveryDate || null}
+                onChange={v => setDeliveryDate(v ?? "")}
+                fullWidth={false}
                 sx={{ width: 180 }}
               />
               <Button

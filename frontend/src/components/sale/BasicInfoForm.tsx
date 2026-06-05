@@ -22,16 +22,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import apiClient from "@/lib/apiClient";
 import PartySelector from "./PartySelector";
-import DatePartsSelector, {
-  DateParts,
-  parseDate,
-  buildDate,
-} from "./DatePartsSelector";
-
-// ── 定数 ────────────────────────────────────────────────────────
-const THIS_YEAR = new Date().getFullYear();
-// 業務日付: 過去10年〜来年
-const YEARS_BUSINESS = Array.from({ length: 13 }, (_, i) => THIS_YEAR + 3 - i);
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 const VEHICLE_MODES = [
   {
@@ -95,14 +86,6 @@ export default function BasicInfoForm({
   const [shops, setShops]   = useState<any[]>([]);
   const [staffs, setStaffs] = useState<any[]>([]);
 
-  // 日付 local state
-  const [dateMain, setDateMain] = useState<DateParts>(() =>
-    parseDate(basic?.[dateKey])
-  );
-  const [dateValid, setDateValid] = useState<DateParts>(() =>
-    parseDate(basic?.valid_until)
-  );
-
   useEffect(() => {
     apiClient
       .get("/masters/shops/")
@@ -117,32 +100,7 @@ export default function BasicInfoForm({
       .catch(() => {});
   }, []);
 
-  // 外部初期化（edit モードで basic が後から入ってくる）
-  useEffect(() => {
-    if (basic?.[dateKey] && !dateMain.year) {
-      setDateMain(parseDate(basic[dateKey]));
-    }
-  }, [basic?.[dateKey]]);
-
-  useEffect(() => {
-    if (basic?.valid_until && !dateValid.year) {
-      setDateValid(parseDate(basic.valid_until));
-    }
-  }, [basic?.valid_until]);
-
   // ── ハンドラ ─────────────────────────────────────────────────────
-  const handleDateMain = (parts: DateParts) => {
-    setDateMain(parts);
-    const str = buildDate(parts.year, parts.month, parts.day);
-    if (str) dispatch({ type: "SET_BASIC", payload: { [dateKey]: str } });
-  };
-
-  const handleDateValid = (parts: DateParts) => {
-    setDateValid(parts);
-    const str = buildDate(parts.year, parts.month, parts.day);
-    dispatch({ type: "SET_BASIC", payload: { valid_until: str } });
-  };
-
   const handleVehicleModeChange = (_: any, value: string | null) => {
     if (!value) return;
     dispatch({ type: "SET_BASIC", payload: { vehicle_mode: value } });
@@ -263,21 +221,25 @@ export default function BasicInfoForm({
         <SectionLabel icon={<CalendarTodayIcon fontSize="small" />}>
           日付
         </SectionLabel>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
-          <DatePartsSelector
-            label={isOrder ? "受注日" : "見積日"}
-            value={dateMain}
-            onChange={handleDateMain}
-            years={YEARS_BUSINESS}
-            required
-          />
-          {!isOrder && (
-            <DatePartsSelector
-              label="有効期限"
-              value={dateValid}
-              onChange={handleDateValid}
-              years={YEARS_BUSINESS}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Box flex={1} maxWidth={240}>
+            <JaDatePicker
+              label={isOrder ? "受注日" : "見積日"}
+              value={basic?.[dateKey] || null}
+              onChange={v => {
+                if (v) dispatch({ type: "SET_BASIC", payload: { [dateKey]: v } });
+              }}
+              required
             />
+          </Box>
+          {!isOrder && (
+            <Box flex={1} maxWidth={240}>
+              <JaDatePicker
+                label="有効期限"
+                value={basic?.valid_until || null}
+                onChange={v => dispatch({ type: "SET_BASIC", payload: { valid_until: v } })}
+              />
+            </Box>
           )}
         </Stack>
       </Box>

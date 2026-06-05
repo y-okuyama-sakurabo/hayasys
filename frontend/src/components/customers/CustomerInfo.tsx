@@ -17,6 +17,7 @@ import BadgeIcon     from "@mui/icons-material/Badge";
 import Grid from "@mui/material/Grid";
 import PhoneField from "@/components/ui/PhoneField";
 import apiClient from "@/lib/apiClient";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 type IdName = { id: number; name: string };
 
@@ -289,14 +290,14 @@ export default function CustomerInfo({
 
           <TextField fullWidth size="small" label="氏名 *" value={form.name ?? ""} onChange={setField("name")} sx={{ mb: 1.5 }} />
           <TextField fullWidth size="small" label="フリガナ" value={form.kana ?? ""} onChange={setField("kana")} sx={{ mb: 1.5 }} />
-          <TextField
-            fullWidth size="small" label="誕生日" type="date"
-            value={form.birthdate ?? ""} onChange={(e) => { setBirthdateError(null); setField("birthdate")(e); }}
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ max: today }}
-            error={!!birthdateError}
-            helperText={birthdateError ?? ""}
-            sx={{ mb: 0 }}
+          <JaDatePicker
+            label="誕生日"
+            value={form.birthdate || null}
+            onChange={v => {
+              setBirthdateError(null);
+              setForm((p: any) => ({ ...p, birthdate: v ?? "" }));
+            }}
+            maxDate={today}
           />
 
           <Divider sx={{ my: 2 }} />

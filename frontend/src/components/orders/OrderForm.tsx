@@ -326,7 +326,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           (acc: any, s: any) => { acc[s.settlement_type] = Number(s.amount); return acc; },
           { trade_in: 0, cash: 0, card: 0, loan: 0, qr: 0, coupon: 0, transfer: 0 }
         );
-        const payment = order.payment;
+        const payment = order.payments?.[0];
 
         dispatch({
           type: "INIT_FROM_API",
@@ -444,7 +444,7 @@ export default function OrderForm({ mode, orderId }: Props) {
           (acc: any, s: any) => { acc[s.settlement_type] = Number(s.amount); return acc; },
           { trade_in: 0, cash: 0, card: 0, loan: 0, qr: 0, coupon: 0, transfer: 0 }
         );
-        const payment = order.payment;
+        const payment = order.payments?.[0];
 
         dispatch({
           type: "INIT_FROM_API",

@@ -95,8 +95,23 @@ class DashboardAPIView(APIView):
             .order_by("-created_at")
         )
 
+        # start 未指定の場合は過去3ヶ月をデフォルトとして適用
         if start:
             estimates = estimates.filter(estimate_date__gte=start)
+        else:
+            today = timezone.localdate()
+            month = today.month - 3
+            year  = today.year
+            if month <= 0:
+                month += 12
+                year  -= 1
+            import calendar
+            last_day = calendar.monthrange(year, month)[1]
+            three_months_ago = today.replace(
+                year=year, month=month, day=min(today.day, last_day)
+            )
+            estimates = estimates.filter(estimate_date__gte=three_months_ago)
+
         if end:
             estimates = estimates.filter(estimate_date__lte=end)
 

@@ -32,6 +32,7 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import DescriptionIcon from "@mui/icons-material/Description";
 import apiClient from "@/lib/apiClient";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ─────────────────────────────────────────────
 // 型
@@ -392,23 +393,19 @@ export default function AuditLogsPage() {
                 <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
               ))}
             </TextField>
-            <TextField
+            <JaDatePicker
               label="開始日"
-              type="date"
-              size="small"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
+              value={dateFrom || null}
+              onChange={v => setDateFrom(v ?? "")}
+              fullWidth={false}
+              sx={{ minWidth: 170 }}
             />
-            <TextField
+            <JaDatePicker
               label="終了日"
-              type="date"
-              size="small"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 160 }}
+              value={dateTo || null}
+              onChange={v => setDateTo(v ?? "")}
+              fullWidth={false}
+              sx={{ minWidth: 170 }}
             />
             <Button variant="outlined" color="inherit" size="small" onClick={handleReset}>
               クリア

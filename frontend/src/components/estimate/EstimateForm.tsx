@@ -385,6 +385,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
               vehicle_mode: estimate.vehicle_mode ?? "none",
               created_by_id: estimate.created_by?.id ?? null,
               estimate_date: estimate.estimate_date,
+              valid_until: estimate.valid_until ?? null,
             },
             items: (estimate.items ?? []).map((item: any) => ({
               ...item,

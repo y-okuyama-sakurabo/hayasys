@@ -17,6 +17,7 @@ import LocalShippingIcon    from "@mui/icons-material/LocalShipping";
 import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 import BusinessCommunicationCreateDialog  from "@/components/business-communications/BusinessCommunicationCreateDialog";
 import BusinessCommunicationThreadDialog  from "@/components/business-communications/BusinessCommunicationThreadDialog";
@@ -52,7 +53,7 @@ export default function DashboardPage() {
   });
   const [loading,   setLoading]   = useState(true);
   const [page,      setPage]      = useState(1);
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(() => dayjs().subtract(3, "month").format("YYYY-MM-DD"));
   const [endDate,   setEndDate]   = useState("");
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
@@ -88,7 +89,8 @@ export default function DashboardPage() {
   useEffect(() => { fetchThreads(); },   [fetchThreads]);
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-  const resetFilter = () => { setStartDate(""); setEndDate(""); setPage(1); };
+  const defaultStart = dayjs().subtract(3, "month").format("YYYY-MM-DD");
+  const resetFilter  = () => { setStartDate(defaultStart); setEndDate(""); setPage(1); };
 
   return (
     <Box>
@@ -232,27 +234,23 @@ export default function DashboardPage() {
 
               {/* 日付フィルター */}
               <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                <TextField
-                  type="date"
-                  size="small"
+                <JaDatePicker
                   label="開始日"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ width: 160 }}
+                  value={startDate || null}
+                  onChange={v => { setStartDate(v ?? ""); setPage(1); }}
+                  fullWidth={false}
+                  sx={{ width: 170 }}
                 />
                 <Typography variant="body2" color="text.secondary">〜</Typography>
-                <TextField
-                  type="date"
-                  size="small"
+                <JaDatePicker
                   label="終了日"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ width: 160 }}
+                  value={endDate || null}
+                  onChange={v => { setEndDate(v ?? ""); setPage(1); }}
+                  fullWidth={false}
+                  sx={{ width: 170 }}
                 />
-                {(startDate || endDate) && (
-                  <Tooltip title="フィルターをリセット">
+                {(startDate !== defaultStart || endDate) && (
+                  <Tooltip title="過去3ヶ月に戻す">
                     <IconButton size="small" onClick={resetFilter}>
                       <ClearIcon fontSize="small" />
                     </IconButton>

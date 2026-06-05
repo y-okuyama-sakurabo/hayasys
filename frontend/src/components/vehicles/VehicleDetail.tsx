@@ -14,6 +14,7 @@ import { SelectChangeEvent } from "@mui/material/Select";
 
 import apiClient from "@/lib/apiClient";
 import VehicleCategorySelect from "@/components/vehicles/VehicleCategorySelect";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ─────────────────────────────────────────────
 // 型
@@ -581,14 +582,14 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                         onChange={e => setFormVehicle((p: any) => ({ ...p, model_code: e.target.value }))} />
                     } />
                     <EditRow label="購入日" field={
-                      <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                        value={formVehicle.owned_from ?? ""}
-                        onChange={e => setFormVehicle((p: any) => ({ ...p, owned_from: e.target.value }))} />
+                      <JaDatePicker label="購入日"
+                        value={formVehicle.owned_from || null}
+                        onChange={v => setFormVehicle((p: any) => ({ ...p, owned_from: v ?? "" }))} />
                     } />
                     <EditRow label="手放し日" field={
-                      <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                        value={formVehicle.owned_to ?? ""}
-                        onChange={e => setFormVehicle((p: any) => ({ ...p, owned_to: e.target.value }))} />
+                      <JaDatePicker label="手放し日"
+                        value={formVehicle.owned_to || null}
+                        onChange={v => setFormVehicle((p: any) => ({ ...p, owned_to: v ?? "" }))} />
                     } />
                   </>
                 )}
@@ -641,28 +642,28 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                       onChange={e => setFormRegistration((p: any) => ({ ...p, certification_no: e.target.value }))} />
                   } />
                   <EditRow label="車検期限" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formRegistration.inspection_expiration ?? ""}
-                      onChange={e => setFormRegistration((p: any) => ({ ...p, inspection_expiration: e.target.value }))} />
+                    <JaDatePicker label="車検期限"
+                      value={formRegistration.inspection_expiration || null}
+                      onChange={v => setFormRegistration((p: any) => ({ ...p, inspection_expiration: v ?? "" }))} />
                   } />
                   <EditRow label="初年度登録" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formRegistration.first_registration_date ?? ""}
-                      onChange={e => setFormRegistration((p: any) => ({ ...p, first_registration_date: e.target.value }))} />
+                    <JaDatePicker label="初年度登録"
+                      value={formRegistration.first_registration_date || null}
+                      onChange={v => setFormRegistration((p: any) => ({ ...p, first_registration_date: v ?? "" }))} />
                   } />
                   <EditRow label="セキュリティ登録" field={
                     <TextField size="small" fullWidth value={formRegistration.security_registration ?? ""}
                       onChange={e => setFormRegistration((p: any) => ({ ...p, security_registration: e.target.value }))} />
                   } />
                   <EditRow label="有効開始" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formRegistration.effective_from ?? ""}
-                      onChange={e => setFormRegistration((p: any) => ({ ...p, effective_from: e.target.value }))} />
+                    <JaDatePicker label="有効開始"
+                      value={formRegistration.effective_from || null}
+                      onChange={v => setFormRegistration((p: any) => ({ ...p, effective_from: v ?? "" }))} />
                   } />
                   <EditRow label="有効終了" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formRegistration.effective_to ?? ""}
-                      onChange={e => setFormRegistration((p: any) => ({ ...p, effective_to: e.target.value }))} />
+                    <JaDatePicker label="有効終了"
+                      value={formRegistration.effective_to || null}
+                      onChange={v => setFormRegistration((p: any) => ({ ...p, effective_to: v ?? "" }))} />
                   } />
                 </>
               )}
@@ -717,14 +718,14 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                       onChange={e => setFormInsurance((p: any) => ({ ...p, company: e.target.value }))} />
                   } />
                   <EditRow label="開始日" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formInsurance.start_date ?? ""}
-                      onChange={e => setFormInsurance((p: any) => ({ ...p, start_date: e.target.value }))} />
+                    <JaDatePicker label="開始日"
+                      value={formInsurance.start_date || null}
+                      onChange={v => setFormInsurance((p: any) => ({ ...p, start_date: v ?? "" }))} />
                   } />
                   <EditRow label="終了日" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formInsurance.end_date ?? ""}
-                      onChange={e => setFormInsurance((p: any) => ({ ...p, end_date: e.target.value }))} />
+                    <JaDatePicker label="終了日"
+                      value={formInsurance.end_date || null}
+                      onChange={v => setFormInsurance((p: any) => ({ ...p, end_date: v ?? "" }))} />
                   } />
                   <EditRow label="証券番号" field={
                     <TextField size="small" fullWidth value={formInsurance.policy_no ?? ""}
@@ -764,14 +765,14 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
               ) : (
                 <>
                   <EditRow label="開始日" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formWarranty.start_date ?? ""}
-                      onChange={e => setFormWarranty((p: any) => ({ ...p, start_date: e.target.value }))} />
+                    <JaDatePicker label="開始日"
+                      value={formWarranty.start_date || null}
+                      onChange={v => setFormWarranty((p: any) => ({ ...p, start_date: v ?? "" }))} />
                   } />
                   <EditRow label="終了日" field={
-                    <TextField size="small" fullWidth type="date" InputLabelProps={{ shrink: true }}
-                      value={formWarranty.end_date ?? ""}
-                      onChange={e => setFormWarranty((p: any) => ({ ...p, end_date: e.target.value }))} />
+                    <JaDatePicker label="終了日"
+                      value={formWarranty.end_date || null}
+                      onChange={v => setFormWarranty((p: any) => ({ ...p, end_date: v ?? "" }))} />
                   } />
                   <EditRow label="プラン名" field={
                     <TextField size="small" fullWidth value={formWarranty.plan_name ?? ""}

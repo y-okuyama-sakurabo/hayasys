@@ -1,607 +1,566 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Stack,
-  Button,
-  Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItemButton,
-  ListItemText,
+  Box, Paper, Typography, TextField, Stack, Button, Divider,
+  FormControl, InputLabel, Select, MenuItem, CircularProgress,
+  Alert, Chip, Dialog, DialogTitle, DialogContent,
+  DialogActions, List, ListItemButton, ListItemText, ListItemIcon,
+  IconButton,
 } from "@mui/material";
-import { useRouter } from "next/navigation";
-import PhoneField from "@/components/ui/PhoneField";
-import apiClient from "@/lib/apiClient";
+import Grid from "@mui/material/Grid";
+import PersonIcon       from "@mui/icons-material/Person";
+import PhoneIcon        from "@mui/icons-material/Phone";
+import HomeIcon         from "@mui/icons-material/Home";
+import BusinessIcon     from "@mui/icons-material/Business";
+import BadgeIcon        from "@mui/icons-material/Badge";
+import SearchIcon       from "@mui/icons-material/Search";
+import ArrowBackIcon    from "@mui/icons-material/ArrowBack";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import PersonSearchIcon from "@mui/icons-material/PersonSearch";
+import { useRouter }    from "next/navigation";
+import PhoneField       from "@/components/ui/PhoneField";
+import JaDatePicker     from "@/components/common/JaDatePicker";
+import apiClient        from "@/lib/apiClient";
 
-type CustomerClass = { id: number; code: string; name: string; is_wholesale: boolean };
-type Region = { id: number; code: string; name: string };
-type Gender = { id: number; code: string; name: string };
-type Staff = { id: number; login_id: string; full_name: string };
+// ── 型 ─────────────────────────────────────────────────────────
+type CustomerClass = { id: number; name: string };
+type Region        = { id: number; name: string };
+type Gender        = { id: number; name: string };
+type Staff         = { id: number; login_id: string; display_name?: string; full_name?: string; role?: string; shop_name?: string };
 
-type CreatePayload = {
-  name: string;
-  kana?: string | null;
-  email?: string | null;
-  postal_code?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  mobile_phone?: string | null;
-  company?: string | null;
-  company_phone?: string | null;
-  birthdate?: string | null;
+type FormState = {
+  name: string; kana: string; email: string;
+  postal_code: string; address: string;
+  phone: string; mobile_phone: string;
+  company: string; company_phone: string;
+  birthdate: string | null;
   customer_class: number | null;
-  staff?: number | null;
-  region?: number | null;
-  gender?: number | null;
+  staff: number | null;
+  region: number | null;
+  gender: number | null;
 };
 
-const blankToNull = (v: string) => (v.trim() === "" ? null : v.trim());
-const toNumberOrNull = (v: any) => (v === "" || v == null ? null : Number(v));
+// ── ユーティリティ ──────────────────────────────────────────────
+const blankToNull = (v: string | null | undefined) =>
+  v == null || v.trim() === "" ? null : v.trim();
+
+const toInt = (v: any): number | null =>
+  v === "" || v == null ? null : Number(v);
 
 const formatZip = (val: string) => {
-  const v = val.replace("-", "");
-  if (v.length <= 3) return v;
-  return `${v.slice(0, 3)}-${v.slice(3)}`;
+  const raw = val.replace(/[^0-9]/g, "").slice(0, 7);
+  return raw.length <= 3 ? raw : `${raw.slice(0, 3)}-${raw.slice(3)}`;
 };
 
+const hiraganaToKatakana = (str: string) =>
+  str.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+
+// ── セクションラベル（PartySelector と同スタイル） ────────────────
+function SectionLabel({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Box mb={1.5} mt={0.5}>
+      <Stack direction="row" alignItems="center" spacing={0.75} mb={0.5}>
+        {icon && <Box sx={{ color: "primary.main", display: "flex", fontSize: 16 }}>{icon}</Box>}
+        <Typography
+          variant="overline"
+          fontSize={10}
+          fontWeight="bold"
+          color="text.disabled"
+          letterSpacing={1.5}
+          lineHeight={1.8}
+        >
+          {children}
+        </Typography>
+      </Stack>
+      <Divider />
+    </Box>
+  );
+}
+
+// ── メインページ ────────────────────────────────────────────────
 export default function CustomerNewPage() {
   const router = useRouter();
+  const today  = new Date().toISOString().slice(0, 10);
 
+  // マスタ
   const [customerClasses, setCustomerClasses] = useState<CustomerClass[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [genders, setGenders] = useState<Gender[]>([]);
-  const [staffs, setStaffs] = useState<Staff[]>([]);
+  const [regions,         setRegions]         = useState<Region[]>([]);
+  const [genders,         setGenders]         = useState<Gender[]>([]);
+  const [staffs,          setStaffs]          = useState<Staff[]>([]);
+  const [loadingMasters,  setLoadingMasters]  = useState(true);
 
-  const [loadingMasters, setLoadingMasters] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [zipError, setZipError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [similarCandidates, setSimilarCandidates] = useState<any[]>([]);
-  const [similarOpen, setSimilarOpen] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState<any>(null);
-
-  const isEmpty = (v: any) =>
-    v == null || (typeof v === "string" && v.trim() === "");
-
-  const [touched, setTouched] = useState(false);
-
-  const hasError = (v: any) => touched && isEmpty(v);
-
-  const RequiredLabel = ({ label }: { label: string }) => (
-    <>
-      {label} <span style={{ color: "#d32f2f" }}></span>
-    </>
-  );
-
-  const [form, setForm] = useState<CreatePayload>({
-    name: "",
-    kana: "",
-    email: "",
-    postal_code: "",
-    address: "",
-    phone: "",
-    mobile_phone: "",
-    company: "",
-    company_phone: "",
-    birthdate: "",
-    customer_class: null,
-    staff: null,
-    region: null,
-    gender: null,
+  // フォーム
+  const [form, setForm] = useState<FormState>({
+    name: "", kana: "", email: "", postal_code: "", address: "",
+    phone: "", mobile_phone: "", company: "", company_phone: "",
+    birthdate: null, customer_class: null, staff: null,
+    region: null, gender: null,
   });
 
-  const toArray = (res: any) =>
-    Array.isArray(res?.data) ? res.data : res?.data?.results ?? res?.data ?? [];
+  // フリガナ自動入力
+  const composingHiraganaRef = useRef("");
+  const kanaAutoRef          = useRef(true);
 
+  // エラー・状態
+  const [touched,        setTouched]        = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
+  const [zipLoading,     setZipLoading]     = useState(false);
+  const [zipError,       setZipError]       = useState<string | null>(null);
+  const [emailError,     setEmailError]     = useState<string | null>(null);
+  const [birthdateError, setBirthdateError] = useState<string | null>(null);
+
+  // 類似顧客
+  const [similarOpen,       setSimilarOpen]       = useState(false);
+  const [similarCandidates, setSimilarCandidates] = useState<any[]>([]);
+  const [pendingPayload,    setPendingPayload]    = useState<any>(null);
+
+  // マスタ取得
   useEffect(() => {
-    (async () => {
-      try {
-        const [cc, st, rg, gd] = await Promise.all([
-          apiClient.get("/masters/customer_classes/"),
-          apiClient.get("/masters/staffs/"),
-          apiClient.get("/masters/regions/"),
-          apiClient.get("/masters/genders/"),
-        ]);
-
-        setCustomerClasses(toArray(cc));
-        setStaffs(toArray(st));
-        setRegions(toArray(rg));
-        setGenders(toArray(gd));
-      } catch {
-        setError("マスタ取得失敗");
-      } finally {
-        setLoadingMasters(false);
-      }
-    })();
+    const toArr = (res: any) =>
+      Array.isArray(res?.data) ? res.data : res?.data?.results ?? [];
+    Promise.all([
+      apiClient.get("/masters/customer_classes/"),
+      apiClient.get("/masters/staffs/"),
+      apiClient.get("/masters/regions/"),
+      apiClient.get("/masters/genders/"),
+    ]).then(([cc, st, rg, gd]) => {
+      setCustomerClasses(toArr(cc));
+      setStaffs(toArr(st));
+      setRegions(toArr(rg));
+      setGenders(toArr(gd));
+    }).catch(() => setError("マスタデータの取得に失敗しました"))
+      .finally(() => setLoadingMasters(false));
   }, []);
 
-  const setField =
-    (key: keyof CreatePayload) =>
-    (e: any) =>
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  // ── フォームヘルパー ─────────────────────────────────────────
+  const setF = (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm(p => ({ ...p, [key]: e.target.value }));
 
-  const canSubmit = useMemo(() => {
-    return form.name.trim() && form.customer_class != null;
-  }, [form]);
+  const setS = (key: keyof FormState) => (e: any) =>
+    setForm(p => ({ ...p, [key]: toInt(e.target.value) }));
 
-  // =========================
-  // 郵便番号 → 住所取得
-  // =========================
-  const fetchAddress = async (zip: string, force = false) => {
-    if (zip.length !== 7) return;
-
-    try {
-      setZipError(null);
-
-      const res = await fetch(
-        `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`
-      );
-      const data = await res.json();
-
-      if (!data.results) {
-        setZipError("郵便番号が見つかりません");
-        return;
-      }
-
-      const r = data.results[0];
-      const prefecture = r.address1;
-      const address = r.address2 + r.address3;
-
-      const regionMatch = regions.find((x) => x.name === prefecture);
-
-      setForm((prev) => ({
-        ...prev,
-        region: regionMatch?.id ?? prev.region,
-        // 🔥 ここが重要
-        address: force ? address : prev.address || address,
-      }));
-    } catch {
-      setZipError("住所取得に失敗しました");
+  // ── フリガナ自動入力 ─────────────────────────────────────────
+  const handleNameCompositionUpdate = (e: React.CompositionEvent<HTMLInputElement>) => {
+    composingHiraganaRef.current = e.data || "";
+  };
+  const handleNameCompositionEnd = () => {
+    if (!kanaAutoRef.current) return;
+    const katakana = hiraganaToKatakana(composingHiraganaRef.current);
+    if (katakana) {
+      setForm(p => ({ ...p, kana: (p.kana || "") + katakana }));
     }
+    composingHiraganaRef.current = "";
+  };
+  const handleNameChange = (val: string) => {
+    setTouched(true);
+    setForm(p => ({ ...p, name: val }));
+  };
+  const handleKanaChange = (val: string) => {
+    kanaAutoRef.current = false;
+    setForm(p => ({ ...p, kana: val }));
   };
 
-  const handleZipChange = (val: string) => {
-    const raw = val.replace("-", "");
+  // ── バリデーション ────────────────────────────────────────────
+  const canSubmit = useMemo(
+    () => form.name.trim() !== "" && form.customer_class != null,
+    [form.name, form.customer_class]
+  );
+  const hasErr = (v: any) =>
+    touched && (v == null || (typeof v === "string" && v.trim() === ""));
 
-    setForm((p) => ({
-      ...p,
-      postal_code: formatZip(raw),
-    }));
-
-    // 🔥 自動取得はしない
+  // ── 郵便番号 → 住所 ──────────────────────────────────────────
+  const fetchAddress = async () => {
+    const raw = (form.postal_code || "").replace(/[^0-9]/g, "");
+    if (raw.length !== 7) { setZipError("7桁の郵便番号を入力してから検索してください"); return; }
+    setZipLoading(true);
+    setZipError(null);
+    try {
+      const res  = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`);
+      const data = await res.json();
+      if (!data.results) { setZipError("該当する住所が見つかりませんでした"); return; }
+      const r           = data.results[0];
+      const addr        = r.address2 + r.address3;
+      const regionMatch = regions.find(x => x.name === r.address1);
+      setForm(p => ({
+        ...p,
+        address: addr,
+        ...(regionMatch ? { region: regionMatch.id } : {}),
+      }));
+    } catch { setZipError("住所取得に失敗しました（通信エラー）"); }
+    finally  { setZipLoading(false); }
   };
 
-  const currentYear = new Date().getFullYear();
-
-  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-
-  const [birth, setBirth] = useState({
-    year: "",
-    month: "",
-    day: "",
-  });
-  const [birthdateError, setBirthdateError] = useState<string | null>(null);
-  const [emailError,     setEmailError]     = useState<string | null>(null);
-
+  // ── 登録 ─────────────────────────────────────────────────────
   const submit = async () => {
     setTouched(true);
+    setError(null);
+    setEmailError(null);
+    setBirthdateError(null);
     if (!canSubmit) return;
 
-    // ── バリデーション（API送信前） ──────────────────────────
-    setBirthdateError(null);
-    setEmailError(null);
-
-    // メール形式チェック
-    if (form.email && form.email.trim()) {
-      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
-      if (!emailOk) {
-        setEmailError("正しいメールアドレスの形式で入力してください（例: name@example.com）");
+    if (form.email?.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+        setEmailError("正しい形式で入力してください（例: name@example.com）");
         return;
       }
     }
-
-    // 生年月日・未来日チェック
-    if (birth.year && birth.month && birth.day) {
-      const m = String(birth.month).padStart(2, "0");
-      const d = String(birth.day).padStart(2, "0");
-      const picked = new Date(`${birth.year}-${m}-${d}`);
-      const today  = new Date(); today.setHours(0, 0, 0, 0);
-      if (picked > today) {
-        setBirthdateError("生年月日は今日以前の日付を入力してください");
-        return;
-      }
+    if (form.birthdate) {
+      const picked = new Date(form.birthdate);
+      const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+      if (picked > todayD) { setBirthdateError("今日以前の日付を入力してください"); return; }
     }
 
     setSaving(true);
-
     try {
-      // 🔥 生年月日生成
-      let birthdate = null;
-
-      if (birth.year && birth.month && birth.day) {
-        const m = String(birth.month).padStart(2, "0");
-        const d = String(birth.day).padStart(2, "0");
-        birthdate = `${birth.year}-${m}-${d}`;
-      }
-
       const payload = {
-        ...form,
-        name: form.name.trim(),
-        kana: blankToNull(form.kana || ""),
-        email: blankToNull(form.email || ""),
-        postal_code: blankToNull(form.postal_code || ""),
-        address: blankToNull(form.address || ""),
-        phone: blankToNull(form.phone || ""),
-        mobile_phone: blankToNull(form.mobile_phone || ""),
-        company: blankToNull(form.company || ""),
-        company_phone: blankToNull(form.company_phone || ""),
-        birthdate,
+        name:          form.name.trim(),
+        kana:          blankToNull(form.kana),
+        email:         blankToNull(form.email),
+        postal_code:   blankToNull(form.postal_code),
+        address:       blankToNull(form.address),
+        phone:         blankToNull(form.phone),
+        mobile_phone:  blankToNull(form.mobile_phone),
+        company:       blankToNull(form.company),
+        company_phone: blankToNull(form.company_phone),
+        birthdate:     form.birthdate || null,
+        customer_class: form.customer_class,
+        staff:          form.staff,
+        region:         form.region,
+        gender:         form.gender,
       };
 
-      // 🔥 追加：類似チェック
-      const similarRes = await apiClient.post("/customers/similar/", {
-        name: payload.name,
-        kana: payload.kana,
-        phone: payload.phone,
-        mobile_phone: payload.mobile_phone,
-        email: payload.email,
-        address: payload.address,
+      const simRes = await apiClient.post("/customers/similar/", {
+        name: payload.name, kana: payload.kana,
+        phone: payload.phone, mobile_phone: payload.mobile_phone,
+        email: payload.email, address: payload.address,
       });
-
-      if (similarRes.data.has_similar) {
-        setSimilarCandidates(similarRes.data.candidates);
+      if (simRes.data.has_similar) {
+        setSimilarCandidates(simRes.data.candidates);
         setPendingPayload(payload);
         setSimilarOpen(true);
         setSaving(false);
         return;
       }
 
-      // 元の処理
       const res = await apiClient.post("/customers/", payload);
       router.push(`/dashboard/customers/${res.data.id}`);
-
-    } catch {
-      setError("作成失敗");
+    } catch (e: any) {
+      const d = e?.response?.data;
+      setError(typeof d === "string" ? d : d ? JSON.stringify(d) : "登録に失敗しました");
     } finally {
       setSaving(false);
     }
   };
 
+  const doRegister = async (payload: any) => {
+    try {
+      const res = await apiClient.post("/customers/", payload);
+      router.push(`/dashboard/customers/${res.data.id}`);
+    } catch {
+      setError("登録に失敗しました");
+      setSimilarOpen(false);
+    }
+  };
+
+  // ── ローディング ─────────────────────────────────────────────
+  if (loadingMasters) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // ── JSX ──────────────────────────────────────────────────────
   return (
-    <Box sx={{ p: 2 }}>
-      <Stack spacing={2}>
+    <Box sx={{ maxWidth: 860, mx: "auto", pb: 10 }}>
 
-        {/* ヘッダ */}
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="h5" fontWeight="bold">
-            顧客 新規登録
-          </Typography>
+      {/* ページヘッダー */}
+      <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
+        <IconButton size="small" onClick={() => router.push("/dashboard/customers")}
+          sx={{ border: "1px solid", borderColor: "divider" }}>
+          <ArrowBackIcon fontSize="small" />
+        </IconButton>
+        <Typography variant="h6" fontWeight="bold">顧客 新規登録</Typography>
+      </Stack>
 
-          <Stack direction="row" spacing={1}>
-            <Button onClick={() => router.push("/dashboard/customers")}>
-              一覧へ戻る
-            </Button>
-          </Stack>
-        </Stack>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        {error && <Alert severity="error">{error}</Alert>}
-        {zipError && <Alert severity="warning">{zipError}</Alert>}
+      <Stack spacing={2.5}>
 
-        {/* システム管理 */}
-        <Paper sx={{ p: 2 }}>
-          <Typography fontWeight="bold">システム管理</Typography>
-          <Divider sx={{ mb: 2 }} />
+        {/* ══ 基本情報 ══ */}
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <SectionLabel icon={<PersonIcon fontSize="inherit" />}>基本情報</SectionLabel>
 
-          <Stack direction={{ md: "row" }} spacing={2}>
-            {/* 顧客区分（Select） */}
-            <FormControl fullWidth required error={hasError(form.customer_class)}>
-              <InputLabel>
-                <RequiredLabel label="顧客区分" />
-              </InputLabel>
-              <Select
-                value={form.customer_class ?? ""}
-                label="顧客区分"
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    customer_class: toNumberOrNull(e.target.value),
-                  }))
-                }
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <TextField
+                fullWidth size="small" label="氏名 *"
+                value={form.name}
+                error={hasErr(form.name)}
+                helperText={hasErr(form.name) ? "氏名は必須です" : ""}
+                placeholder="例：田中 太郎"
+                onChange={e => handleNameChange(e.target.value)}
+                onBlur={() => setTouched(true)}
+                inputProps={{
+                  onCompositionUpdate: handleNameCompositionUpdate,
+                  onCompositionEnd:    handleNameCompositionEnd,
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <TextField
+                fullWidth size="small" label="フリガナ（カタカナ）"
+                value={form.kana}
+                placeholder="例：タナカ タロウ"
+                onChange={e => handleKanaChange(e.target.value)}
+                onFocus={() => { kanaAutoRef.current = false; }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 2 }}>
+              <TextField
+                select fullWidth size="small" label="性別"
+                value={form.gender ?? ""}
+                onChange={setS("gender")}
               >
-                <MenuItem value="">未選択</MenuItem>
-                {customerClasses.map((x) => <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth>
-              <InputLabel>担当スタッフ</InputLabel>
-              <Select
-                value={form.staff ?? ""}
-                label="担当スタッフ"
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    staff: toNumberOrNull(e.target.value),
-                  }))
-                }
-              >
-                <MenuItem value="">未選択</MenuItem>
-                  {staffs
-                    .filter((x: any) => x.role === "staff") // ← admin除外（おすすめ）
-                    .map((x: any) => (
-                      <MenuItem key={x.id} value={x.id}>
-                        {x.display_name || x.login_id}
-                        {x.shop_name ? `（${x.shop_name}）` : ""}
-                      </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-          </Stack>
+                <MenuItem value="">-</MenuItem>
+                {genders.map(x => <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>)}
+              </TextField>
+            </Grid>
+          </Grid>
         </Paper>
 
-        {/* 個人情報 */}
-        <Paper sx={{ p: 2 }}>
-          <Typography fontWeight="bold">個人情報</Typography>
-          <Divider sx={{ mb: 2 }} />
+        {/* ══ 個人属性 ══ */}
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <SectionLabel icon={<BadgeIcon fontSize="inherit" />}>個人属性</SectionLabel>
 
-          <Stack spacing={2}>
-            {/* 氏名（TextField） */}
-            <TextField
-              label={<RequiredLabel label="氏名" />}
-              required
-              value={form.name}
-              onChange={setField("name")}
-              fullWidth
-              error={hasError(form.name)}
-              helperText={hasError(form.name) ? "必須項目です" : ""}
-            />
-
-            <TextField
-              label="フリガナ"
-              value={form.kana ?? ""}
-              onChange={setField("kana")}
-              fullWidth
-            />
-
-            {/* 性別 */}
-            <FormControl sx={{ maxWidth: 200 }}>
-              <InputLabel>性別</InputLabel>
-              <Select
-                value={form.gender ?? ""}
-                label="性別"
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    gender: toNumberOrNull(e.target.value),
-                  }))
-                }
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField
+                select fullWidth size="small" label="顧客区分 *"
+                value={form.customer_class ?? ""}
+                error={hasErr(form.customer_class)}
+                onChange={setS("customer_class")}
               >
                 <MenuItem value="">未選択</MenuItem>
-                {genders.map((x) => (
+                {customerClasses.map(x => (
                   <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-
-            {/* 🔥 生年月日（独立） */}
-            <Box sx={{ maxWidth: 400 }}>
-              <Typography variant="caption" color="text.secondary">
-                生年月日
-              </Typography>
-
-              <Stack direction="row" spacing={1.5} mt={1} alignItems="center">
-                <FormControl sx={{ flex: 1 }}>
-                  <Select
-                    displayEmpty
-                    value={birth.year}
-                    onChange={(e) =>
-                      setBirth((p) => ({ ...p, year: e.target.value }))
-                    }
-                  >
-                    <MenuItem value="">年</MenuItem>
-                    {years.map((y) => (
-                      <MenuItem key={y} value={y}>{y}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <Typography>年</Typography>
-
-                <FormControl sx={{ flex: 1 }}>
-                  <Select
-                    displayEmpty
-                    value={birth.month}
-                    onChange={(e) =>
-                      setBirth((p) => ({ ...p, month: e.target.value }))
-                    }
-                  >
-                    <MenuItem value="">月</MenuItem>
-                    {months.map((m) => (
-                      <MenuItem key={m} value={m}>{m}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <Typography>月</Typography>
-
-                <FormControl sx={{ flex: 1 }}>
-                  <Select
-                    displayEmpty
-                    value={birth.day}
-                    onChange={(e) =>
-                      setBirth((p) => ({ ...p, day: e.target.value }))
-                    }
-                  >
-                    <MenuItem value="">日</MenuItem>
-                    {days.map((d) => (
-                      <MenuItem key={d} value={d}>{d}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <Typography>日</Typography>
-              </Stack>
+              </TextField>
+              {hasErr(form.customer_class) && (
+                <Typography variant="caption" color="error" display="block" mt={0.5} ml={1.75}>
+                  顧客区分は必須です
+                </Typography>
+              )}
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <JaDatePicker
+                label="生年月日"
+                value={form.birthdate}
+                onChange={v => { setBirthdateError(null); setForm(p => ({ ...p, birthdate: v })); }}
+                maxDate={today}
+              />
               {birthdateError && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
+                <Typography variant="caption" color="error" display="block" mt={0.5}>
                   {birthdateError}
                 </Typography>
               )}
-            </Box>
-          </Stack>
-        </Paper>
-
-        {/* 連絡先 */}
-        <Paper sx={{ p: 2 }}>
-          <Typography fontWeight="bold">連絡先情報</Typography>
-          <Divider sx={{ mb: 2 }} />
-
-          <Stack spacing={2}>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              {/* 郵便番号（TextField） */}
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
-                label={<RequiredLabel label="郵便番号" />}
-                required
-                value={form.postal_code ?? ""}
-                onChange={(e) => handleZipChange(e.target.value)}
-                sx={{ maxWidth: 200 }}
-                error={hasError(form.postal_code)}
-                helperText={hasError(form.postal_code) ? "必須項目です" : ""}
-              />
-
-              <Button
-                variant="outlined"
-                onClick={() =>
-                  fetchAddress((form.postal_code || "").replace("-", ""), true)
-                }
+                select fullWidth size="small" label="担当スタッフ"
+                value={form.staff ?? ""}
+                onChange={setS("staff")}
               >
-                住所自動入力
-              </Button>
-            </Stack>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <FormControl sx={{ minWidth: 160 }}>
-                <InputLabel>都道府県</InputLabel>
-                <Select
-                  value={form.region ?? ""}
-                  label="都道府県"
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      region: toNumberOrNull(e.target.value),
-                    }))
-                  }
-                >
-                  <MenuItem value="">未選択</MenuItem>
-                  {regions.map((x) => (
-                    <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>
+                <MenuItem value="">未選択</MenuItem>
+                {staffs
+                  .filter(x => x.role !== "admin")
+                  .map(x => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.display_name || x.full_name || x.login_id}
+                      {x.shop_name ? `　(${x.shop_name})` : ""}
+                    </MenuItem>
                   ))}
-                </Select>
-              </FormControl>
+              </TextField>
+            </Grid>
+          </Grid>
+        </Paper>
 
-              <TextField
-                label="住所"
-                value={form.address ?? ""}
-                onChange={setField("address")}
-                fullWidth
+        {/* ══ 連絡先 ══ */}
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <SectionLabel icon={<PhoneIcon fontSize="inherit" />}>連絡先</SectionLabel>
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <PhoneField
+                fullWidth size="small" label="電話番号（自宅・固定）"
+                value={form.phone}
+                onChange={v => setForm(p => ({ ...p, phone: v }))}
               />
-            </Stack>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <PhoneField label="電話番号（自宅・固定）" value={form.phone} onChange={(v) => setForm((p) => ({ ...p, phone: v }))} fullWidth />
-              <PhoneField label="携帯電話番号" value={form.mobile_phone} onChange={(v) => setForm((p) => ({ ...p, mobile_phone: v }))} fullWidth />
-            </Stack>
-
-            <TextField
-              label="メール"
-              type="email"
-              value={form.email ?? ""}
-              onChange={(e) => { setEmailError(null); setField("email")(e); }}
-              fullWidth
-              error={!!emailError}
-              helperText={emailError ?? ""}
-            />
-          </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <PhoneField
+                fullWidth size="small" label="携帯電話番号"
+                value={form.mobile_phone}
+                onChange={v => setForm(p => ({ ...p, mobile_phone: v }))}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField
+                fullWidth size="small" label="メールアドレス" type="email"
+                value={form.email}
+                onChange={e => { setEmailError(null); setF("email")(e); }}
+                error={!!emailError}
+                helperText={emailError ?? ""}
+                placeholder="例：taro@example.com"
+              />
+            </Grid>
+          </Grid>
         </Paper>
 
-        {/* 勤務先 */}
-        <Paper sx={{ p: 2 }}>
-          <Typography fontWeight="bold">勤務先情報</Typography>
-          <Divider sx={{ mb: 2 }} />
+        {/* ══ 住所 ══ */}
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <SectionLabel icon={<HomeIcon fontSize="inherit" />}>住所</SectionLabel>
 
-          <Stack direction={{ md: "row" }} spacing={2}>
-            <TextField label="会社名（勤務先・法人名）" value={form.company ?? ""} onChange={setField("company")} fullWidth />
-            <PhoneField label="会社電話番号" value={form.company_phone} onChange={(v) => setForm((p) => ({ ...p, company_phone: v }))} fullWidth />
-          </Stack>
+          {zipError && (
+            <Alert severity="warning" onClose={() => setZipError(null)} sx={{ mb: 1.5 }}>
+              {zipError}
+            </Alert>
+          )}
+
+          <Grid container spacing={2} alignItems="flex-end">
+            <Grid size={{ xs: 7, sm: 3 }}>
+              <TextField
+                fullWidth size="small" label="郵便番号"
+                placeholder="000-0000"
+                value={form.postal_code}
+                onChange={e => setForm(p => ({ ...p, postal_code: formatZip(e.target.value) }))}
+                inputProps={{ maxLength: 8 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 5, sm: "auto" }}>
+              <Button
+                size="small" variant="outlined"
+                startIcon={zipLoading ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
+                onClick={fetchAddress}
+                disabled={zipLoading}
+                sx={{ whiteSpace: "nowrap", height: 40 }}
+              >
+                住所を検索
+              </Button>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 3 }}>
+              <TextField
+                select fullWidth size="small" label="都道府県"
+                value={form.region ?? ""}
+                onChange={setS("region")}
+              >
+                <MenuItem value="">未選択</MenuItem>
+                {regions.map(x => <MenuItem key={x.id} value={x.id}>{x.name}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth size="small" label="市区町村・番地・建物名"
+                value={form.address}
+                onChange={setF("address")}
+                placeholder="例：渋谷区道玄坂1-1-1"
+              />
+            </Grid>
+          </Grid>
         </Paper>
-     
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              onClick={submit}
-              disabled={saving}
-            >
-              {saving ? <CircularProgress size={20} /> : "登録"}
-            </Button>
-          </Stack>
-            
+
+        {/* ══ 勤務先 ══ */}
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <SectionLabel icon={<BusinessIcon fontSize="inherit" />}>勤務先</SectionLabel>
+
+          <Grid container spacing={2} mb={0.5}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth size="small" label="会社名・法人名"
+                value={form.company}
+                onChange={setF("company")}
+                placeholder="例：株式会社〇〇"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <PhoneField
+                fullWidth size="small" label="会社電話番号"
+                value={form.company_phone}
+                onChange={v => setForm(p => ({ ...p, company_phone: v }))}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
 
       </Stack>
-      <Dialog open={similarOpen} onClose={() => setSimilarOpen(false)} fullWidth>
-        <DialogTitle>類似顧客が見つかりました</DialogTitle>
 
+      {/* 固定フッター */}
+      <Box
+        sx={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+          bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider",
+          px: 3, py: 1.5, display: "flex", justifyContent: "flex-end", gap: 1.5,
+        }}
+      >
+        <Button variant="outlined" onClick={() => router.push("/dashboard/customers")} disabled={saving}>
+          キャンセル
+        </Button>
+        <Button
+          variant="contained" size="large" onClick={submit} disabled={saving}
+          startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}
+          sx={{ minWidth: 140 }}
+        >
+          {saving ? "登録中..." : "登録する"}
+        </Button>
+      </Box>
+
+      {/* 類似顧客ダイアログ */}
+      <Dialog open={similarOpen} onClose={() => setSimilarOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <WarningAmberIcon color="warning" />
+          類似する顧客が見つかりました
+        </DialogTitle>
         <DialogContent>
-          <List>
-            {similarCandidates.map((c) => (
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            以下の顧客と似たデータが登録されています。既存の顧客ではないか確認してください。
+          </Typography>
+          <List disablePadding>
+            {similarCandidates.map(c => (
               <ListItemButton
                 key={c.id}
                 onClick={() => router.push(`/dashboard/customers/${c.id}`)}
+                sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, mb: 1 }}
               >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <PersonSearchIcon color="primary" fontSize="small" />
+                </ListItemIcon>
                 <ListItemText
-                  primary={`${c.name}（スコア:${c.score}）`}
-                  secondary={c.reasons.join(" / ")}
+                  primary={
+                    <Typography variant="body2" fontWeight="bold">
+                      {c.name}
+                      <Chip size="small" label={`スコア ${c.score}`} color="warning"
+                        sx={{ ml: 1, height: 18, fontSize: 11 }} />
+                    </Typography>
+                  }
+                  secondary={c.reasons?.join(" / ")}
                 />
               </ListItemButton>
             ))}
           </List>
         </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setSimilarOpen(false)}>
-            戻る
-          </Button>
-
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={async () => {
-              if (!pendingPayload) return;
-              try {
-                const res = await apiClient.post("/customers/", pendingPayload);
-                router.push(`/dashboard/customers/${res.data.id}`);
-              } catch {
-                setError("登録に失敗しました");
-                setSimilarOpen(false);
-              }
-            }}
-          >
-            無視して登録
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant="outlined" onClick={() => setSimilarOpen(false)}>戻って確認する</Button>
+          <Button variant="contained" color="warning"
+            onClick={() => pendingPayload && doRegister(pendingPayload)}>
+            重複を無視して登録
           </Button>
         </DialogActions>
       </Dialog>

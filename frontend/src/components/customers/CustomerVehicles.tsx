@@ -36,6 +36,7 @@ import {
   AccordionDetails,
 } from "@mui/material";
 import VehicleCategorySelect from "@/components/vehicles/VehicleCategorySelect";
+import JaDatePicker from "@/components/common/JaDatePicker";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -369,28 +370,28 @@ function AddVehicleDialog({
                   value={reg.certification_no} onChange={setR("certification_no")} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="初年度登録" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={reg.first_registration_date} onChange={setR("first_registration_date")} />
+                <JaDatePicker label="初年度登録"
+                  value={reg.first_registration_date || null}
+                  onChange={v => setReg(p => ({ ...p, first_registration_date: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="車検満了日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={reg.inspection_expiration} onChange={setR("inspection_expiration")} />
+                <JaDatePicker label="車検満了日"
+                  value={reg.inspection_expiration || null}
+                  onChange={v => setReg(p => ({ ...p, inspection_expiration: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField fullWidth size="small" label="セキュリティ登録番号"
                   value={reg.security_registration} onChange={setR("security_registration")} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="有効開始日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={reg.effective_from} onChange={setR("effective_from")} />
+                <JaDatePicker label="有効開始日"
+                  value={reg.effective_from || null}
+                  onChange={v => setReg(p => ({ ...p, effective_from: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="有効終了日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={reg.effective_to} onChange={setR("effective_to")} />
+                <JaDatePicker label="有効終了日"
+                  value={reg.effective_to || null}
+                  onChange={v => setReg(p => ({ ...p, effective_to: v ?? "" }))} />
               </Grid>
             </Grid>
           </AccordionDetails>
@@ -428,14 +429,14 @@ function AddVehicleDialog({
                   value={ins.policy_no} onChange={setI("policy_no")} />
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
-                <TextField fullWidth size="small" label="開始日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={ins.start_date} onChange={setI("start_date")} />
+                <JaDatePicker label="開始日"
+                  value={ins.start_date || null}
+                  onChange={v => setIns(p => ({ ...p, start_date: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
-                <TextField fullWidth size="small" label="終了日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={ins.end_date} onChange={setI("end_date")} />
+                <JaDatePicker label="終了日"
+                  value={ins.end_date || null}
+                  onChange={v => setIns(p => ({ ...p, end_date: v ?? "" }))} />
               </Grid>
             </Grid>
           </AccordionDetails>
@@ -457,14 +458,14 @@ function AddVehicleDialog({
                   value={warranty.plan_name} onChange={setW("plan_name")} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="保証開始日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={warranty.start_date} onChange={setW("start_date")} />
+                <JaDatePicker label="保証開始日"
+                  value={warranty.start_date || null}
+                  onChange={v => setWarranty(p => ({ ...p, start_date: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField fullWidth size="small" label="保証終了日" type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={warranty.end_date} onChange={setW("end_date")} />
+                <JaDatePicker label="保証終了日"
+                  value={warranty.end_date || null}
+                  onChange={v => setWarranty(p => ({ ...p, end_date: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField fullWidth size="small" label="メモ" multiline rows={2}
@@ -481,10 +482,9 @@ function AddVehicleDialog({
           <Typography fontWeight="bold" fontSize={14} mb={1.5}>所有期間</Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 6 }}>
-              <TextField fullWidth size="small" label="所有開始日" type="date"
-                InputLabelProps={{ shrink: true }}
-                value={ownedFrom}
-                onChange={(e) => setOwnedFrom(e.target.value)} />
+              <JaDatePicker label="所有開始日"
+                value={ownedFrom || null}
+                onChange={v => setOwnedFrom(v ?? "")} />
             </Grid>
           </Grid>
         </Box>
@@ -548,12 +548,9 @@ function ReleaseVehicleDialog({
           <br />
           手放した日付を入力してください。
         </Typography>
-        <TextField
-          fullWidth size="small" label="手放した日付" type="date"
-          InputLabelProps={{ shrink: true }}
-          value={ownedTo}
-          onChange={(e) => setOwnedTo(e.target.value)}
-        />
+        <JaDatePicker label="手放した日付"
+          value={ownedTo || null}
+          onChange={v => setOwnedTo(v ?? "")} />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>キャンセル</Button>

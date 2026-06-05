@@ -38,6 +38,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import SearchIcon      from "@mui/icons-material/Search";
 import DownloadIcon    from "@mui/icons-material/Download";
 import apiClient from "@/lib/apiClient";
+import JaDatePicker from "@/components/common/JaDatePicker";
 
 // ========================
 // ソート用ユーティリティ
@@ -364,24 +365,20 @@ export default function ManagementPage() {
           {/* 期間指定モード */}
           {periodMode === "range" && (
             <>
-              <TextField
+              <JaDatePicker
                 label="開始日"
-                type="date"
-                size="small"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 160 }}
+                value={dateFrom || null}
+                onChange={v => setDateFrom(v ?? "")}
+                fullWidth={false}
+                sx={{ width: 170 }}
               />
               <Typography variant="body2" color="text.secondary">〜</Typography>
-              <TextField
+              <JaDatePicker
                 label="終了日"
-                type="date"
-                size="small"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 160 }}
+                value={dateTo || null}
+                onChange={v => setDateTo(v ?? "")}
+                fullWidth={false}
+                sx={{ width: 170 }}
               />
               <Button
                 variant="contained"

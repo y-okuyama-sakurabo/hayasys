@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
-
-import { ThemeProvider, CssBaseline } from "@mui/material";
-import theme from "@/theme"; // 自作theme。なければ後述の暫定でもOK
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,12 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body className={`${geistSans.variable} ${geistMono.variable} ${notoSansJP.variable} antialiased`}>
-        <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            {children}
-          </ThemeProvider>
-        </AppRouterCacheProvider>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
