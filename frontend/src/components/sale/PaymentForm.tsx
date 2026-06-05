@@ -15,6 +15,7 @@ import {
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { calcLine } from "@/utils/calcLine";
+import CurrencyField from "@/components/sale/CurrencyField";
 
 type Props = {
   basic: any;
@@ -163,42 +164,13 @@ export default function PaymentForm({
       <Grid container spacing={2} mb={3}>
         {TYPES.map((t) => (
           <Grid key={t.key} size={{ xs: 12, sm: 6, md: 4 }}>
-            <TextField
-              fullWidth
-              size="small"
+            <CurrencyField
               label={t.label}
-              type="number"
-              value={settlements[t.key] || ""}
-              inputProps={{ min: 0, max: grandTotal, step: 1, style: { textAlign: "right" } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Box
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        bgcolor: t.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">円</InputAdornment>
-                ),
-              }}
-              onChange={(e) =>
-                handleSettlementChange(t.key, Number(e.target.value))
+              value={settlements[t.key] || 0}
+              accentColor={t.color}
+              onChange={(v) =>
+                handleSettlementChange(t.key, v === "" ? 0 : v)
               }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: t.color,
-                  },
-                },
-                "& label.Mui-focused": { color: t.color },
-              }}
             />
           </Grid>
         ))}
@@ -262,53 +234,26 @@ export default function PaymentForm({
             </Grid>
 
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                size="small"
+              <CurrencyField
                 label="初回支払額"
-                type="number"
-                value={basic.credit_first_payment || ""}
-                inputProps={{ step: 1, style: { textAlign: "right" } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                }}
-                onChange={(e) =>
-                  handleCreditChange("credit_first_payment", Number(e.target.value))
-                }
+                value={basic.credit_first_payment ?? ""}
+                onChange={(v) => handleCreditChange("credit_first_payment", v === "" ? null : v)}
               />
             </Grid>
 
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                size="small"
+              <CurrencyField
                 label="2回目以降支払額"
-                type="number"
-                value={basic.credit_second_payment || ""}
-                inputProps={{ step: 1, style: { textAlign: "right" } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                }}
-                onChange={(e) =>
-                  handleCreditChange("credit_second_payment", Number(e.target.value))
-                }
+                value={basic.credit_second_payment ?? ""}
+                onChange={(v) => handleCreditChange("credit_second_payment", v === "" ? null : v)}
               />
             </Grid>
 
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth
-                size="small"
+              <CurrencyField
                 label="ボーナス支払い額"
-                type="number"
-                value={basic.credit_bonus_payment || ""}
-                inputProps={{ step: 1, style: { textAlign: "right" } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                }}
-                onChange={(e) =>
-                  handleCreditChange("credit_bonus_payment", Number(e.target.value))
-                }
+                value={basic.credit_bonus_payment ?? ""}
+                onChange={(v) => handleCreditChange("credit_bonus_payment", v === "" ? null : v)}
               />
             </Grid>
           </Grid>

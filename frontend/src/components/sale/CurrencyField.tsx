@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TextField, InputAdornment } from "@mui/material";
+import { Box, TextField, InputAdornment } from "@mui/material";
 
 type Props = {
   label: string;
@@ -9,6 +9,7 @@ type Props = {
   onChange: (v: number | "") => void;
   required?: boolean;
   onEnter?: () => void;
+  accentColor?: string;
 };
 
 /**
@@ -17,7 +18,7 @@ type Props = {
  * - 入力中もリアルタイムでカンマを挿入
  * - value が "" のとき空欄で表示（未入力状態）
  */
-export default function CurrencyField({ label, value, onChange, required, onEnter }: Props) {
+export default function CurrencyField({ label, value, onChange, required, onEnter, accentColor }: Props) {
   const [editing, setEditing] = useState(false);
   const [raw,     setRaw]     = useState(value === "" ? "" : String(Math.round(Number(value))));
 
@@ -69,8 +70,23 @@ export default function CurrencyField({ label, value, onChange, required, onEnte
       onKeyDown={handleKeyDown}
       inputProps={{ style: { textAlign: "right" } }}
       InputProps={{
-        startAdornment: <InputAdornment position="start">¥</InputAdornment>,
+        startAdornment: (
+          <InputAdornment position="start">
+            {accentColor ? (
+              <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: accentColor, flexShrink: 0 }} />
+            ) : (
+              "¥"
+            )}
+          </InputAdornment>
+        ),
+        endAdornment: accentColor ? (
+          <InputAdornment position="end">円</InputAdornment>
+        ) : undefined,
       }}
+      sx={accentColor ? {
+        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: accentColor },
+        "& label.Mui-focused": { color: accentColor },
+      } : undefined}
     />
   );
 }

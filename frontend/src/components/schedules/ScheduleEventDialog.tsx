@@ -72,12 +72,14 @@ export default function ScheduleEventDialog({
               {mode === "edit" ? "スケジュール編集" : schedule.title || "スケジュール詳細"}
             </Typography>
           </Box>
-          <Chip
-            label={mode === "edit" ? "編集中" : "詳細"}
-            size="small"
-            color={mode === "edit" ? "primary" : "default"}
-            variant={mode === "edit" ? "filled" : "outlined"}
-          />
+          {mode === "edit" && (
+            <Chip
+              label="編集中"
+              size="small"
+              color="primary"
+              variant="filled"
+            />
+          )}
         </Stack>
       </DialogTitle>
 

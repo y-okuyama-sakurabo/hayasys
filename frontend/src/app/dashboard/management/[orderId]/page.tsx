@@ -113,7 +113,9 @@ export default function ManagementDetailPage() {
 
   const [loading,  setLoading]  = useState(true);
   const [order,    setOrder]    = useState<any>(null);
-  const [opError,  setOpError]  = useState<string | null>(null);
+  const [opError,      setOpError]      = useState<string | null>(null);
+  const [opSuccess,    setOpSuccess]    = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   // 納品
   const [deliveryChecked, setDeliveryChecked] = useState<Record<number, boolean>>({});
@@ -137,6 +139,7 @@ export default function ManagementDetailPage() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => { fetchDetail(); }, []);
 
@@ -203,13 +206,26 @@ export default function ManagementDetailPage() {
   };
 
   const cancelDelivery = async (deliveryItemId: number) => {
-    if (!confirm("この納品を取消しますか？")) return;
+    const hasSales = !!order.sales_date;
+    const message = hasSales
+      ? "この納品を取消すと、売上計上も取消されます。よろしいですか？"
+      : "この納品を取消しますか？";
+    if (!confirm(message)) return;
+
     setOpError(null);
+    setOpSuccess(null);
+    setCancellingId(deliveryItemId);
     try {
-      await apiClient.post("/deliveries/cancel-item/", { delivery_item_id: deliveryItemId });
-      fetchDetail();
+      const res = await apiClient.post("/deliveries/cancel-item/", { delivery_item_id: deliveryItemId });
+      await fetchDetail();
+      setOpSuccess(res.data?.sales_cancelled
+        ? "納品を取消しました。売上計上も取消されました。"
+        : "納品を取消しました。"
+      );
     } catch (e: any) {
       setOpError(e?.response?.data?.detail || "納品取消に失敗しました");
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -268,7 +284,12 @@ export default function ManagementDetailPage() {
         一覧に戻る
       </Button>
 
-      {/* ── 操作エラー表示 ── */}
+      {/* ── 操作結果表示 ── */}
+      {opSuccess && (
+        <Alert severity="success" onClose={() => setOpSuccess(null)} sx={{ mb: 2 }}>
+          {opSuccess}
+        </Alert>
+      )}
       {opError && (
         <Alert severity="error" onClose={() => setOpError(null)} sx={{ mb: 2 }}>
           {opError}
@@ -543,9 +564,10 @@ export default function ManagementDetailPage() {
                             size="small"
                             color="error"
                             variant="outlined"
+                            disabled={cancellingId === it.id}
                             onClick={() => cancelDelivery(it.id)}
                           >
-                            取消
+                            {cancellingId === it.id ? "取消中…" : "取消"}
                           </Button>
                         </TableCell>
                       </TableRow>
