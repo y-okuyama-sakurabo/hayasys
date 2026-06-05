@@ -32,6 +32,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 
 import CategorySelector from "@/components/sale/CategorySelector";
+import CurrencyField from "@/components/sale/CurrencyField";
 import apiClient from "@/lib/apiClient";
 
 type Props = {
@@ -313,38 +314,21 @@ export default function ProductSelectModal({
 
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: itemType === "accessory" ? 6 : 12 }}>
-                <TextField
+                <CurrencyField
                   label="単価（税込） *"
-                  size="small"
-                  type="number"
                   value={manualPrice}
-                  onChange={(e) =>
-                    setManualPrice(e.target.value === "" ? "" : Number(e.target.value))
-                  }
-                  onKeyDown={(e) => { if (e.key === "Enter") handleManualAdd(); }}
-                  fullWidth
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                  }}
-                  inputProps={{ step: 1, style: { textAlign: "right" } }}
+                  onChange={(v) => setManualPrice(v)}
+                  required
+                  onEnter={handleManualAdd}
                 />
               </Grid>
 
               {itemType === "accessory" && (
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
+                  <CurrencyField
                     label="工賃"
-                    size="small"
-                    type="number"
                     value={laborCost}
-                    onChange={(e) =>
-                      setLaborCost(e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    fullWidth
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                    }}
-                    inputProps={{ step: 1, style: { textAlign: "right" } }}
+                    onChange={(v) => setLaborCost(v)}
                   />
                 </Grid>
               )}

@@ -18,6 +18,7 @@ from core.views.masters.shops import (
     ShopRetrieveUpdateDestroyView,
     ShopUsageAPIView,
 )
+from core.views.masters.company_settings import CompanySettingsAPIView
 from core.views.masters.colors import ColorListView
 from core.views.masters.manufacturers import ManufacturerListView
 from core.views.masters.vehiclecategories import VehicleCategoryListView
@@ -217,6 +218,7 @@ urlpatterns = [
     path("masters/shops/",              ShopListCreateView.as_view()),
     path("masters/shops/<int:pk>/",     ShopRetrieveUpdateDestroyView.as_view()),
     path("masters/shops/<int:pk>/usage/", ShopUsageAPIView.as_view()),
+    path("company-settings/",          CompanySettingsAPIView.as_view()),
     path("masters/colors/", ColorListView.as_view()),
     path("masters/manufacturers/", ManufacturerListView.as_view()),
     path("masters/vehiclecategories/", VehicleCategoryListView.as_view()),

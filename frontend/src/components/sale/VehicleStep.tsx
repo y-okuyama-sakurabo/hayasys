@@ -30,6 +30,7 @@ import DatePartsSelector, {
 } from "./DatePartsSelector";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
+import CurrencyField from "./CurrencyField";
 
 // ── 定数 ─────────────────────────────────────────────────────────
 const THIS_YEAR = new Date().getFullYear();
@@ -621,29 +622,17 @@ export default function VehicleStep({
           <SectionLabel>車両価格</SectionLabel>
           <Grid container spacing={2} mb={1}>
             <Grid size={{ xs: 12, sm: 5 }}>
-              <TextField
-                fullWidth size="small" type="number" label="車両本体価格（税込）"
-                value={currentVehicle.unit_price || ""}
-                inputProps={{ step: 1, style: { textAlign: "right" } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                }}
-                onChange={(e) =>
-                  updateVehicle("unit_price", e.target.value === "" ? 0 : Number(e.target.value))
-                }
+              <CurrencyField
+                label="車両本体価格（税込）"
+                value={currentVehicle.unit_price || 0}
+                onChange={(v) => updateVehicle("unit_price", v === "" ? 0 : v)}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                fullWidth size="small" type="number" label="値引き"
+              <CurrencyField
+                label="値引き"
                 value={currentVehicle.discount ?? 0}
-                inputProps={{ step: 1, style: { textAlign: "right" } }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">¥</InputAdornment>,
-                }}
-                onChange={(e) =>
-                  updateVehicle("discount", e.target.value === "" ? 0 : Number(e.target.value))
-                }
+                onChange={(v) => updateVehicle("discount", v === "" ? 0 : v)}
               />
             </Grid>
             {(currentVehicle.unit_price > 0) && (

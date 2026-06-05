@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Typography, Grid } from "@mui/material";
+import apiClient from "@/lib/apiClient";
 
 // ─── ページあたりの行数（多ページ時） ────────────────────────────
 const ITEMS_PER_FIRST_PAGE = 6;   // 1ページ目（ヘッダーあり）
@@ -88,6 +89,13 @@ const PAGE_SX = {
 
 // ─── メインコンポーネント ─────────────────────────────────────
 export function SaleEstimateDocument({ estimate }: { estimate: any }) {
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  useEffect(() => {
+    apiClient.get("/company-settings/")
+      .then(r => setRegistrationNumber(r.data?.registration_number ?? ""))
+      .catch(() => {});
+  }, []);
+
   // アイテム分類
   const normalItems = (estimate.items || []).filter(
     (item: any) => item.item_type !== "fee"
@@ -265,7 +273,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
             return (
               <tr key={i}>
                 <Td align="left">{item.name}</Td>
-                <Td align="right">{item.quantity}</Td>
+                <Td align="right">{Math.round(Number(item.quantity ?? 0))}</Td>
                 <Td align="center">{item.unit_detail?.name || ""}</Td>
                 <Td align="right">{fmt(item.unit_price)}</Td>
                 <Td align="right">{item.labor_cost ? fmt(item.labor_cost) : ""}</Td>
@@ -318,7 +326,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
         </Grid>
       </Grid>
       <Box sx={{ flex: 1 }} />
-      <Footer estimate={estimate} />
+      <Footer estimate={estimate} registrationNumber={registrationNumber} />
     </>
   );
 
@@ -434,7 +442,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
                   </Grid>
                 </Grid>
                 <Box sx={{ flex: 1 }} />
-                <Footer estimate={estimate} />
+                <Footer estimate={estimate} registrationNumber={registrationNumber} />
               </>
             )}
           </Box>
@@ -551,7 +559,7 @@ function InsuranceSection({ estimate }: any) {
 }
 
 // ─── フッター ────────────────────────────────────────────────
-function Footer({ estimate }: any) {
+function Footer({ estimate, registrationNumber }: any) {
   return (
     <Box>
       <Box sx={{ border: "1px solid #000", display: "flex", minHeight: "90px", mt: 1 }}>
@@ -561,9 +569,12 @@ function Footer({ estimate }: any) {
         </Box>
         <Box sx={{ width: "50%", p: 1.5, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <Box sx={{ fontSize: "8.5pt", lineHeight: 1.5, color: "#444" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>{estimate.shop?.postal_code ? `〒${estimate.shop.postal_code}` : ""}</span>
+              {registrationNumber && <span>登録番号：{registrationNumber}</span>}
+            </div>
             <div>{estimate.shop?.location || ""}</div>
             <div>営業：{estimate.shop?.opening_hours || ""}</div>
-            <div>登録番号：T7370001009807</div>
           </Box>
           <Box
             component="img"

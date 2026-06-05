@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Typography, Grid } from "@mui/material";
+import apiClient from "@/lib/apiClient";
 
 // ─── ページあたりの行数 ───────────────────────────────────────
 const ITEMS_PER_FIRST_PAGE        = 6;
@@ -80,6 +81,13 @@ const PAGE_SX = {
 
 // ─── メインコンポーネント ─────────────────────────────────────
 export function SaleOrderDocument({ order }: { order: any }) {
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  useEffect(() => {
+    apiClient.get("/company-settings/")
+      .then(r => setRegistrationNumber(r.data?.registration_number ?? ""))
+      .catch(() => {});
+  }, []);
+
   // アイテム分類
   const normalItems = (order.items || []).filter(
     (item: any) => item.item_type !== "fee"
@@ -246,7 +254,7 @@ export function SaleOrderDocument({ order }: { order: any }) {
             return (
               <tr key={i}>
                 <Td align="left">{item.name}</Td>
-                <Td align="right">{item.quantity}</Td>
+                <Td align="right">{Math.round(Number(item.quantity ?? 0))}</Td>
                 <Td align="center">{item.unit_detail?.name || ""}</Td>
                 <Td align="right">{fmt(item.unit_price)}</Td>
                 <Td align="right">{item.labor_cost ? fmt(item.labor_cost) : ""}</Td>
@@ -302,7 +310,7 @@ export function SaleOrderDocument({ order }: { order: any }) {
         </Grid>
       </Grid>
       <Box sx={{ flex: 1 }} />
-      <Footer order={order} />
+      <Footer order={order} registrationNumber={registrationNumber} />
     </>
   );
 
@@ -471,7 +479,7 @@ function InsuranceSection({ order }: any) {
 }
 
 // ─── フッター ────────────────────────────────────────────────
-function Footer({ order }: any) {
+function Footer({ order, registrationNumber }: any) {
   return (
     <Box>
       <Box sx={{ border: "1px solid #000", display: "flex", minHeight: "90px", mt: 1 }}>
@@ -481,9 +489,12 @@ function Footer({ order }: any) {
         </Box>
         <Box sx={{ width: "50%", p: 1.5, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <Box sx={{ fontSize: "8.5pt", lineHeight: 1.5, color: "#444" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>{order.shop?.postal_code ? `〒${order.shop.postal_code}` : ""}</span>
+              {registrationNumber && <span>登録番号：{registrationNumber}</span>}
+            </div>
             <div>{order.shop?.location || ""}</div>
             <div>営業：{order.shop?.opening_hours || ""}</div>
-            <div>登録番号：T7370001009807</div>
           </Box>
           <Box
             component="img"

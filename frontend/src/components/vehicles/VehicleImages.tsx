@@ -3,18 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Box, Typography, IconButton, CircularProgress,
-  Dialog, DialogContent, Tooltip, Stack,
+  Tooltip, Stack,
 } from "@mui/material";
 import DeleteIcon      from "@mui/icons-material/Delete";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import CloseIcon       from "@mui/icons-material/Close";
-import ChevronLeftIcon  from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ImageIcon       from "@mui/icons-material/Image";
 import apiClient from "@/lib/apiClient";
+import { compressImage } from "@/lib/compressImage";
+import ImageLightbox from "@/components/common/ImageLightbox";
 
 type VehicleImage = { id: number; image: string };
 type Props = { vehicleId: number };
+
+/** 相対パス（/media/...）の場合、APIのベースURLホストを補完する */
+const resolveImageUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith("http")) return url;
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/api\/?$/, "");
+  return `${base}${url}`;
+};
 
 export default function VehicleImages({ vehicleId }: Props) {
   const [images,    setImages]    = useState<VehicleImage[]>([]);
@@ -42,8 +49,9 @@ export default function VehicleImages({ vehicleId }: Props) {
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
+      const compressed = await compressImage(file);
       const fd = new FormData();
-      fd.append("image", file);
+      fd.append("image", compressed);
       await apiClient.post(`/vehicles/${vehicleId}/images/`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -76,8 +84,6 @@ export default function VehicleImages({ vehicleId }: Props) {
       else setLightbox(idx => idx !== null ? Math.min(idx, newImages.length - 1) : null);
     }
   };
-
-  const currentImage = lightbox !== null ? images[lightbox] : null;
 
   return (
     <Box>
@@ -158,7 +164,7 @@ export default function VehicleImages({ vehicleId }: Props) {
               }}
             >
               <img
-                src={img.image}
+                src={resolveImageUrl(img.image)}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 loading="lazy"
               />
@@ -192,96 +198,15 @@ export default function VehicleImages({ vehicleId }: Props) {
       )}
 
       {/* ── ライトボックス ── */}
-      <Dialog
-        open={lightbox !== null}
+      <ImageLightbox
+        images={images.map(img => ({
+          src:  resolveImageUrl(img.image),
+          name: img.image.split("/").pop(),
+        }))}
+        index={lightbox}
         onClose={() => setLightbox(null)}
-        maxWidth="lg"
-        PaperProps={{ sx: { bgcolor: "transparent", boxShadow: "none", overflow: "visible" } }}
-      >
-        <DialogContent
-          sx={{
-            p: 0, position: "relative",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >
-          {currentImage && (
-            <>
-              <img
-                src={currentImage.image}
-                style={{
-                  maxWidth: "80vw", maxHeight: "80vh",
-                  objectFit: "contain",
-                  borderRadius: 8,
-                  display: "block",
-                }}
-              />
-
-              {/* 閉じる */}
-              <IconButton
-                onClick={() => setLightbox(null)}
-                sx={{
-                  position: "absolute", top: -16, right: -16,
-                  bgcolor: "rgba(0,0,0,0.7)", color: "#fff",
-                  "&:hover": { bgcolor: "rgba(0,0,0,0.9)" },
-                }}
-              >
-                <CloseIcon />
-              </IconButton>
-
-              {/* 前へ */}
-              {images.length > 1 && (
-                <IconButton
-                  onClick={e => { e.stopPropagation(); setLightbox(i => i !== null ? (i - 1 + images.length) % images.length : 0); }}
-                  sx={{
-                    position: "absolute", left: -52, top: "50%", transform: "translateY(-50%)",
-                    bgcolor: "rgba(0,0,0,0.6)", color: "#fff",
-                    "&:hover": { bgcolor: "rgba(0,0,0,0.9)" },
-                  }}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-              )}
-
-              {/* 次へ */}
-              {images.length > 1 && (
-                <IconButton
-                  onClick={e => { e.stopPropagation(); setLightbox(i => i !== null ? (i + 1) % images.length : 0); }}
-                  sx={{
-                    position: "absolute", right: -52, top: "50%", transform: "translateY(-50%)",
-                    bgcolor: "rgba(0,0,0,0.6)", color: "#fff",
-                    "&:hover": { bgcolor: "rgba(0,0,0,0.9)" },
-                  }}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-              )}
-
-              {/* 枚数インジケーター */}
-              <Box
-                sx={{
-                  position: "absolute", bottom: -32,
-                  left: "50%", transform: "translateX(-50%)",
-                  display: "flex", gap: 0.75,
-                }}
-              >
-                {images.map((_, i) => (
-                  <Box
-                    key={i}
-                    onClick={() => setLightbox(i)}
-                    sx={{
-                      width: i === lightbox ? 20 : 8, height: 8,
-                      borderRadius: 4,
-                      bgcolor: i === lightbox ? "#fff" : "rgba(255,255,255,0.5)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                  />
-                ))}
-              </Box>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        onChange={setLightbox}
+      />
     </Box>
   );
 }

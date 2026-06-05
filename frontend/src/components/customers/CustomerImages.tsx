@@ -10,12 +10,19 @@ import PhotoLibraryIcon  from "@mui/icons-material/PhotoLibrary";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import CloudUploadIcon   from "@mui/icons-material/CloudUpload";
 import ImageIcon         from "@mui/icons-material/Image";
-import CloseIcon         from "@mui/icons-material/Close";
-import ChevronLeftIcon   from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon  from "@mui/icons-material/ChevronRight";
 import apiClient from "@/lib/apiClient";
+import { compressImage } from "@/lib/compressImage";
+import ImageLightbox from "@/components/common/ImageLightbox";
 
 type CustomerImage = { id: number; image: string; width?: number; height?: number; bytes?: number };
+
+/** 相対パス（/media/...）の場合、APIのベースURLホストを補完する */
+const resolveImageUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith("http")) return url;                              // すでに絶対URL
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/api\/?$/, "");
+  return `${base}${url}`;
+};
 
 export default function CustomerImages({ customerId }: { customerId: number }) {
   const [images,    setImages]    = useState<CustomerImage[]>([]);
@@ -50,8 +57,9 @@ export default function CustomerImages({ customerId }: { customerId: number }) {
     setError(null);
     setUploading(true);
     try {
+      const compressed = await compressImage(file);
       const fd = new FormData();
-      fd.append("image", file);
+      fd.append("image", compressed);
       await apiClient.post(`/customers/${customerId}/images/`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -94,8 +102,6 @@ export default function CustomerImages({ customerId }: { customerId: number }) {
       setDeleting(false);
     }
   };
-
-  const currentImage = lightbox !== null ? images[lightbox] : null;
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
@@ -170,7 +176,7 @@ export default function CustomerImages({ customerId }: { customerId: number }) {
               }}
             >
               <img
-                src={img.image}
+                src={resolveImageUrl(img.image)}
                 alt=""
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 loading="lazy"
@@ -206,67 +212,15 @@ export default function CustomerImages({ customerId }: { customerId: number }) {
       )}
 
       {/* ── ライトボックス ── */}
-      <Dialog
-        open={lightbox !== null}
+      <ImageLightbox
+        images={images.map(img => ({
+          src:  resolveImageUrl(img.image),
+          name: img.image.split("/").pop(),
+        }))}
+        index={lightbox}
         onClose={() => setLightbox(null)}
-        maxWidth="lg"
-        PaperProps={{ sx: { bgcolor: "transparent", boxShadow: "none", overflow: "visible" } }}
-      >
-        <DialogContent sx={{ p: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {currentImage && (
-            <>
-              <img
-                src={currentImage.image}
-                alt=""
-                style={{ maxWidth: "80vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8, display: "block" }}
-              />
-
-              {/* 閉じる */}
-              <IconButton
-                onClick={() => setLightbox(null)}
-                sx={{ position: "absolute", top: -16, right: -16, bgcolor: "rgba(0,0,0,0.7)", color: "#fff", "&:hover": { bgcolor: "rgba(0,0,0,0.9)" } }}
-              >
-                <CloseIcon />
-              </IconButton>
-
-              {/* 前へ */}
-              {images.length > 1 && (
-                <IconButton
-                  onClick={e => { e.stopPropagation(); setLightbox(i => i !== null ? (i - 1 + images.length) % images.length : 0); }}
-                  sx={{ position: "absolute", left: -52, top: "50%", transform: "translateY(-50%)", bgcolor: "rgba(0,0,0,0.6)", color: "#fff", "&:hover": { bgcolor: "rgba(0,0,0,0.9)" } }}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-              )}
-
-              {/* 次へ */}
-              {images.length > 1 && (
-                <IconButton
-                  onClick={e => { e.stopPropagation(); setLightbox(i => i !== null ? (i + 1) % images.length : 0); }}
-                  sx={{ position: "absolute", right: -52, top: "50%", transform: "translateY(-50%)", bgcolor: "rgba(0,0,0,0.6)", color: "#fff", "&:hover": { bgcolor: "rgba(0,0,0,0.9)" } }}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-              )}
-
-              {/* 枚数インジケーター */}
-              <Box sx={{ position: "absolute", bottom: -32, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 0.75 }}>
-                {images.map((_, i) => (
-                  <Box
-                    key={i}
-                    onClick={() => setLightbox(i)}
-                    sx={{
-                      width: i === lightbox ? 20 : 8, height: 8, borderRadius: 4,
-                      bgcolor: i === lightbox ? "#fff" : "rgba(255,255,255,0.5)",
-                      cursor: "pointer", transition: "all 0.2s",
-                    }}
-                  />
-                ))}
-              </Box>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        onChange={setLightbox}
+      />
 
       {/* 削除確認ダイアログ */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>

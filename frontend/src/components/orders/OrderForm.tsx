@@ -33,6 +33,7 @@ import OtherStep from "@/components/sale/OtherStep";
 import ExpenseStep from "@/components/sale/TaxableExpenseStep";
 import InsuranceStep from "@/components/sale/NonTaxableExpenseStep";
 import PaymentForm from "@/components/sale/PaymentForm";
+import MemoSection from "@/components/sale/MemoSection";
 
 // ─── ステータス表示 ───────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = {
@@ -149,6 +150,8 @@ function reducer(state: OrderState, action: any): OrderState {
       };
     case "REMOVE_ITEM":
       return { ...state, items: state.items.filter((_, i) => i !== action.index) };
+    case "REORDER_ITEMS":
+      return { ...state, items: action.payload };
     case "SET_GLOBAL_DISCOUNT":
       return { ...state, global_discount: action.payload };
     case "SET_SCHEDULE":
@@ -1005,44 +1008,13 @@ export default function OrderForm({ mode, orderId }: Props) {
           {/* メモ */}
           <Paper id="ord-memo" sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={1}>
             <SectionHeader>メモ</SectionHeader>
-
-            <Box mb={3}>
-              <Typography fontWeight="bold" mb={1} fontSize={14}>
-                商談メモ（受注書に印字されます）
-              </Typography>
-              <TextField
-                multiline
-                rows={4}
-                fullWidth
-                value={state.memo || ""}
-                onChange={(e) => dispatch({ type: "SET_MEMO", payload: e.target.value })}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: "#fff7e6",
-                border: "1px solid #f0c36d",
-                borderRadius: 1,
-              }}
-            >
-              <Typography fontWeight="bold" mb={0.5} fontSize={14}>
-                内部メモ（お客様には表示されません）
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-                社内共有用のメモです。書類には印字されません。
-              </Typography>
-              <TextField
-                multiline
-                rows={4}
-                fullWidth
-                value={state.internal_memo || ""}
-                onChange={(e) =>
-                  dispatch({ type: "SET_INTERNAL_MEMO", payload: e.target.value })
-                }
-              />
-            </Box>
+            <MemoSection
+              docLabel="受注書"
+              memo={state.memo || ""}
+              internalMemo={state.internal_memo || ""}
+              onMemoChange={(v) => dispatch({ type: "SET_MEMO", payload: v })}
+              onInternalMemoChange={(v) => dispatch({ type: "SET_INTERNAL_MEMO", payload: v })}
+            />
           </Paper>
 
           {/* 最下部アクション */}

@@ -14,6 +14,14 @@ import DeleteIcon             from "@mui/icons-material/Delete";
 import SendIcon               from "@mui/icons-material/Send";
 import CheckIcon              from "@mui/icons-material/Check";
 import apiClient from "@/lib/apiClient";
+import ImageLightbox, { type LightboxImage } from "@/components/common/ImageLightbox";
+
+const resolveImageUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith("http")) return url;
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/api\/?$/, "");
+  return `${base}${url}`;
+};
 
 type Message = {
   id: number;
@@ -71,6 +79,10 @@ export default function BusinessCommunicationThreadDialog({ thread, open, onClos
 
   // ログインユーザーのスタッフID（チャットの左右判定）
   const [meStaffId, setMeStaffId] = useState<number | null>(null);
+
+  // ライトボックス
+  const [lbImages, setLbImages] = useState<LightboxImage[]>([]);
+  const [lbIndex,  setLbIndex]  = useState<number | null>(null);
 
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
@@ -306,17 +318,25 @@ export default function BusinessCommunicationThreadDialog({ thread, open, onClos
                 {m.attachments && m.attachments.length > 0 && (
                   <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap"
                     sx={{ justifyContent: mine ? "flex-end" : "flex-start" }}>
-                    {m.attachments.map(a => (
+                    {m.attachments.map((a, aIdx) => (
                       <Box
                         key={a.id}
                         component="img"
-                        src={a.file}
+                        src={resolveImageUrl(a.file)}
                         sx={{
                           width: 80, height: 80, objectFit: "cover",
                           borderRadius: 1, cursor: "pointer",
                           border: "1px solid", borderColor: "divider",
+                          transition: "opacity 0.15s",
+                          "&:hover": { opacity: 0.85 },
                         }}
-                        onClick={() => window.open(a.file, "_blank")}
+                        onClick={() => {
+                          setLbImages(m.attachments!.map(att => ({
+                            src:  resolveImageUrl(att.file),
+                            name: att.file.split("/").pop(),
+                          })));
+                          setLbIndex(aIdx);
+                        }}
                       />
                     ))}
                   </Stack>
@@ -383,6 +403,14 @@ export default function BusinessCommunicationThreadDialog({ thread, open, onClos
           </Box>
         </Box>
       </DialogContent>
+
+      {/* ── ライトボックス ── */}
+      <ImageLightbox
+        images={lbImages}
+        index={lbIndex}
+        onClose={() => setLbIndex(null)}
+        onChange={setLbIndex}
+      />
 
       <Divider />
 

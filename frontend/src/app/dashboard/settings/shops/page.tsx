@@ -36,6 +36,7 @@ type Shop = {
   id: number;
   code: string;
   name: string;
+  postal_code: string;
   location: string;
   phone: string;
   fax: string;
@@ -53,6 +54,7 @@ type UsageInfo = {
 type FormData = {
   code: string;
   name: string;
+  postal_code: string;
   location: string;
   phone: string;
   fax: string;
@@ -64,6 +66,7 @@ type FormData = {
 const emptyForm = (): FormData => ({
   code: "",
   name: "",
+  postal_code: "",
   location: "",
   phone: "",
   fax: "",
@@ -122,6 +125,7 @@ export default function ShopsPage() {
     setForm({
       code:          shop.code,
       name:          shop.name,
+      postal_code:   shop.postal_code,
       location:      shop.location,
       phone:         shop.phone,
       fax:           shop.fax,
@@ -232,10 +236,9 @@ export default function ShopsPage() {
               <TableRow sx={{ bgcolor: "grey.50" }}>
                 <TableCell sx={{ fontWeight: "bold", width: 100 }}>コード</TableCell>
                 <TableCell sx={{ fontWeight: "bold", minWidth: 140 }}>店舗名</TableCell>
+                <TableCell sx={{ fontWeight: "bold", width: 110 }}>郵便番号</TableCell>
                 <TableCell sx={{ fontWeight: "bold" }}>所在地</TableCell>
                 <TableCell sx={{ fontWeight: "bold", width: 140 }}>電話番号</TableCell>
-                <TableCell sx={{ fontWeight: "bold", width: 200 }}>メール</TableCell>
-                <TableCell sx={{ fontWeight: "bold", width: 100 }}>営業時間</TableCell>
                 <TableCell sx={{ width: 88 }} />
               </TableRow>
             </TableHead>
@@ -257,21 +260,16 @@ export default function ShopsPage() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
+                      {shop.postal_code ? `〒${shop.postal_code}` : "—"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
                       {shop.location || "—"}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{shop.phone || "—"}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: 12 }}>
-                      {shop.email || "—"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: 12 }}>
-                      {shop.opening_hours || "—"}
-                    </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="編集">
@@ -319,13 +317,24 @@ export default function ShopsPage() {
                 onChange={setField("name")}
               />
             </Stack>
-            <TextField
-              label="所在地"
-              size="small"
-              fullWidth
-              value={form.location}
-              onChange={setField("location")}
-            />
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <TextField
+                label="郵便番号"
+                size="small"
+                sx={{ width: 160 }}
+                value={form.postal_code}
+                onChange={setField("postal_code")}
+                placeholder="例: 123-4567"
+                inputProps={{ maxLength: 10 }}
+              />
+              <TextField
+                label="所在地"
+                size="small"
+                fullWidth
+                value={form.location}
+                onChange={setField("location")}
+              />
+            </Stack>
             <Stack direction="row" spacing={1.5}>
               <TextField
                 label="電話番号"

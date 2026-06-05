@@ -40,7 +40,10 @@ import ArticleIcon     from "@mui/icons-material/Article";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import HistoryIcon     from "@mui/icons-material/History";
 import StoreIcon       from "@mui/icons-material/Store";
+import BusinessIcon    from "@mui/icons-material/Business";
 import apiClient from "@/lib/apiClient";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
+import InactivityWarningDialog from "@/components/InactivityWarningDialog";
 
 const drawerWidth = 240;
 
@@ -78,6 +81,7 @@ const MENUS: MenuItem[] = [
     children: [
       { text: "スタッフ管理",   path: "/dashboard/staffs",               icon: <AdminPanelSettingsIcon fontSize="small" /> },
       { text: "店舗管理",       path: "/dashboard/settings/shops",        icon: <StoreIcon fontSize="small" /> },
+      { text: "会社設定",       path: "/dashboard/settings/company",      icon: <BusinessIcon fontSize="small" /> },
       { text: "カテゴリ管理",   path: "/dashboard/settings/categories",   icon: <AccountTreeIcon fontSize="small" /> },
       { text: "操作ログ",       path: "/dashboard/audit-logs",            icon: <HistoryIcon fontSize="small" /> },
     ],
@@ -131,6 +135,11 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     setLogoutDialogOpen(false);
     router.push("/login");
   };
+
+  // ── 自動ログアウト（60分無操作） ─────────
+  const { showWarning, countdown, handleContinue, doLogout } = useInactivityLogout(
+    () => router.push("/login")
+  );
 
   // ── アクティブ判定 ────────────────────────
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
@@ -361,6 +370,14 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── 自動ログアウト警告ダイアログ ─────── */}
+      <InactivityWarningDialog
+        open={showWarning}
+        countdown={countdown}
+        onContinue={handleContinue}
+        onLogout={doLogout}
+      />
 
       {/* ── メインコンテンツ ──────────────────── */}
       <Box

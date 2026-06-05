@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 class Shop(models.Model):
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=120)
+    postal_code = models.CharField(max_length=10, blank=True)
     location = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     fax = models.CharField(max_length=20, blank=True)
@@ -14,6 +15,22 @@ class Shop(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
         return f"{self.code} {self.name}"
+
+class CompanySettings(models.Model):
+    """会社全体の設定（シングルトン）"""
+    registration_number = models.CharField("適格請求書登録番号", max_length=20, blank=True)
+
+    class Meta:
+        verbose_name = "会社設定"
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "会社設定"
+
 
 class UserManager(BaseUserManager):
     use_in_migrations = True

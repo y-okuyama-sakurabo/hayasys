@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import CloseIcon       from "@mui/icons-material/Close";
 import apiClient from "@/lib/apiClient";
+import { compressImage } from "@/lib/compressImage";
 
 type Props = {
   open: boolean;
@@ -83,11 +84,15 @@ export default function BusinessCommunicationCreateDialog({
   const handleClose = () => { reset(); onClose(); };
 
   // ── ファイル追加 ──────────────────────────
-  const addFiles = (fileList: FileList | null) => {
+  const addFiles = async (fileList: FileList | null) => {
     if (!fileList) return;
-    const newFiles = Array.from(fileList)
-      .filter(f => f.type.startsWith("image/"))
-      .map(file => ({ file, preview: URL.createObjectURL(file) }));
+    const imageFiles = Array.from(fileList).filter(f => f.type.startsWith("image/"));
+    const newFiles = await Promise.all(
+      imageFiles.map(async (file) => {
+        const compressed = await compressImage(file);
+        return { file: compressed, preview: URL.createObjectURL(compressed) };
+      })
+    );
     setAttached(prev => [...prev, ...newFiles]);
   };
 

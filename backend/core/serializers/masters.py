@@ -3,6 +3,7 @@ from core.models import (
     CustomerClass, Shop, Region, Gender, Color,
     Manufacturer, VehicleCategory, RegistrationLocation
 )
+from core.models.base import CompanySettings
 from core.models.base import ROLE_CHOICES, ROLE_GROUP_DISPLAY
 from django.contrib.auth import get_user_model
 
@@ -23,6 +24,7 @@ class ShopSerializer(serializers.ModelSerializer):
             "id",
             "code",
             "name",
+            "postal_code",
             "location",
             "phone",
             "fax",
@@ -133,3 +135,9 @@ class RegistrationLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistrationLocation
         fields = ["id", "code", "name"]
+
+
+class CompanySettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanySettings
+        fields = ["registration_number"]
