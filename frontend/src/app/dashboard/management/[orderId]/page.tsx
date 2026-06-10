@@ -27,15 +27,23 @@ import {
   InputAdornment,
   Alert,
   Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from "@mui/material";
 
 import DeleteIcon      from "@mui/icons-material/Delete";
 import ArrowBackIcon   from "@mui/icons-material/ArrowBack";
 import AddIcon         from "@mui/icons-material/Add";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon      from "@mui/icons-material/Cancel";
 
 import apiClient from "@/lib/apiClient";
 import JaDatePicker from "@/components/common/JaDatePicker";
+import { useUserRole, isPrivileged } from "@/hooks/useUserRole";
 
 // ========================
 // 定数
@@ -110,6 +118,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function ManagementDetailPage() {
   const { orderId } = useParams();
   const router      = useRouter();
+  const userRole    = useUserRole();
 
   const [loading,  setLoading]  = useState(true);
   const [order,    setOrder]    = useState<any>(null);
@@ -117,14 +126,27 @@ export default function ManagementDetailPage() {
   const [opSuccess,    setOpSuccess]    = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
+  // キャンセル申請ダイアログ
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason,     setCancelReason]     = useState("");
+  const [cancelLoading,    setCancelLoading]    = useState(false);
+  const [snack,            setSnack]            = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+
+  // 特権操作ダイアログ（キャンセル取消 / 受注削除）
+  const [privDialogMode, setPrivDialogMode] = useState<"uncancel" | "delete" | null>(null);
+
   // 納品
   const [deliveryChecked, setDeliveryChecked] = useState<Record<number, boolean>>({});
   const [deliveryDate,    setDeliveryDate]    = useState(dayjs().format("YYYY-MM-DD"));
 
   // 入金
-  const [payAmount, setPayAmount] = useState("");
-  const [payDate,   setPayDate]   = useState(dayjs().format("YYYY-MM-DD"));
-  const [payMethod, setPayMethod] = useState("cash");
+  const [payAmount,  setPayAmount]  = useState("");
+  const [payDate,    setPayDate]    = useState(dayjs().format("YYYY-MM-DD"));
+  const [payMethod,  setPayMethod]  = useState("cash");
+  const [payCompany, setPayCompany] = useState<number | "">("");
+
+  // 会社リスト（支払種別ごと）
+  const [companyMap, setCompanyMap] = useState<Record<string, any[]>>({ loan: [], card: [], qr: [] });
 
   // ========================
   // データ取得
@@ -142,6 +164,23 @@ export default function ManagementDetailPage() {
 
 
   useEffect(() => { fetchDetail(); }, []);
+
+  // 会社リスト（ローン・カード・QR）を一括取得
+  useEffect(() => {
+    const types = ["loan", "card", "qr"];
+    Promise.all(
+      types.map((t) =>
+        apiClient
+          .get(`/masters/payment-companies/?type=${t}`)
+          .then((res) => ({ type: t, data: res.data || [] }))
+          .catch(() => ({ type: t, data: [] }))
+      )
+    ).then((results) => {
+      const map: Record<string, any[]> = {};
+      results.forEach(({ type, data }) => { map[type] = data; });
+      setCompanyMap(map);
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -235,12 +274,17 @@ export default function ManagementDetailPage() {
 
     setOpError(null);
     try {
+      const COMPANY_METHODS = ["loan", "card", "qr"];
       await apiClient.post(`/management/payments/${orderId}/records/`, {
         amount:       Number(payAmount),
         payment_date: payDate,
         method:       payMethod,
+        ...(COMPANY_METHODS.includes(payMethod) && payCompany !== ""
+          ? { company: payCompany }
+          : {}),
       });
       setPayAmount("");
+      setPayCompany("");
       fetchDetail();
     } catch (e: any) {
       setOpError(e?.response?.data?.detail || "入金登録に失敗しました");
@@ -269,11 +313,47 @@ export default function ManagementDetailPage() {
     }
   };
 
+  const submitCancelRequest = async () => {
+    if (!cancelReason.trim()) return;
+    setCancelLoading(true);
+    try {
+      await apiClient.post(`/orders/${orderId}/cancel-request/`, { reason: cancelReason.trim() });
+      setSnack({ msg: "キャンセル申請を送信しました", severity: "success" });
+      setCancelDialogOpen(false);
+      setCancelReason("");
+    } catch (e: any) {
+      setSnack({ msg: e?.response?.data?.detail || "申請に失敗しました", severity: "error" });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handlePrivAction = async () => {
+    if (!privDialogMode) return;
+    setCancelLoading(true);
+    try {
+      if (privDialogMode === "uncancel") {
+        await apiClient.post(`/orders/${orderId}/uncancel/`);
+        setSnack({ msg: "キャンセルを取消しました", severity: "success" });
+        fetchDetail();
+      } else {
+        await apiClient.delete(`/orders/${orderId}/force-delete/`);
+        setSnack({ msg: "受注を削除しました", severity: "success" });
+        router.push("/dashboard/management");
+      }
+      setPrivDialogMode(null);
+    } catch (e: any) {
+      setSnack({ msg: e?.response?.data?.detail || "操作に失敗しました", severity: "error" });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   // ========================
   // UI
   // ========================
   return (
-    <Box sx={{ maxWidth: 900, mx: "auto" }}>
+    <Box sx={{ maxWidth: 1100, mx: "auto" }}>
 
       {/* ── 戻るボタン ── */}
       <Button
@@ -306,7 +386,7 @@ export default function ManagementDetailPage() {
               {order.order_no && `　受注番号: ${order.order_no}`}
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <Chip
               label={DELIVERY_LABEL[order.delivery_status] ?? order.delivery_status}
               color={DELIVERY_COLOR[order.delivery_status] ?? "default"}
@@ -317,6 +397,17 @@ export default function ManagementDetailPage() {
               color={PAYMENT_COLOR[order.payment_status] ?? "default"}
               size="small"
             />
+            {order.status !== "cancelled" && (
+              <Button
+                size="small"
+                color="warning"
+                variant="outlined"
+                startIcon={<CancelIcon />}
+                onClick={() => { setCancelReason(""); setCancelDialogOpen(true); }}
+              >
+                キャンセル申請
+              </Button>
+            )}
           </Stack>
         </Box>
 
@@ -346,8 +437,42 @@ export default function ManagementDetailPage() {
         </Grid>
       </Paper>
 
+      {/* キャンセル済みバナー */}
+      {order.status === "cancelled" && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            isPrivileged(userRole) ? (
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  onClick={() => setPrivDialogMode("uncancel")}
+                  sx={{ whiteSpace: "nowrap" }}
+                >
+                  キャンセル取消
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                  onClick={() => setPrivDialogMode("delete")}
+                  sx={{ whiteSpace: "nowrap" }}
+                >
+                  受注削除
+                </Button>
+              </Stack>
+            ) : undefined
+          }
+        >
+          この受注はキャンセル済みです。入金・納品の操作はできません。
+        </Alert>
+      )}
+
       {/* ── 入金管理 ── */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, opacity: order.status === "cancelled" ? 0.6 : 1 }}>
         <SectionTitle>💴 入金管理</SectionTitle>
         <Divider sx={{ mb: 2 }} />
 
@@ -369,7 +494,7 @@ export default function ManagementDetailPage() {
           </Paper>
         </Stack>
 
-        {paymentDone ? (
+        {order.status === "cancelled" ? null : paymentDone ? (
           <Alert severity="success" icon={<CheckCircleIcon />} sx={{ mb: 2 }}>
             入金完了
             {order.final_payment_date && `（完了日: ${order.final_payment_date}）`}
@@ -381,7 +506,8 @@ export default function ManagementDetailPage() {
               入金を追加
             </Typography>
             <Grid container spacing={2} alignItems="flex-end">
-              <Grid size={{ xs: 12, sm: 3 }}>
+              {/* 入金額 */}
+              <Grid size={{ xs: 12, sm: 2 }}>
                 <TextField
                   label="入金額"
                   type="number"
@@ -396,7 +522,8 @@ export default function ManagementDetailPage() {
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 3 }}>
+              {/* 入金日 */}
+              <Grid size={{ xs: 12, sm: 2 }}>
                 <JaDatePicker
                   label="入金日"
                   value={payDate || null}
@@ -404,24 +531,45 @@ export default function ManagementDetailPage() {
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel>支払方法</InputLabel>
-                  <Select
-                    value={payMethod}
-                    label="支払方法"
-                    onChange={(e) => setPayMethod(e.target.value)}
-                  >
-                    {PAYMENT_METHODS.map((m) => (
-                      <MenuItem key={m.key} value={m.key}>
-                        {m.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              {/* 支払方法 + 会社・サービス（横並び） */}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Stack direction="row" spacing={1.5} alignItems="flex-end">
+                  <FormControl size="small" sx={{ flex: "0 0 160px" }}>
+                    <InputLabel>支払方法</InputLabel>
+                    <Select
+                      value={payMethod}
+                      label="支払方法"
+                      onChange={(e) => { setPayMethod(e.target.value); setPayCompany(""); }}
+                    >
+                      {PAYMENT_METHODS.map((m) => (
+                        <MenuItem key={m.key} value={m.key}>
+                          {m.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* ローン・カード・QR のとき会社選択 */}
+                  {["loan", "card", "qr"].includes(payMethod) && (
+                    <FormControl size="small" sx={{ flex: 1 }}>
+                      <InputLabel>会社・サービス</InputLabel>
+                      <Select
+                        value={payCompany}
+                        label="会社・サービス"
+                        onChange={(e) => setPayCompany(e.target.value as number | "")}
+                      >
+                        <MenuItem value="">未選択</MenuItem>
+                        {(companyMap[payMethod] || []).map((c: any) => (
+                          <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+                </Stack>
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 3 }}>
+              {/* 入金追加ボタン */}
+              <Grid size={{ xs: 12, sm: 2 }}>
                 <Button
                   variant="contained"
                   fullWidth
@@ -450,6 +598,7 @@ export default function ManagementDetailPage() {
                 <TableCell>入金日</TableCell>
                 <TableCell align="right">金額</TableCell>
                 <TableCell>支払方法</TableCell>
+                <TableCell>会社・サービス</TableCell>
                 <TableCell align="center" sx={{ width: 60 }}></TableCell>
               </TableRow>
             </TableHead>
@@ -460,6 +609,11 @@ export default function ManagementDetailPage() {
                   <TableCell align="right">{fmt(p.amount)}</TableCell>
                   <TableCell>
                     {PAYMENT_METHODS.find((m) => m.key === p.method)?.label ?? p.method}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color={p.company_name ? "text.primary" : "text.disabled"}>
+                      {p.company_name ?? "—"}
+                    </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
@@ -478,12 +632,14 @@ export default function ManagementDetailPage() {
       </Paper>
 
       {/* ── 納品管理 ── */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, opacity: order.status === "cancelled" ? 0.6 : 1 }}>
         <SectionTitle>📦 納品管理</SectionTitle>
         <Divider sx={{ mb: 2 }} />
 
         {/* 未納品リスト */}
-        {undeliveredItems.length > 0 ? (
+        {order.status === "cancelled" ? (
+          <Alert severity="info">キャンセル済みのため納品操作はできません</Alert>
+        ) : undeliveredItems.length > 0 ? (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               納品する商品にチェックを入れてください
@@ -614,6 +770,72 @@ export default function ManagementDetailPage() {
           </>
         )}
       </Paper>
+
+      {/* ── 特権操作ダイアログ（キャンセル取消 / 受注削除） ── */}
+      <Dialog open={Boolean(privDialogMode)} onClose={() => !cancelLoading && setPrivDialogMode(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {privDialogMode === "uncancel" ? "キャンセルを取消す" : "受注を削除"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {privDialogMode === "uncancel"
+              ? "受注ステータスを「受注確定」に戻します。よろしいですか？"
+              : "この受注を完全に削除します。この操作は取り消せません。"}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPrivDialogMode(null)} disabled={cancelLoading}>閉じる</Button>
+          <Button
+            color={privDialogMode === "uncancel" ? "warning" : "error"}
+            variant="contained"
+            onClick={handlePrivAction}
+            disabled={cancelLoading}
+          >
+            {cancelLoading ? "処理中..." : privDialogMode === "uncancel" ? "取消す" : "削除する"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── キャンセル申請ダイアログ ── */}
+      <Dialog open={cancelDialogOpen} onClose={() => !cancelLoading && setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>キャンセル申請</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {order.customer_name} の受注についてキャンセルを申請します。理由を入力してください。
+          </DialogContentText>
+          <TextField
+            label="キャンセル理由"
+            multiline
+            rows={3}
+            fullWidth
+            value={cancelReason}
+            onChange={e => setCancelReason(e.target.value)}
+            required
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)} disabled={cancelLoading}>閉じる</Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={submitCancelRequest}
+            disabled={!cancelReason.trim() || cancelLoading}
+          >
+            {cancelLoading ? "送信中..." : "申請する"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── スナックバー ── */}
+      <Snackbar
+        open={Boolean(snack)}
+        autoHideDuration={4000}
+        onClose={() => setSnack(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity={snack?.severity} onClose={() => setSnack(null)}>{snack?.msg}</Alert>
+      </Snackbar>
 
     </Box>
   );

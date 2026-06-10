@@ -7,18 +7,18 @@ import {
   IconButton, Menu, MenuItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   FormControl, Select, InputLabel, TextField, InputAdornment, Stack,
-  Divider,
+  Divider, Snackbar, Alert,
 } from "@mui/material";
 
-import Chip          from "@mui/material/Chip";
-import MoreVertIcon  from "@mui/icons-material/MoreVert";
-import EditIcon      from "@mui/icons-material/Edit";
+import Chip              from "@mui/material/Chip";
+import MoreVertIcon      from "@mui/icons-material/MoreVert";
+import EditIcon          from "@mui/icons-material/Edit";
 import DescriptionIcon   from "@mui/icons-material/Description";
-import DeleteIcon    from "@mui/icons-material/Delete";
 import ContentCopyIcon   from "@mui/icons-material/ContentCopy";
-import SearchIcon    from "@mui/icons-material/Search";
-import JaDatePicker  from "@/components/common/JaDatePicker";
-import ClearIcon     from "@mui/icons-material/Clear";
+import SearchIcon        from "@mui/icons-material/Search";
+import JaDatePicker      from "@/components/common/JaDatePicker";
+import ClearIcon         from "@mui/icons-material/Clear";
+import CancelIcon        from "@mui/icons-material/Cancel";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
@@ -77,9 +77,14 @@ function OrderListPageInner() {
   const [amountMax,   setAmountMax]   = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const [loading,      setLoading]      = useState(true);
-  const [menuAnchor,   setMenuAnchor]   = useState<Record<number, HTMLElement | null>>({});
-  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [menuAnchor, setMenuAnchor] = useState<Record<number, HTMLElement | null>>({});
+
+  // キャンセル申請
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
 
   // ========================
   // データ取得
@@ -167,24 +172,28 @@ function OrderListPageInner() {
       case "edit":      router.push(`/dashboard/orders/${id}/edit?_r=${Date.now()}`); break;
       case "detail":    router.push(`/dashboard/orders/${id}?_r=${Date.now()}`);      break;
       case "duplicate": router.push(`/dashboard/orders/new?copy_from=${id}`);         break;
-      case "delete": {
+      case "cancel_request": {
         const t = orders.find(o => o.id === id);
-        if (t) setDeleteTarget(t);
+        if (t) { setCancelTarget(t); setCancelReason(""); }
         break;
       }
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
+  const submitCancelRequest = async () => {
+    if (!cancelTarget || !cancelReason.trim()) return;
+    setCancelLoading(true);
     try {
-      await apiClient.delete(`/orders/${deleteTarget.id}/`);
-      setOrders(prev => prev.filter(o => o.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch {
-      alert("削除に失敗しました");
+      await apiClient.post(`/orders/${cancelTarget.id}/cancel-request/`, { reason: cancelReason.trim() });
+      setSnack({ msg: "キャンセル申請を送信しました", severity: "success" });
+      setCancelTarget(null);
+    } catch (e: any) {
+      setSnack({ msg: e?.response?.data?.detail || "申請に失敗しました", severity: "error" });
+    } finally {
+      setCancelLoading(false);
     }
   };
+
 
   const fmt = (v: any) => v ? `¥${Math.round(Number(v)).toLocaleString()}` : "-";
   const fmtDate = (d: string | null) =>
@@ -396,7 +405,10 @@ function OrderListPageInner() {
                         <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
                         <ListItemText>詳細</ListItemText>
                       </MenuItem>
-                      <MenuItem onClick={() => handleAction("edit", o.id)}>
+                      <MenuItem
+                        onClick={() => handleAction("edit", o.id)}
+                        disabled={o.status === "cancelled"}
+                      >
                         <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
                         <ListItemText>編集</ListItemText>
                       </MenuItem>
@@ -404,10 +416,12 @@ function OrderListPageInner() {
                         <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
                         <ListItemText>複製</ListItemText>
                       </MenuItem>
-                      <MenuItem onClick={() => handleAction("delete", o.id)} sx={{ color: "error.main" }}>
-                        <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-                        <ListItemText>削除</ListItemText>
-                      </MenuItem>
+                      {["ordered", "delivered", "sales_completed"].includes(o.status) && (
+                        <MenuItem onClick={() => handleAction("cancel_request", o.id)} sx={{ color: "warning.main" }}>
+                          <ListItemIcon><CancelIcon fontSize="small" color="warning" /></ListItemIcon>
+                          <ListItemText>キャンセル申請</ListItemText>
+                        </MenuItem>
+                      )}
                     </Menu>
                   </TableCell>
                 </TableRow>
@@ -417,19 +431,46 @@ function OrderListPageInner() {
         </Table>
       </TableContainer>
 
-      {/* ── 削除確認 ── */}
-      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>受注削除の確認</DialogTitle>
+      {/* ── キャンセル申請ダイアログ ── */}
+      <Dialog open={Boolean(cancelTarget)} onClose={() => !cancelLoading && setCancelTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>キャンセル申請</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            この受注を削除しますか？この操作は取り消せません。
+          <DialogContentText sx={{ mb: 2 }}>
+            {cancelTarget?.party_name} の受注についてキャンセルを申請します。理由を入力してください。
           </DialogContentText>
+          <TextField
+            label="キャンセル理由"
+            multiline
+            rows={3}
+            fullWidth
+            value={cancelReason}
+            onChange={e => setCancelReason(e.target.value)}
+            required
+            autoFocus
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>キャンセル</Button>
-          <Button color="error" variant="contained" onClick={handleDelete}>削除する</Button>
+          <Button onClick={() => setCancelTarget(null)} disabled={cancelLoading}>閉じる</Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={submitCancelRequest}
+            disabled={!cancelReason.trim() || cancelLoading}
+          >
+            {cancelLoading ? <CircularProgress size={18} /> : "申請する"}
+          </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── スナックバー ── */}
+      <Snackbar
+        open={Boolean(snack)}
+        autoHideDuration={4000}
+        onClose={() => setSnack(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity={snack?.severity} onClose={() => setSnack(null)}>{snack?.msg}</Alert>
+      </Snackbar>
     </>
   );
 }

@@ -30,6 +30,7 @@ class ShopSerializer(serializers.ModelSerializer):
             "fax",
             "email",
             "opening_hours",
+            "closing_day",
             "note",
         ]
 

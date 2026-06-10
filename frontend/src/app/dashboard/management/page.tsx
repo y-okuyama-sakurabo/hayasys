@@ -39,6 +39,7 @@ import SearchIcon      from "@mui/icons-material/Search";
 import DownloadIcon    from "@mui/icons-material/Download";
 import apiClient from "@/lib/apiClient";
 import JaDatePicker from "@/components/common/JaDatePicker";
+import { useUserRole, isPrivileged } from "@/hooks/useUserRole";
 
 // ========================
 // ソート用ユーティリティ
@@ -108,6 +109,7 @@ const formatPrice = (n: number | string) =>
 // ========================
 export default function ManagementPage() {
   const router = useRouter();
+  const userRole = useUserRole();
 
   // ── データ ──
   const [rows,    setRows]    = useState<any[]>([]);
@@ -391,18 +393,20 @@ export default function ManagementPage() {
             </>
           )}
 
-          {/* CSV出力ボタン（右寄せ） */}
-          <Box sx={{ ml: "auto" }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<DownloadIcon />}
-              onClick={handleCsvExport}
-              disabled={!selectedShop}
-            >
-              CSV出力
-            </Button>
-          </Box>
+          {/* CSV出力ボタン（右寄せ、①②のみ） */}
+          {isPrivileged(userRole) && (
+            <Box sx={{ ml: "auto" }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadIcon />}
+                onClick={handleCsvExport}
+                disabled={!selectedShop}
+              >
+                CSV出力
+              </Button>
+            </Box>
+          )}
         </Stack>
 
         <Divider sx={{ mb: 2 }} />

@@ -466,19 +466,6 @@ export default function CategoriesPage() {
               ))}
             </TextField>
 
-            {/* 表示順 */}
-            <TextField
-              label="表示順"
-              size="small"
-              fullWidth
-              type="number"
-              value={form.sort_order}
-              inputProps={{ min: 0, step: 1 }}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))
-              }
-              helperText="数値が小さいほど先に表示されます"
-            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

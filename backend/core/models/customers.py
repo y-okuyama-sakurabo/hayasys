@@ -81,6 +81,14 @@ class CustomerVehicle(models.Model):
     # 現在所有フラグ
     is_current = models.BooleanField(default=True)
 
+    # 受注から自動生成された場合に受注を記録（キャンセル時の逆引き用）
+    source_order = models.ForeignKey(
+        "core.Order",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="created_customer_vehicles",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

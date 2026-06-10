@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import apiClient from "@/lib/apiClient";
+import JaDateTimePicker from "@/components/common/JaDateTimePicker";
 
 type Props = {
   open: boolean;
@@ -93,7 +94,7 @@ export default function ScheduleQuickCreateDialog({
         title: title.trim(),
         start_at: startAt,
         end_at: endAt || null,
-        description: description.trim() || null,
+        description: description.trim(),
         customer: resolvedCustomerId,
       });
       onCreated();
@@ -163,27 +164,20 @@ export default function ScheduleQuickCreateDialog({
           />
 
           {/* 開始 */}
-          <TextField
-            fullWidth
-            size="small"
-            type="datetime-local"
+          <JaDateTimePicker
             label="開始"
-            InputLabelProps={{ shrink: true }}
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
+            value={startAt || null}
+            onChange={(v) => setStartAt(v ?? "")}
+            required
             error={!!errors.startAt}
             helperText={errors.startAt}
           />
 
           {/* 終了 */}
-          <TextField
-            fullWidth
-            size="small"
-            type="datetime-local"
+          <JaDateTimePicker
             label="終了（任意）"
-            InputLabelProps={{ shrink: true }}
-            value={endAt}
-            onChange={(e) => setEndAt(e.target.value)}
+            value={endAt || null}
+            onChange={(v) => setEndAt(v ?? "")}
           />
 
           {/* 備考 */}

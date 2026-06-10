@@ -21,6 +21,7 @@ import {
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import PersonIcon     from "@mui/icons-material/Person";
 import NotesIcon      from "@mui/icons-material/Notes";
+import JaDateTimePicker from "@/components/common/JaDateTimePicker";
 
 type Customer = { id: number; name: string };
 
@@ -113,23 +114,18 @@ export default function ScheduleCreateDialog({
               </Typography>
             </Stack>
             <Stack direction="row" spacing={2}>
-              <TextField
-                type="datetime-local"
+              <JaDateTimePicker
                 label="開始 *"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
                 value={schedule.start_at}
-                onChange={(e) => onChange({ ...schedule, start_at: e.target.value })}
+                onChange={(v) => onChange({ ...schedule, start_at: v ?? "" })}
+                required
                 error={!!errors.start_at}
                 helperText={errors.start_at}
               />
-              <TextField
-                type="datetime-local"
-                label="終了"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                value={schedule.end_at || ""}
-                onChange={(e) => onChange({ ...schedule, end_at: e.target.value || null })}
+              <JaDateTimePicker
+                label="終了（任意）"
+                value={schedule.end_at || null}
+                onChange={(v) => onChange({ ...schedule, end_at: v })}
               />
             </Stack>
           </Stack>

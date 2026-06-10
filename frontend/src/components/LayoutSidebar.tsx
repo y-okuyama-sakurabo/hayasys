@@ -41,9 +41,11 @@ import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import HistoryIcon     from "@mui/icons-material/History";
 import StoreIcon       from "@mui/icons-material/Store";
 import BusinessIcon    from "@mui/icons-material/Business";
+import CreditCardIcon  from "@mui/icons-material/CreditCard";
 import apiClient from "@/lib/apiClient";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import InactivityWarningDialog from "@/components/InactivityWarningDialog";
+import { useUserRole, isPrivileged, clearRoleCache } from "@/hooks/useUserRole";
 
 const drawerWidth = 240;
 
@@ -52,8 +54,8 @@ const drawerWidth = 240;
 // ─────────────────────────────────────────────
 type ChildItem = { text: string; path: string; icon?: React.ReactNode };
 type MenuItem =
-  | { text: string; icon: React.ReactNode; path: string; children?: undefined }
-  | { text: string; icon: React.ReactNode; children: ChildItem[]; path?: undefined };
+  | { text: string; icon: React.ReactNode; path: string; children?: undefined; privilegedOnly?: boolean }
+  | { text: string; icon: React.ReactNode; children: ChildItem[]; path?: undefined; privilegedOnly?: boolean };
 
 // ─────────────────────────────────────────────
 // メニュー定義
@@ -75,15 +77,18 @@ const MENUS: MenuItem[] = [
     ],
   },
   { text: "帳票管理", icon: <ArticleIcon />, path: "/dashboard/reports" },
+  { text: "キャンセル承認", icon: <Description />, path: "/dashboard/cancel-requests", privilegedOnly: true },
   {
     text: "システム設定",
     icon: <Settings />,
+    privilegedOnly: true,
     children: [
       { text: "スタッフ管理",   path: "/dashboard/staffs",               icon: <AdminPanelSettingsIcon fontSize="small" /> },
       { text: "店舗管理",       path: "/dashboard/settings/shops",        icon: <StoreIcon fontSize="small" /> },
       { text: "会社設定",       path: "/dashboard/settings/company",      icon: <BusinessIcon fontSize="small" /> },
-      { text: "カテゴリ管理",   path: "/dashboard/settings/categories",   icon: <AccountTreeIcon fontSize="small" /> },
-      { text: "操作ログ",       path: "/dashboard/audit-logs",            icon: <HistoryIcon fontSize="small" /> },
+      { text: "カテゴリ管理",   path: "/dashboard/settings/categories",        icon: <AccountTreeIcon fontSize="small" /> },
+      { text: "支払会社管理",   path: "/dashboard/settings/payment-companies", icon: <CreditCardIcon fontSize="small" /> },
+      { text: "操作ログ",       path: "/dashboard/audit-logs",                 icon: <HistoryIcon fontSize="small" /> },
     ],
   },
 ];
@@ -94,6 +99,7 @@ const MENUS: MenuItem[] = [
 export default function LayoutSidebar({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const pathname = usePathname();
+  const userRole = useUserRole();
 
   const [displayName,    setDisplayName]    = React.useState("");
   const [shopName,       setShopName]       = React.useState("");
@@ -132,6 +138,7 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
   // ── ログアウト ────────────────────────────
   const handleLogout = async () => {
     try { await apiClient.post("/auth/logout/"); } catch {}
+    clearRoleCache();
     setLogoutDialogOpen(false);
     router.push("/login");
   };
@@ -239,7 +246,7 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
         <Toolbar />
         <Box sx={{ overflow: "auto", pb: 4 }}>
           <List dense>
-            {MENUS.map((item, idx) => {
+            {MENUS.filter((item) => !item.privilegedOnly || isPrivileged(userRole)).map((item, idx) => {
               // ── サブメニューあり ──
               if (item.children) {
                 const isOpen = !!openSubMenus[item.text];

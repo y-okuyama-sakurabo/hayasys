@@ -20,6 +20,7 @@ from core.models import (
 from core.models.masters import Gender, CustomerClass, Region
 from core.models import EstimateVehicleRegistration
 
+from core.serializers.masters import CustomerClassSerializer
 from core.serializers.estimate_items import EstimateItemSerializer
 from core.serializers.estimate_vehicles import EstimateVehicleSerializer
 from core.serializers.payment import PaymentSerializer
@@ -45,6 +46,7 @@ class EstimatePartySerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    customer_class_detail = CustomerClassSerializer(source="customer_class", read_only=True)
     region = serializers.PrimaryKeyRelatedField(
         queryset=Region.objects.all(),
         required=False,
@@ -110,6 +112,9 @@ class EstimateSerializer(serializers.ModelSerializer):
 
     # 書き込み用
     insurance_payload = serializers.DictField(write_only=True, required=False)
+
+    # 納車予定（書き込み専用）
+    schedule = serializers.DictField(write_only=True, required=False, allow_null=True)
 
     created_by = CreatedBySerializer(read_only=True)
 
@@ -183,11 +188,13 @@ class EstimateSerializer(serializers.ModelSerializer):
         ct = ContentType.objects.get_for_model(Estimate)
 
         for s in settlements_data:
+            company = s.get("company")
             Settlement.objects.create(
                 content_type=ct,
                 object_id=estimate.id,
                 settlement_type=s["settlement_type"],
                 amount=s["amount"],
+                company=company if hasattr(company, "pk") else None,
             )
 
     # =========================================
@@ -285,6 +292,36 @@ class EstimateSerializer(serializers.ModelSerializer):
             if trade_flag not in seen_trade_flags:
                 vehicle.delete()
 
+    def _upsert_schedule(self, estimate, schedule_data):
+        if not schedule_data:
+            return
+        start_at = schedule_data.get("start_at")
+        if not start_at:
+            return
+        existing = Schedule.objects.filter(estimate=estimate).first()
+        fields = {
+            "title": "納車予定日",
+            "start_at": start_at,
+            "end_at": schedule_data.get("end_at", start_at),
+            "delivery_method": schedule_data.get("delivery_method", ""),
+            "delivery_shop_id": schedule_data.get("delivery_shop"),
+            "description": schedule_data.get("description", ""),
+            "schedule_type": "delivery",
+            "estimate": estimate,
+            "order": None,
+        }
+        if existing:
+            for k, v in fields.items():
+                setattr(existing, k, v)
+            existing.save()
+        else:
+            Schedule.objects.create(
+                staff_id=estimate.created_by_id,
+                shop=estimate.shop,
+                customer=estimate.party.source_customer if estimate.party else None,
+                **fields,
+            )
+
     # =========================================
     # CREATE
     # =========================================
@@ -321,6 +358,7 @@ class EstimateSerializer(serializers.ModelSerializer):
         self._upsert_vehicle(estimate, vehicles_data)
         self._create_settlements(estimate, settlements_data)
         self._upsert_payment(estimate, payment_data, settlements_data)
+        self._upsert_schedule(estimate, schedule_data)
 
         return estimate
 
@@ -388,6 +426,8 @@ class EstimateSerializer(serializers.ModelSerializer):
                 estimate=instance,
                 **insurance_data
             )
+
+        self._upsert_schedule(instance, schedule_data)
 
         return instance
     

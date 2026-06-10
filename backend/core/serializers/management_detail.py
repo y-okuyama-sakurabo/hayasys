@@ -34,9 +34,14 @@ class DeliveryItemSerializer(serializers.ModelSerializer):
 
 
 class PaymentRecordSerializer(serializers.ModelSerializer):
+    company_name = serializers.SerializerMethodField()
+
     class Meta:
         model = PaymentRecord
-        fields = ["id", "amount", "payment_date", "method", "memo"]
+        fields = ["id", "amount", "payment_date", "method", "company", "company_name", "memo"]
+
+    def get_company_name(self, obj):
+        return obj.company.name if obj.company else None
 
 
 class ManagementDeliverySerializer(serializers.ModelSerializer):

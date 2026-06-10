@@ -33,9 +33,9 @@ const VEHICLE_MODES = [
   },
   {
     value: "maintenance",
-    label: "既存車両",
+    label: "整備・修理",
     icon: <BuildIcon />,
-    description: "整備・メンテナンス",
+    description: "",
   },
   {
     value: "none",
@@ -182,13 +182,14 @@ export default function BasicInfoForm({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 0.5,
                 px: 3,
                 py: 1.5,
                 borderRadius: "10px !important",
                 border: "1px solid",
                 borderColor: "divider",
-                minWidth: 110,
+                width: 158,
                 textTransform: "none",
                 "&.Mui-selected": {
                   bgcolor: "primary.main",
@@ -205,9 +206,14 @@ export default function BasicInfoForm({
               <Typography
                 variant="caption"
                 lineHeight={1.2}
-                sx={{ opacity: 0.75, display: { xs: "none", sm: "block" } }}
+                sx={{
+                  opacity: 0.75,
+                  display: { xs: "none", sm: "block" },
+                  visibility: mode.description ? "visible" : "hidden",
+                  whiteSpace: "nowrap",
+                }}
               >
-                {mode.description}
+                {mode.description || " "}
               </Typography>
             </ToggleButton>
           ))}

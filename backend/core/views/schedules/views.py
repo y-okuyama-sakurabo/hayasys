@@ -73,6 +73,9 @@ class ScheduleListCreateAPIView(generics.ListCreateAPIView):
                 end_at__gte=start
             )
 
+        # 見積のみのスケジュールはカレンダーに表示しない
+        qs = qs.filter(order__isnull=False)
+
         return qs.order_by("start_at")
 
     def perform_create(self, serializer):

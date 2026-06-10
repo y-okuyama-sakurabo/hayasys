@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 
 
 class Settlement(models.Model):
+    # company は loan / card / qr のときに使用
     """支払い内訳（見積・受注共通）"""
 
     SETTLEMENT_TYPE_CHOICES = [
@@ -22,7 +23,12 @@ class Settlement(models.Model):
     content_object = GenericForeignKey("content_type", "object_id")
 
     settlement_type = models.CharField(max_length=30, choices=SETTLEMENT_TYPE_CHOICES)
-
+    company = models.ForeignKey(
+        "core.PaymentCompany",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="settlements",
+    )
     amount = models.DecimalField(max_digits=12, decimal_places=0, default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)

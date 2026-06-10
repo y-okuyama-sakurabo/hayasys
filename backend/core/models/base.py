@@ -10,6 +10,7 @@ class Shop(models.Model):
     fax = models.CharField(max_length=20, blank=True)
     email = models.EmailField(max_length=255, blank=True)
     opening_hours = models.CharField(max_length=100, blank=True)
+    closing_day = models.CharField(max_length=100, blank=True)
     note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

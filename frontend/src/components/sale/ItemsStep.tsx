@@ -341,7 +341,7 @@ function SortableItemCard({
             {/* 単位（narrow） */}
             <Box sx={{ width: 80, flexShrink: 0 }}>
               <TextField
-                select fullWidth size="small" label="単位"
+                select fullWidth size="small" label="単位・処置"
                 value={item?.unit ?? ""}
                 onChange={(e) =>
                   handleChange(originalIndex, "unit", e.target.value === "" ? null : Number(e.target.value))

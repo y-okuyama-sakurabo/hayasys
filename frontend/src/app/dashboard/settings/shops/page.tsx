@@ -42,6 +42,7 @@ type Shop = {
   fax: string;
   email: string;
   opening_hours: string;
+  closing_day: string;
   note: string;
 };
 
@@ -60,6 +61,7 @@ type FormData = {
   fax: string;
   email: string;
   opening_hours: string;
+  closing_day: string;
   note: string;
 };
 
@@ -72,6 +74,7 @@ const emptyForm = (): FormData => ({
   fax: "",
   email: "",
   opening_hours: "",
+  closing_day: "",
   note: "",
 });
 
@@ -123,15 +126,16 @@ export default function ShopsPage() {
   const handleOpenEdit = (shop: Shop) => {
     setEditTarget(shop);
     setForm({
-      code:          shop.code,
-      name:          shop.name,
-      postal_code:   shop.postal_code,
-      location:      shop.location,
-      phone:         shop.phone,
-      fax:           shop.fax,
-      email:         shop.email,
-      opening_hours: shop.opening_hours,
-      note:          shop.note,
+      code:          shop.code ?? "",
+      name:          shop.name ?? "",
+      postal_code:   shop.postal_code ?? "",
+      location:      shop.location ?? "",
+      phone:         shop.phone ?? "",
+      fax:           shop.fax ?? "",
+      email:         shop.email ?? "",
+      opening_hours: shop.opening_hours ?? "",
+      closing_day:   shop.closing_day ?? "",
+      note:          shop.note ?? "",
     });
     setFormError(null);
     setDialogOpen(true);
@@ -239,6 +243,8 @@ export default function ShopsPage() {
                 <TableCell sx={{ fontWeight: "bold", width: 110 }}>郵便番号</TableCell>
                 <TableCell sx={{ fontWeight: "bold" }}>所在地</TableCell>
                 <TableCell sx={{ fontWeight: "bold", width: 140 }}>電話番号</TableCell>
+                <TableCell sx={{ fontWeight: "bold", width: 130 }}>営業時間</TableCell>
+                <TableCell sx={{ fontWeight: "bold", width: 110 }}>定休日</TableCell>
                 <TableCell sx={{ width: 88 }} />
               </TableRow>
             </TableHead>
@@ -270,6 +276,16 @@ export default function ShopsPage() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{shop.phone || "—"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {shop.opening_hours || "—"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {shop.closing_day || "—"}
+                    </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="編集">
@@ -367,6 +383,14 @@ export default function ShopsPage() {
                 value={form.opening_hours}
                 onChange={setField("opening_hours")}
                 placeholder="例: 10:00〜19:00"
+              />
+              <TextField
+                label="定休日"
+                size="small"
+                fullWidth
+                value={form.closing_day}
+                onChange={setField("closing_day")}
+                placeholder="例: 水曜日"
               />
             </Stack>
             <TextField

@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from core.models.order_vehicle import OrderVehicle
 from core.models.categories import Category
+from core.models.categories import Manufacturer
 from core.serializers.masters import ManufacturerSerializer
 from core.models.customers import CustomerVehicle
 from core.serializers.order_vehicle_registrations import (
@@ -10,7 +11,12 @@ from core.serializers.order_vehicle_registrations import (
 
 
 class OrderVehicleSerializer(serializers.ModelSerializer):
-    manufacturer = ManufacturerSerializer(read_only=True)
+    manufacturer = serializers.PrimaryKeyRelatedField(
+        queryset=Manufacturer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    manufacturer_detail = ManufacturerSerializer(source="manufacturer", read_only=True)
 
     registrations = OrderVehicleRegistrationSerializer(
         many=True,
@@ -52,6 +58,7 @@ class OrderVehicleSerializer(serializers.ModelSerializer):
             "model_year",
             "sale_type",
             "manufacturer",
+            "manufacturer_detail",
             "category",
             "color",
             "color_name",

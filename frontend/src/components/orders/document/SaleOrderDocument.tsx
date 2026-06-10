@@ -5,9 +5,8 @@ import { Box, Typography, Grid } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 
 // ─── ページあたりの行数 ───────────────────────────────────────
-const ITEMS_PER_FIRST_PAGE        = 6;
-const ITEMS_PER_PAGE              = 13;
-const FEE_MIN_ROWS                = 4;
+const ITEMS_PER_PAGE = 13;  // 明細続きページの行数
+const FEE_MIN_ROWS   = 4;
 const SINGLE_PAGE_MAX_SALE        = 6;
 const SINGLE_PAGE_MAX_MAINTENANCE = 8;
 
@@ -21,6 +20,16 @@ const fmtOrDash = (v: any) =>
   v == null || v === "" || isNaN(Number(v))
     ? "—"
     : `¥${Number(v).toLocaleString()}`;
+
+/** 数値に3桁区切りのカンマを入れる（ローン欄など） */
+const fmtNum = (v: any) =>
+  v == null || v === "" || isNaN(Number(v))
+    ? ""
+    : Number(v).toLocaleString();
+
+/** 顧客分類に応じた敬称（法人・業販＝御中／個人＝様） */
+const honorific = (customer: any) =>
+  customer?.customer_class?.code === "PERSONAL" ? "様" : "御中";
 
 function fmtPhone(v: string | null | undefined): string {
   if (!v) return "";
@@ -164,7 +173,7 @@ export function SaleOrderDocument({ order }: { order: any }) {
             </Typography>
           )}
           <Typography sx={{ fontSize: "16pt", fontWeight: "bold", lineHeight: 1.2, mt: 0.3 }}>
-            {order.customer?.name} 様
+            {order.customer?.name} {honorific(order.customer)}
           </Typography>
           <Typography sx={{ fontSize: "10pt", mt: 0.2 }}>
             TEL：{fmtPhone(order.customer?.phone || order.customer?.mobile_phone)}
@@ -235,17 +244,18 @@ export function SaleOrderDocument({ order }: { order: any }) {
   );
 
   /** 通常明細テーブル */
-  const renderNormalTable = (items: any[], emptyRows: number) => (
+  const renderNormalTable = (items: any[], emptyRows: number, continueNote?: string, startNo: number = 0) => (
     <Box>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt", border: "1px solid #000" }}>
         <thead>
           <tr>
-            <Th align="left"   width="40%">商品名</Th>
-            <Th align="right"  width="6%">数量</Th>
-            <Th align="center" width="4%">単位</Th>
-            <Th align="right"  width="10%">単価</Th>
-            <Th align="right"  width="11%">工賃</Th>
-            <Th align="right"  width="15%">金額（税込）</Th>
+            <Th align="center" width="5%">No.</Th>
+            <Th align="center" width="33%">摘要</Th>
+            <Th align="center" width="6%">数量</Th>
+            <Th align="center" width="6%">単位・処置</Th>
+            <Th align="center" width="10%">単価</Th>
+            <Th align="center" width="11%">作業料</Th>
+            <Th align="center" width="15%">金額（税込）</Th>
           </tr>
         </thead>
         <tbody>
@@ -253,6 +263,7 @@ export function SaleOrderDocument({ order }: { order: any }) {
             const line = calcLine(item);
             return (
               <tr key={i}>
+                <Td align="center">{startNo + i + 1}</Td>
                 <Td align="left">{item.name}</Td>
                 <Td align="right">{Math.round(Number(item.quantity ?? 0))}</Td>
                 <Td align="center">{item.unit_detail?.name || ""}</Td>
@@ -264,12 +275,18 @@ export function SaleOrderDocument({ order }: { order: any }) {
           })}
           {Array.from({ length: emptyRows }).map((_, i) => (
             <tr key={`empty-${i}`}>
-              {[0,1,2,3,4,5].map(j => <Td key={j}>&nbsp;</Td>)}
+              <Td align="center">&nbsp;</Td>
+              <Td align="left">
+                {continueNote && i === 0
+                  ? <span style={{ color: "#888" }}>{continueNote}</span>
+                  : <>&nbsp;</>}
+              </Td>
+              {[2,3,4,5,6].map(j => <Td key={j}>&nbsp;</Td>)}
             </tr>
           ))}
           {/* 合計行 */}
           <tr>
-            <td colSpan={4}
+            <td colSpan={5}
               style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", background: "#f5f5f5" }}
             />
             <td style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", textAlign: "right",
@@ -330,20 +347,42 @@ export function SaleOrderDocument({ order }: { order: any }) {
 
   // ══════════════════════════════════════════════════════════
   //  多ページレイアウト
+  //  → 1ページ目の構成（明細＋費用＋スケジュール＋保険＋フッター）は
+  //    1ページレイアウトと全く同じまま変えず、明細の許容量を超えた分だけ
+  //    2ページ目以降に「明細のみ」の続きページとして送る
   // ══════════════════════════════════════════════════════════
-  const itemChunks = chunkArray(normalItems, ITEMS_PER_FIRST_PAGE, ITEMS_PER_PAGE);
+  const hasItemOverflow    = normalItems.length > maxItemsForSingle;
+  const firstPageItemCount = hasItemOverflow ? maxItemsForSingle - 1 : maxItemsForSingle;
+  const firstPageItems     = normalItems.slice(0, firstPageItemCount);
+  const continuationItems  = normalItems.slice(firstPageItemCount);
+  const continueNote       = hasItemOverflow ? "※ 続きは2ページ目をご覧ください" : undefined;
+  const emptyRowsFirst     = Math.max(0, maxItemsForSingle - firstPageItems.length);
+
+  const continuationChunks = chunkArray(continuationItems, ITEMS_PER_PAGE, ITEMS_PER_PAGE);
 
   return (
     <>
-      {itemChunks.map((items, pageIdx) => {
-        const isFirst   = pageIdx === 0;
-        const isLast    = pageIdx === itemChunks.length - 1;
-        const minRows   = isFirst ? ITEMS_PER_FIRST_PAGE : ITEMS_PER_PAGE;
-        const emptyRows = Math.max(0, minRows - items.length);
+      {/* ── 1ページ目（構成は1ページレイアウトと同一） ── */}
+      <Box
+        sx={{
+          ...PAGE_SX,
+          gap: "2mm",
+          pageBreakAfter: continuationChunks.length > 0 ? "always" : "auto",
+        }}
+      >
+        {headerJSX}
+        {renderNormalTable(firstPageItems, emptyRowsFirst, continueNote)}
+        {renderFeeSection(tRowsAll, ntRowsAll)}
+        {renderFooterSection()}
+      </Box>
 
+      {/* ── 明細続きページ（明細のみ） ── */}
+      {continuationChunks.map((items, idx) => {
+        const isLast    = idx === continuationChunks.length - 1;
+        const emptyRows = Math.max(0, ITEMS_PER_PAGE - items.length);
         return (
           <Box
-            key={pageIdx}
+            key={`item-cont-${idx}`}
             sx={{
               ...PAGE_SX,
               gap: "4mm",
@@ -351,23 +390,17 @@ export function SaleOrderDocument({ order }: { order: any }) {
               pageBreakInside: "avoid",
             }}
           >
-            {isFirst && headerJSX}
+            {/* ミニヘッダー */}
+            <Box sx={{
+              display: "flex", justifyContent: "space-between",
+              borderBottom: "1px solid #ccc", pb: 0.5, mb: 1,
+              fontSize: "8pt", color: "#666", flexShrink: 0,
+            }}>
+              <span>{order.customer?.name} {honorific(order.customer)}　　{order.order_no || order.estimate_no}</span>
+              <span>明細　{idx + 2} ページ</span>
+            </Box>
 
-            {!isFirst && (
-              <Box sx={{
-                display: "flex", justifyContent: "space-between",
-                borderBottom: "1px solid #ccc", pb: 0.5, mb: 1,
-                fontSize: "8pt", color: "#666", flexShrink: 0,
-              }}>
-                <span>{order.customer?.name} 様　　{order.order_no || order.estimate_no}</span>
-                <span>明細　{pageIdx + 1} ページ</span>
-              </Box>
-            )}
-
-            {renderNormalTable(items, emptyRows)}
-
-            {isLast && renderFeeSection(tRowsAll, ntRowsAll)}
-            {isLast && renderFooterSection()}
+            {renderNormalTable(items, emptyRows, undefined, firstPageItemCount + idx * ITEMS_PER_PAGE)}
           </Box>
         );
       })}
@@ -494,7 +527,10 @@ function Footer({ order, registrationNumber }: any) {
               {registrationNumber && <span>登録番号：{registrationNumber}</span>}
             </div>
             <div>{order.shop?.location || ""}</div>
-            <div>営業：{order.shop?.opening_hours || ""}</div>
+            <div>
+              <span>営業時間：{order.shop?.opening_hours || ""}</span>
+              <span>　定休日：{order.shop?.closing_day || ""}</span>
+            </div>
           </Box>
           <Box
             component="img"
@@ -505,6 +541,7 @@ function Footer({ order, registrationNumber }: any) {
           <Box sx={{ fontSize: "8.5pt", color: "#444", lineHeight: 1.5 }}>
             <div>TEL {order.shop?.phone || ""}　Fax {order.shop?.fax || ""}</div>
             <div>担当：{order.created_by?.display_name || ""}　{order.shop?.name || ""}</div>
+            <div style={{ textAlign: "right" }}>株式会社早坂サイクル商会</div>
           </Box>
         </Box>
       </Box>
@@ -553,6 +590,7 @@ function Th({ children, align = "center", width }: {
   return (
     <th style={{
       borderTop: "1px solid #000", borderBottom: "1px solid #000",
+      borderLeft: "1px solid #000",
       padding: "3px 4px", background: "#f0f0f0",
       textAlign: align as any, whiteSpace: "nowrap", width,
     }}>
@@ -565,7 +603,7 @@ function Td({ children, align = "left" }: {
   children?: React.ReactNode; align?: string;
 }) {
   return (
-    <td style={{ padding: "3px 4px", textAlign: align as any }}>
+    <td style={{ padding: "3px 4px", textAlign: align as any, borderLeft: "1px solid #000" }}>
       {children}
     </td>
   );
@@ -654,9 +692,9 @@ function VCell({ label, value }: { label: string; value: any }) {
 function CreditSection({ order }: any) {
   const p = order?.payments?.[0];
   const rows = [
-    [{ label: "会社名",   value: p?.credit_company       }, { label: "回数",      value: p?.credit_installments  }],
-    [{ label: "初回支払", value: p?.credit_first_payment }, { label: "2回目以降", value: p?.credit_second_payment }],
-    [{ label: "ボーナス", value: p?.credit_bonus_payment }, { label: "支払開始",  value: p?.credit_start_month   }],
+    [{ label: "会社名",   value: p?.credit_company             }, { label: "回数",      value: p?.credit_installments        }],
+    [{ label: "初回支払", value: fmtNum(p?.credit_first_payment) }, { label: "2回目以降", value: fmtNum(p?.credit_second_payment) }],
+    [{ label: "ボーナス", value: fmtNum(p?.credit_bonus_payment) }, { label: "支払開始",  value: p?.credit_start_month         }],
   ];
   return (
     <table style={{

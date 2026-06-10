@@ -570,9 +570,11 @@ class PrepareOrderFromEstimateAPIView(APIView):
                 trade_in_vehicle = data
             else:
                 # ★ target側にカテゴリと価格も入れる（VehicleStepが使える）
-                data["category_id"] = vehicle_category_id
+                # 整備・修理モードは item_type="vehicle" がないので EstimateVehicle の category にフォールバック
+                data["category_id"] = vehicle_category_id or v.category_id
                 data["unit_price"] = vehicle_unit_price
                 data["discount"] = vehicle_discount
+                data["source_customer_vehicle"] = v.source_customer_vehicle_id
                 target_vehicle = data
 
         # ===== 支払い（見積の Payment → orderの payments 形式へ）=====
@@ -711,6 +713,9 @@ class OrderStatusUpdateAPIView(APIView):
             update_fields.append("order_date")
 
         order.save(update_fields=update_fields)
+
+        if new_status == "ordered":
+            create_customer_vehicle_from_order(order)
 
         try:
             write_audit_log(

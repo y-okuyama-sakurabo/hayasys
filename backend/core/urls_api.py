@@ -24,6 +24,10 @@ from core.views.masters.manufacturers import ManufacturerListView
 from core.views.masters.vehiclecategories import VehicleCategoryListView
 from core.views.masters.registration_locations import RegistrationLocationListView
 from core.views.masters.unit import UnitListAPIView
+from core.views.masters.payment_company import (
+    PaymentCompanyListCreateAPIView,
+    PaymentCompanyRetrieveUpdateDestroyAPIView,
+)
 
 # === Dashboard ===
 from core.views.dashboard.views import DashboardAPIView
@@ -148,6 +152,17 @@ from core.views.orders.items import (
 )
 from core.views.orders.mark_sales_view import OrderMarkSalesAPIView
 
+# === Cancel Requests ===
+from core.views.cancel_request_views import (
+    CancelRequestListView,
+    create_cancel_request,
+    approve_cancel_request,
+    reject_cancel_request,
+    order_cancel_request_status,
+    uncancel_order,
+    delete_order_privileged,
+)
+
 # === Deliveries ===
 from core.views.deliveries.views import (
     DeliveryCreateAPIView,
@@ -224,6 +239,8 @@ urlpatterns = [
     path("masters/vehiclecategories/", VehicleCategoryListView.as_view()),
     path("masters/registration_locations/", RegistrationLocationListView.as_view()),
     path("masters/units/", UnitListAPIView.as_view()),
+    path("masters/payment-companies/", PaymentCompanyListCreateAPIView.as_view()),
+    path("masters/payment-companies/<int:pk>/", PaymentCompanyRetrieveUpdateDestroyAPIView.as_view()),
 
     # =========================
     # Dashboard
@@ -309,6 +326,13 @@ urlpatterns = [
     path("orders/<int:order_id>/items/", OrderItemListCreateAPIView.as_view()),
     path("order-items/<int:pk>/", OrderItemRetrieveUpdateDestroyAPIView.as_view()),
     path("orders/<int:pk>/mark-sales/", OrderMarkSalesAPIView.as_view()),
+    path("orders/<int:order_id>/cancel-request/", create_cancel_request),
+    path("orders/<int:order_id>/cancel-request/status/", order_cancel_request_status),
+    path("cancel-requests/", CancelRequestListView.as_view()),
+    path("cancel-requests/<int:pk>/approve/", approve_cancel_request),
+    path("cancel-requests/<int:pk>/reject/",  reject_cancel_request),
+    path("orders/<int:pk>/uncancel/",          uncancel_order),
+    path("orders/<int:pk>/force-delete/",      delete_order_privileged),
     path("orders/<int:pk>/status/", OrderStatusUpdateAPIView.as_view()),
 
     # =========================

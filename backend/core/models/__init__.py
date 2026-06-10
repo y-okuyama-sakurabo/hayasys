@@ -24,3 +24,5 @@ from .order_vehicle_registration import OrderVehicleRegistration
 from .settlements import Settlement
 from .unit import Unit
 from .insurance import Insurance
+from .payment_company import PaymentCompany
+from .cancel_request import CancelRequest

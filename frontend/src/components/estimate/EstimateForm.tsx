@@ -319,6 +319,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
                   description: estimate.schedule.description,
                 }
               : initialState.schedule,
+            insurance: estimate.insurance || initialState.insurance,
             vehicle: vehicle
               ? {
                   ...vehicle,
@@ -326,10 +327,32 @@ export default function EstimateForm({ mode, estimateId }: Props) {
                     typeof vehicle.manufacturer === "object"
                       ? vehicle.manufacturer.id
                       : vehicle.manufacturer ?? null,
-                  category_id: vehicleItem?.category?.id ?? null,
+                  category_id: vehicleItem?.category?.id ?? vehicle.category?.id ?? vehicle.category_id ?? null,
                   unit_price: vehicleItem?.unit_price ?? 0,
                 }
               : null,
+            tradeInVehicle: (() => {
+              const v = estimate.vehicles?.find((x: any) => x.is_trade_in);
+              if (!v) return null;
+              return {
+                category_id: v.category?.id ?? v.category ?? null,
+                manufacturer: typeof v.manufacturer === "object" ? v.manufacturer?.id ?? null : v.manufacturer ?? null,
+                vehicle_name: v.vehicle_name ?? "",
+                model_year: v.model_year ?? "",
+                chassis_no: v.chassis_no ?? "",
+                displacement: v.displacement ?? null,
+                engine_type: v.engine_type ?? "",
+                model_code: v.model_code ?? "",
+                color: v.color?.id ?? v.color ?? null,
+                color_name: v.color_name ?? "",
+                color_code: v.color_code ?? "",
+                sale_type: v.sale_type ?? "",
+                source_customer_vehicle: v.source_customer_vehicle ?? null,
+                registrations: v.registrations ?? [],
+                unit_price: 0,
+                discount: 0,
+              };
+            })(),
           },
         });
       } catch (e) {
@@ -406,15 +429,39 @@ export default function EstimateForm({ mode, estimateId }: Props) {
                   description: estimate.schedule.description,
                 }
               : initialState.schedule,
+            insurance: estimate.insurance || initialState.insurance,
             vehicle: vehicle
               ? {
                   ...vehicle,
                   manufacturer:
                     vehicle.manufacturer_detail?.id ?? vehicle.manufacturer ?? null,
-                  category_id: vehicleItem?.category?.id ?? null,
+                  category_id: vehicleItem?.category?.id ?? vehicle.category?.id ?? vehicle.category_id ?? null,
                   unit_price: vehicleItem?.unit_price ?? 0,
                 }
               : null,
+            tradeInVehicle: (() => {
+              const v = estimate.vehicles?.find((x: any) => x.is_trade_in);
+              if (!v) return null;
+              return {
+                id: v.id ?? null,
+                category_id: v.category?.id ?? v.category ?? null,
+                manufacturer: v.manufacturer_detail?.id ?? v.manufacturer ?? null,
+                vehicle_name: v.vehicle_name ?? "",
+                model_year: v.model_year ?? "",
+                chassis_no: v.chassis_no ?? "",
+                displacement: v.displacement ?? null,
+                engine_type: v.engine_type ?? "",
+                model_code: v.model_code ?? "",
+                color: v.color?.id ?? v.color ?? null,
+                color_name: v.color_name ?? "",
+                color_code: v.color_code ?? "",
+                sale_type: v.sale_type ?? "",
+                source_customer_vehicle: v.source_customer_vehicle ?? null,
+                registrations: v.registrations ?? [],
+                unit_price: 0,
+                discount: 0,
+              };
+            })(),
           },
         });
       } finally {
@@ -427,7 +474,10 @@ export default function EstimateForm({ mode, estimateId }: Props) {
   const saveData = async (): Promise<number | null> => {
     const settlementsPayload = Object.entries(state.basic.settlements || {})
       .filter(([_, value]) => Number(value) > 0)
-      .map(([key, value]) => ({ settlement_type: key, amount: Number(value) }));
+      .map(([key, value]) => ({
+        settlement_type: key,
+        amount: Number(value),
+      }));
 
     const paymentPayload =
       Number(state.basic.settlements?.loan || 0) > 0
@@ -521,6 +571,15 @@ export default function EstimateForm({ mode, estimateId }: Props) {
 
     // ヘッダー・車両・明細・精算・支払いをまとめて1回のAPIコールで送信
     // → バックエンドが atomic に処理するためエラー時に空の見積が残らない
+    const sched = state.schedule;
+    const schedulePayload = sched?.date ? {
+      start_at: sched.start_at || `${sched.date}T${sched.time || "00:00"}:00`,
+      end_at:   sched.start_at || `${sched.date}T${sched.time || "00:00"}:00`,
+      delivery_method: sched.delivery_method || "",
+      delivery_shop:   sched.delivery_shop ?? null,
+      description:     sched.description || "",
+    } : null;
+
     const fullPayload = {
       estimate_no: state.basic.estimate_no,
       shop: state.basic.shop,
@@ -535,6 +594,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       insurance_payload: state.insurance,
       vehicles_payload: vehiclesPayload,
       items: itemsPayload,
+      schedule: schedulePayload,
     };
 
     let id = estimateId ?? state.meta.id;

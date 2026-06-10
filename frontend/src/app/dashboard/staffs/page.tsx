@@ -15,6 +15,7 @@ import FileDownload   from "@mui/icons-material/FileDownload";
 import FileUpload     from "@mui/icons-material/FileUpload";
 import { useRouter }  from "next/navigation";
 import apiClient      from "@/lib/apiClient";
+import { useUserRole, isPrivileged } from "@/hooks/useUserRole";
 
 // ========================
 // ロール表示設定
@@ -43,6 +44,7 @@ const ROLE_COLORS: Record<string, "error" | "warning" | "info" | "success" | "de
 export default function StaffListPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const userRole = useUserRole();
 
   const [staffs,       setStaffs]       = useState<any[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -144,23 +146,27 @@ export default function StaffListPage() {
         <Typography variant="h5" fontWeight="bold">スタッフ管理</Typography>
         {canManage && (
           <Stack direction="row" spacing={1}>
-            <Tooltip title="CSVダウンロード">
-              <Button variant="outlined" size="small" startIcon={<FileDownload />} onClick={handleExport}>
-                エクスポート
-              </Button>
-            </Tooltip>
-            <Tooltip title="CSVから一括登録・更新">
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={importing ? <CircularProgress size={14} /> : <FileUpload />}
-                onClick={() => fileRef.current?.click()}
-                disabled={importing}
-              >
-                インポート
-              </Button>
-            </Tooltip>
-            <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImportFile} />
+            {isPrivileged(userRole) && (
+              <>
+                <Tooltip title="CSVダウンロード">
+                  <Button variant="outlined" size="small" startIcon={<FileDownload />} onClick={handleExport}>
+                    エクスポート
+                  </Button>
+                </Tooltip>
+                <Tooltip title="CSVから一括登録・更新">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={importing ? <CircularProgress size={14} /> : <FileUpload />}
+                    onClick={() => fileRef.current?.click()}
+                    disabled={importing}
+                  >
+                    インポート
+                  </Button>
+                </Tooltip>
+                <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImportFile} />
+              </>
+            )}
             <Button
               variant="contained"
               size="small"

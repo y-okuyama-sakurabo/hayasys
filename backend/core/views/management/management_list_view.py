@@ -20,6 +20,7 @@ class ManagementOrderListAPIView(APIView):
             .prefetch_related(
                 "payment_management__records",
             )
+            .exclude(status="cancelled")
             .order_by("-order_date")
         )
 

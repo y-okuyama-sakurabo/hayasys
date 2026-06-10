@@ -8,3 +8,4 @@ from core.serializers.unit import UnitSerializer
 class UnitListAPIView(generics.ListAPIView):
     queryset = Unit.objects.all().order_by("id")
     serializer_class = UnitSerializer
+    pagination_class = None

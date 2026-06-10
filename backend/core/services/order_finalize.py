@@ -29,7 +29,7 @@ def create_customer_vehicle_from_order(order):
     if not order or not getattr(order, "customer_id", None):
         return None
 
-    if getattr(order, "vehicle_mode", None) != "sale":
+    if getattr(order, "vehicle_mode", None) not in ("sale", "maintenance"):
         return None
 
     # 1) OrderVehicle（商談車両）を取得（1台想定）
@@ -133,6 +133,7 @@ def create_customer_vehicle_from_order(order):
         vehicle=vehicle,
         owned_from=order_date,
         owned_to=None,
+        source_order=order,
     )
 
     return vehicle

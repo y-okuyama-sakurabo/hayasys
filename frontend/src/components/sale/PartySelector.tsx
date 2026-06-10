@@ -168,7 +168,11 @@ export default function PartySelector({
   const handleNameCompositionUpdate = (
     e: React.CompositionEvent<HTMLInputElement>
   ) => {
-    composingHiraganaRef.current = e.data || "";
+    const data = e.data || "";
+    // ひらがなが含まれている間だけ更新（漢字候補選択後はスキップ）
+    if (/[ぁ-ゖ]/.test(data)) {
+      composingHiraganaRef.current = data;
+    }
   };
   const handleNameCompositionEnd = () => {
     if (!kanaAutoRef.current) return;

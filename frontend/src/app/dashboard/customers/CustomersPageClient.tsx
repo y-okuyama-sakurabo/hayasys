@@ -17,6 +17,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import { useRouter, useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import { useUserRole, isPrivileged } from "@/hooks/useUserRole";
 
 type Customer = {
   id: number;
@@ -34,6 +35,7 @@ type Customer = {
 export default function CustomerListPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
+  const userRole     = useUserRole();
 
   const [customers,    setCustomers]    = useState<Customer[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -141,11 +143,13 @@ export default function CustomerListPage() {
           )}
         </Box>
         <Stack direction="row" spacing={1}>
-          <Tooltip title="現在の検索条件でCSVダウンロード">
-            <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={handleExportCsv}>
-              CSV出力
-            </Button>
-          </Tooltip>
+          {isPrivileged(userRole) && (
+            <Tooltip title="現在の検索条件でCSVダウンロード">
+              <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={handleExportCsv}>
+                CSV出力
+              </Button>
+            </Tooltip>
+          )}
           <Button
             variant="contained"
             size="small"

@@ -95,6 +95,7 @@ const initialState: OrderState = {
     vehicle_mode: "sale",
     order_date: dayjs().format("YYYY-MM-DD"),
     payment_method: "現金",
+    settlements: { trade_in: 0, cash: 0, card: 0, loan: 0, qr: 0, coupon: 0, transfer: 0 },
   },
   vehicle: null,
   tradeInVehicle: null,
@@ -592,7 +593,10 @@ export default function OrderForm({ mode, orderId }: Props) {
     const creditAmount = Number(state.basic.settlements?.loan || 0);
     const settlementsPayload = Object.entries(state.basic.settlements || {})
       .filter(([_, v]) => Number(v) > 0)
-      .map(([k, v]) => ({ settlement_type: k, amount: Number(v) }));
+      .map(([k, v]) => ({
+        settlement_type: k,
+        amount: Number(v),
+      }));
 
     const paymentPayload =
       creditAmount > 0

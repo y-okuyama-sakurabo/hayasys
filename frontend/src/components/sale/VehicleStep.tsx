@@ -20,6 +20,9 @@ import {
   InputAdornment,
   Stack,
   Paper,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CategorySelector from "@/components/sale/CategorySelector";
@@ -101,6 +104,22 @@ export default function VehicleStep({
   const [customerVehicles, setCustomerVehicles]         = useState<any[]>([]);
   const [customerVehiclesLoading, setCustomerVehiclesLoading] = useState(false);
   const [chassisError, setChassisError] = useState("");
+
+  // 整備モード時の入力方式（所有車両 or 直接入力）
+  const [maintenanceInputMode, setMaintenanceInputMode] = useState<"owned" | "manual">("owned");
+  const modeInitializedRef = useRef(false);
+
+  // 編集時: vehicle が読み込まれたら入力方式を確定する（一度だけ）
+  useEffect(() => {
+    if (modeInitializedRef.current || !vehicle || vehicleMode !== "maintenance") return;
+    modeInitializedRef.current = true;
+    if (vehicle.source_customer_vehicle) {
+      setMaintenanceInputMode("owned");
+    } else if (vehicle.vehicle_name || vehicle.category_id) {
+      // 所有車両未選択だが車両情報が入力済み → 直接入力モード
+      setMaintenanceInputMode("manual");
+    }
+  }, [vehicle]);
 
   const isFirstCategoryLoad = useRef(true);
   const prevCategoryIdRef   = useRef<number | null>(null);
@@ -234,98 +253,148 @@ export default function VehicleStep({
     <Box>
 
       {/* ════════════════════════════════════════
-           ① 既存車両モード：所有車両選択
+           ① 既存車両モード：対象車両の入力方式選択
          ════════════════════════════════════════ */}
       {vehicleMode === "maintenance" && (
         <Paper
           variant="outlined"
           sx={{ mb: 4, p: 2.5, bgcolor: "#f0f7ff", borderColor: "#90caf9" }}
         >
-          <Typography fontWeight="bold" mb={2} color="primary.main" fontSize={15}>
-            顧客の所有車両から選択
+          <Typography fontWeight="bold" mb={1.5} color="primary.main" fontSize={15}>
+            対象車両
           </Typography>
 
-          {!partyId && (
-            <Alert severity="info">
-              先に「基本情報」セクションで顧客を選択してください
-            </Alert>
-          )}
+          {/* ── 入力方式ラジオ ── */}
+          <RadioGroup
+            row
+            value={maintenanceInputMode}
+            onChange={(e) => {
+              const mode = e.target.value as "owned" | "manual";
+              setMaintenanceInputMode(mode);
+              // 直接入力に切り替えたときは所有車両の選択をクリア
+              if (mode === "manual") {
+                dispatch({
+                  type: "SET_VEHICLE",
+                  payload: { ...currentVehicle, source_customer_vehicle: null },
+                });
+              }
+            }}
+            sx={{ mb: 2 }}
+          >
+            <FormControlLabel
+              value="owned"
+              control={<Radio size="small" />}
+              label={
+                <Typography fontSize={14}>
+                  顧客の登録済み車両から選ぶ
+                </Typography>
+              }
+            />
+            <FormControlLabel
+              value="manual"
+              control={<Radio size="small" />}
+              label={
+                <Typography fontSize={14}>
+                  登録されていない車両を入力する
+                </Typography>
+              }
+            />
+          </RadioGroup>
 
-          {partyId && customerVehiclesLoading && (
-            <Box display="flex" alignItems="center" gap={1}>
-              <CircularProgress size={20} />
-              <Typography variant="body2" color="text.secondary">所有車両を読み込み中…</Typography>
-            </Box>
-          )}
-
-          {partyId && !customerVehiclesLoading && customerVehicles.length === 0 && (
-            <Alert severity="warning">
-              この顧客に登録された所有車両はありません。下の入力フォームに手動で入力してください。
-            </Alert>
-          )}
-
-          {partyId && !customerVehiclesLoading && customerVehicles.length > 0 && (
+          {/* ── 所有車両ピッカー（ownerモード時のみ） ── */}
+          {maintenanceInputMode === "owned" && (
             <>
-              <Typography variant="body2" color="text.secondary" mb={1.5}>
-                車両をクリックすると情報が自動入力されます（任意）
-              </Typography>
-              {currentVehicle.source_customer_vehicle && (
-                <Box mb={1.5}>
-                  <Chip
-                    label="選択を解除する"
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleSelectCustomerVehicle(null)}
-                    onDelete={() => handleSelectCustomerVehicle(null)}
-                  />
+              {!partyId && (
+                <Alert severity="info">
+                  先に「基本情報」セクションで顧客を選択してください
+                </Alert>
+              )}
+
+              {partyId && customerVehiclesLoading && (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary">所有車両を読み込み中…</Typography>
                 </Box>
               )}
-              <Grid container spacing={1.5}>
-                {customerVehicles.map((owned: any) => {
-                  const v        = owned.vehicle;
-                  const selected = currentVehicle.source_customer_vehicle === owned.id;
-                  return (
-                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={owned.id}>
-                      <Card
-                        sx={{
-                          border:  selected ? "2px solid #1976d2" : "1px solid #e0e0e0",
-                          bgcolor: selected ? "#e3f2fd" : "white",
-                          transition: "all .15s",
-                        }}
-                      >
-                        <CardActionArea onClick={() => handleSelectCustomerVehicle(owned.id)}>
-                          <CardContent sx={{ py: 1.5, px: 2 }}>
-                            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                              <Box>
-                                <Typography fontWeight="bold" fontSize={14}>
-                                  {v?.vehicle_name || "車名未登録"}
-                                </Typography>
-                                {v?.manufacturer_detail?.name && (
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    {v.manufacturer_detail.name}
-                                  </Typography>
-                                )}
-                                {v?.model_code && (
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    型式: {v.model_code}
-                                  </Typography>
-                                )}
-                                {v?.model_year && (
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    年式: {v.model_year}
-                                  </Typography>
-                                )}
-                              </Box>
-                              {selected && <CheckCircleIcon color="primary" fontSize="small" />}
-                            </Box>
-                          </CardContent>
-                        </CardActionArea>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+
+              {partyId && !customerVehiclesLoading && customerVehicles.length === 0 && (
+                <Alert severity="warning">
+                  この顧客に登録された所有車両はありません。「登録されていない車両を入力する」を選択して入力してください。
+                </Alert>
+              )}
+
+              {partyId && !customerVehiclesLoading && customerVehicles.length > 0 && (
+                <>
+                  <Typography variant="body2" color="text.secondary" mb={1.5}>
+                    車両をクリックすると情報が自動入力されます（任意）
+                  </Typography>
+                  {currentVehicle.source_customer_vehicle && (
+                    <Box mb={1.5}>
+                      <Chip
+                        label="選択を解除する"
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleSelectCustomerVehicle(null)}
+                        onDelete={() => handleSelectCustomerVehicle(null)}
+                      />
+                    </Box>
+                  )}
+                  <Grid container spacing={1.5}>
+                    {customerVehicles.map((owned: any) => {
+                      const v        = owned.vehicle;
+                      const selected = currentVehicle.source_customer_vehicle === owned.id;
+                      return (
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={owned.id}>
+                          <Card
+                            sx={{
+                              border:  selected ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                              bgcolor: selected ? "#e3f2fd" : "white",
+                              transition: "all .15s",
+                            }}
+                          >
+                            <CardActionArea onClick={() => handleSelectCustomerVehicle(owned.id)}>
+                              <CardContent sx={{ py: 1.5, px: 2 }}>
+                                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                                  <Box>
+                                    <Typography fontWeight="bold" fontSize={14}>
+                                      {v?.vehicle_name || "車名未登録"}
+                                    </Typography>
+                                    {v?.manufacturer_detail?.name && (
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        {v.manufacturer_detail.name}
+                                      </Typography>
+                                    )}
+                                    {v?.model_code && (
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        型式: {v.model_code}
+                                      </Typography>
+                                    )}
+                                    {v?.model_year && (
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        年式: {v.model_year}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  {selected && <CheckCircleIcon color="primary" fontSize="small" />}
+                                </Box>
+                              </CardContent>
+                            </CardActionArea>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </>
+              )}
             </>
+          )}
+
+          {/* ── 直接入力モード時のヒント ── */}
+          {maintenanceInputMode === "manual" && (
+            <Alert severity="info" sx={{ mt: 0.5 }}>
+              下の「車両基本情報」欄に対象車両の情報を入力してください。
+              受注確定時に顧客の所有車両として自動登録されます。
+            </Alert>
           )}
         </Paper>
       )}
@@ -604,74 +673,78 @@ export default function VehicleStep({
       )}
 
       {/* ════════════════════════════════════════
-           ⑤ 納車予定
+           ⑤ 納車予定（saleのみ）
          ════════════════════════════════════════ */}
-      <Divider sx={{ my: 3 }} />
-      <SectionLabel>納車予定</SectionLabel>
+      {vehicleMode === "sale" && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <SectionLabel>納車予定</SectionLabel>
 
-      {/* 納車日・時刻 を横並び */}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2} alignItems="flex-start">
-        <Box sx={{ minWidth: 180, flex: 1, maxWidth: 240 }}>
-          <JaDatePicker
-            label="納車日"
-            value={deliveryDateStr}
-            onChange={handleDeliveryDate}
-          />
-        </Box>
-        <TextField
-          size="small"
-          type="time"
-          label="納車時刻"
-          value={deliveryTimeStr}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 140 }}
-          onChange={(e) => handleDeliveryTime(e.target.value)}
-        />
-      </Stack>
+          {/* 納車日・時刻 を横並び */}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2} alignItems="flex-start">
+            <Box sx={{ minWidth: 180, flex: 1, maxWidth: 240 }}>
+              <JaDatePicker
+                label="納車日"
+                value={deliveryDateStr}
+                onChange={handleDeliveryDate}
+              />
+            </Box>
+            <TextField
+              size="small"
+              type="time"
+              label="納車時刻"
+              value={deliveryTimeStr}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 140 }}
+              onChange={(e) => handleDeliveryTime(e.target.value)}
+            />
+          </Stack>
 
-      {/* 納車方法・店舗 */}
-      <Grid container spacing={2} mb={1}>
-        <Grid size={{ xs: 12, md: 5 }}>
-          <TextField
-            fullWidth size="small" label="納車方法"
-            placeholder="例: 店頭引渡し、自宅配達 など"
-            value={schedule?.delivery_method || ""}
-            onChange={(e) =>
-              dispatch({ type: "SET_SCHEDULE", payload: { delivery_method: e.target.value } })
-            }
-          />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>納車店舗</InputLabel>
-            <Select
-              label="納車店舗"
-              value={schedule?.delivery_shop ?? ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                dispatch({
-                  type: "SET_SCHEDULE",
-                  payload: { delivery_shop: val === "" ? null : Number(val) },
-                });
-              }}
-            >
-              <MenuItem value="">未選択</MenuItem>
-              {shops.map((s) => (
-                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid size={{ xs: 12 }}>
-          <TextField
-            fullWidth size="small" multiline rows={2} label="備考"
-            value={schedule?.description || ""}
-            onChange={(e) =>
-              dispatch({ type: "SET_SCHEDULE", payload: { description: e.target.value } })
-            }
-          />
-        </Grid>
-      </Grid>
+          {/* 納車方法・店舗 */}
+          <Grid container spacing={2} mb={1}>
+            <Grid size={{ xs: 12, md: 5 }}>
+              <TextField
+                fullWidth size="small" label="納車方法"
+                placeholder="例: 店頭引渡し、自宅配達 など"
+                value={schedule?.delivery_method || ""}
+                onChange={(e) =>
+                  dispatch({ type: "SET_SCHEDULE", payload: { delivery_method: e.target.value } })
+                }
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>納車店舗</InputLabel>
+                <Select
+                  label="納車店舗"
+                  value={schedule?.delivery_shop ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    dispatch({
+                      type: "SET_SCHEDULE",
+                      payload: { delivery_shop: val === "" ? null : Number(val) },
+                    });
+                  }}
+                >
+                  <MenuItem value="">未選択</MenuItem>
+                  {shops.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth size="small" multiline rows={2} label="備考"
+                value={schedule?.description || ""}
+                onChange={(e) =>
+                  dispatch({ type: "SET_SCHEDULE", payload: { description: e.target.value } })
+                }
+              />
+            </Grid>
+          </Grid>
+        </>
+      )}
 
       {/* ════════════════════════════════════════
            ⑥ 下取り車両（saleのみ）

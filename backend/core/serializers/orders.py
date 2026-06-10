@@ -152,11 +152,13 @@ class OrderSerializer(serializers.ModelSerializer):
         ct = ContentType.objects.get_for_model(Order)
 
         for s in settlements_data:
+            company = s.get("company")
             Settlement.objects.create(
                 content_type=ct,
                 object_id=order.id,
                 settlement_type=s["settlement_type"],
                 amount=s["amount"],
+                company=company if hasattr(company, "pk") else None,
             )
 
     def _upsert_payment(self, order, payment_data, settlements_data):
@@ -410,11 +412,13 @@ class OrderSerializer(serializers.ModelSerializer):
 
         self._create_settlements(order, settlements_data)
         self._upsert_payment(order, payment_data, settlements_data)
-        self._recalculate_order(order) 
+        self._recalculate_order(order)
         self._upsert_target_vehicle(order, raw_target_vehicle)
         self._replace_trade_in_vehicle(order, raw_trade_in_vehicle)
 
-        create_customer_vehicle_from_order(order)
+        # 整備・修理モードは受注確定（status→ordered）時に一度だけ登録する
+        if order.vehicle_mode == "sale":
+            create_customer_vehicle_from_order(order)
 
         return order
 
@@ -531,8 +535,10 @@ class OrderSerializer(serializers.ModelSerializer):
                 **insurance_data
             )
 
-        # 車両販売の場合、CustomerVehicle を再同期（車両情報変更に追従）
-        create_customer_vehicle_from_order(instance)
+        # 車両販売の場合のみ CustomerVehicle を再同期（車両情報変更に追従）
+        # 整備・修理モードは受注確定（status→ordered）時に一度だけ登録する
+        if instance.vehicle_mode == "sale":
+            create_customer_vehicle_from_order(instance)
 
         return instance
     

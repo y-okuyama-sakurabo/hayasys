@@ -15,6 +15,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import PersonIcon     from "@mui/icons-material/Person";
 import StoreIcon      from "@mui/icons-material/Store";
 import NotesIcon      from "@mui/icons-material/Notes";
+import JaDateTimePicker from "@/components/common/JaDateTimePicker";
 
 type Shop     = { id: number; name: string };
 type Customer = { id: number; name: string };
@@ -36,14 +37,6 @@ type Props = {
   onChange: (s: Schedule) => void;
 };
 
-/** ISO 文字列 → datetime-local 入力用の "YYYY-MM-DDTHH:mm" に変換 */
-function toDatetimeLocal(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso; // すでに datetime-local 形式の場合はそのまま返す
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -75,21 +68,16 @@ export default function ScheduleEditForm({ schedule, shops, customers = [], onCh
         <Stack spacing={1}>
           <SectionLabel icon={<AccessTimeIcon fontSize="small" />} label="日時" />
           <Stack direction="row" spacing={2}>
-            <TextField
-              type="datetime-local"
+            <JaDateTimePicker
               label="開始"
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={toDatetimeLocal(schedule.start_at)}
-              onChange={(e) => onChange({ ...schedule, start_at: e.target.value })}
+              value={schedule.start_at || null}
+              onChange={(v) => onChange({ ...schedule, start_at: v ?? "" })}
+              required
             />
-            <TextField
-              type="datetime-local"
-              label="終了"
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={toDatetimeLocal(schedule.end_at)}
-              onChange={(e) => onChange({ ...schedule, end_at: e.target.value || null })}
+            <JaDateTimePicker
+              label="終了（任意）"
+              value={schedule.end_at || null}
+              onChange={(v) => onChange({ ...schedule, end_at: v })}
             />
           </Stack>
         </Stack>

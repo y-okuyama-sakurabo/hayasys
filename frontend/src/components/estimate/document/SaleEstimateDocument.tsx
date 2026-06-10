@@ -5,10 +5,8 @@ import { Box, Typography, Grid } from "@mui/material";
 import apiClient from "@/lib/apiClient";
 
 // ─── ページあたりの行数（多ページ時） ────────────────────────────
-const ITEMS_PER_FIRST_PAGE = 6;   // 1ページ目（ヘッダーあり）
-const ITEMS_PER_PAGE       = 13;  // 続ページ
-const FEE_MIN_ROWS         = 4;   // 費用テーブルの最小行数
-const FEE_ROWS_PER_PAGE    = 10;  // 費用テーブルの最大行数/ページ
+const ITEMS_PER_PAGE = 13;  // 明細続きページの行数
+const FEE_MIN_ROWS   = 4;   // 費用テーブルの最小行数
 
 // 1ページにまとめられる最大明細行数（ヘッダーの高さによる）
 const SINGLE_PAGE_MAX_SALE        = 6; // 販売モード（ヘッダー大）
@@ -38,6 +36,16 @@ const fmtOrDash = (v: any) =>
   v == null || v === "" || isNaN(Number(v))
     ? "—"
     : `¥${Number(v).toLocaleString()}`;
+
+/** 数値に3桁区切りのカンマを入れる（ローン欄など） */
+const fmtNum = (v: any) =>
+  v == null || v === "" || isNaN(Number(v))
+    ? ""
+    : Number(v).toLocaleString();
+
+/** 顧客分類に応じた敬称（法人・業販＝御中／個人＝様） */
+const honorific = (party: any) =>
+  party?.customer_class_detail?.code === "PERSONAL" ? "様" : "御中";
 
 /** 保存済み subtotal（税抜）を使って税込合計を算出。nullならrawフィールドで再計算 */
 function calcLine(item: any) {
@@ -179,7 +187,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
             </Typography>
           )}
           <Typography sx={{ fontSize: "16pt", fontWeight: "bold", lineHeight: 1.2, mt: 0.3 }}>
-            {estimate.party?.name} 様
+            {estimate.party?.name} {honorific(estimate.party)}
           </Typography>
           <Typography sx={{ fontSize: "10pt", mt: 0.2 }}>
             TEL：{fmtPhone(estimate.party?.phone || estimate.party?.mobile_phone)}
@@ -253,18 +261,19 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
   );
 
   /** 通常明細テーブル */
-  const renderNormalTable = (items: any[], emptyRows: number) => (
+  const renderNormalTable = (items: any[], emptyRows: number, continueNote?: string, startNo: number = 0) => (
     <Box>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt", border: "1px solid #000" }}>
         <thead>
           <tr>
-            <Th align="left"   width="36%">商品名</Th>
-            <Th align="right"  width="6%">数量</Th>
-            <Th align="center" width="4%">単位</Th>
-            <Th align="right"  width="10%">単価</Th>
-            <Th align="right"  width="11%">工賃</Th>
-            <Th align="right"  width="11%">値引</Th>
-            <Th align="right"  width="14%">金額（税込）</Th>
+            <Th align="center" width="5%">No.</Th>
+            <Th align="center" width="29%">摘要</Th>
+            <Th align="center" width="6%">数量</Th>
+            <Th align="center" width="6%">単位・処置</Th>
+            <Th align="center" width="10%">単価</Th>
+            <Th align="center" width="11%">作業料</Th>
+            <Th align="center" width="11%">値引</Th>
+            <Th align="center" width="14%">金額（税込）</Th>
           </tr>
         </thead>
         <tbody>
@@ -272,6 +281,7 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
             const line = calcLine(item);
             return (
               <tr key={i}>
+                <Td align="center">{startNo + i + 1}</Td>
                 <Td align="left">{item.name}</Td>
                 <Td align="right">{Math.round(Number(item.quantity ?? 0))}</Td>
                 <Td align="center">{item.unit_detail?.name || ""}</Td>
@@ -284,12 +294,18 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
           })}
           {Array.from({ length: emptyRows }).map((_, i) => (
             <tr key={`empty-${i}`}>
-              {[0,1,2,3,4,5,6].map(j => <Td key={j}>&nbsp;</Td>)}
+              <Td align="center">&nbsp;</Td>
+              <Td align="left">
+                {continueNote && i === 0
+                  ? <span style={{ color: "#888" }}>{continueNote}</span>
+                  : <>&nbsp;</>}
+              </Td>
+              {[2,3,4,5,6,7].map(j => <Td key={j}>&nbsp;</Td>)}
             </tr>
           ))}
           {/* 合計行 */}
           <tr>
-            <td colSpan={5}
+            <td colSpan={6}
               style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", background: "#f5f5f5" }}
             />
             <td style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "3px 6px", textAlign: "right",
@@ -345,106 +361,59 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
 
   // ══════════════════════════════════════════════════════════
   //  多ページレイアウト
+  //  → 1ページ目の構成（明細＋費用＋スケジュール＋保険＋フッター）は
+  //    1ページレイアウトと全く同じまま変えず、明細の許容量を超えた分だけ
+  //    2ページ目以降に「明細のみ」の続きページとして送る
   // ══════════════════════════════════════════════════════════
-  const itemChunks = chunkArray(normalItems, ITEMS_PER_FIRST_PAGE, ITEMS_PER_PAGE);
+  const hasItemOverflow    = normalItems.length > maxItemsForSingle;
+  const firstPageItemCount = hasItemOverflow ? maxItemsForSingle - 1 : maxItemsForSingle;
+  const firstPageItems     = normalItems.slice(0, firstPageItemCount);
+  const continuationItems  = normalItems.slice(firstPageItemCount);
+  const continueNote       = hasItemOverflow ? "※ 続きは2ページ目をご覧ください" : undefined;
+  const emptyRowsFirst     = Math.max(0, maxItemsForSingle - firstPageItems.length);
 
-  const feePageCount = Math.ceil(feeRowCount / FEE_ROWS_PER_PAGE);
-  const feeChunks = Array.from({ length: feePageCount }, (_, i) => {
-    const tSlice  = taxableFeeItems.slice(i * FEE_ROWS_PER_PAGE, (i + 1) * FEE_ROWS_PER_PAGE);
-    const ntSlice = nonTaxFeeItems.slice( i * FEE_ROWS_PER_PAGE, (i + 1) * FEE_ROWS_PER_PAGE);
-    const rows    = Math.max(tSlice.length, ntSlice.length, FEE_MIN_ROWS);
-    return { tSlice, ntSlice, rows };
-  });
+  const continuationChunks = chunkArray(continuationItems, ITEMS_PER_PAGE, ITEMS_PER_PAGE);
 
   return (
     <>
-      {/* ── 通常明細ページ ── */}
-      {itemChunks.map((items, pageIdx) => {
-        const isFirst   = pageIdx === 0;
-        const minRows   = isFirst ? ITEMS_PER_FIRST_PAGE : ITEMS_PER_PAGE;
-        const emptyRows = Math.max(0, minRows - items.length);
+      {/* ── 1ページ目（構成は1ページレイアウトと同一） ── */}
+      <Box
+        sx={{
+          ...PAGE_SX,
+          gap: "2mm",
+          pageBreakAfter: continuationChunks.length > 0 ? "always" : "auto",
+        }}
+      >
+        {headerJSX}
+        {renderNormalTable(firstPageItems, emptyRowsFirst, continueNote)}
+        {renderFeeSection(tRowsAll, ntRowsAll)}
+      </Box>
 
+      {/* ── 明細続きページ（明細のみ） ── */}
+      {continuationChunks.map((items, idx) => {
+        const isLast    = idx === continuationChunks.length - 1;
+        const emptyRows = Math.max(0, ITEMS_PER_PAGE - items.length);
         return (
           <Box
-            key={`item-${pageIdx}`}
+            key={`item-cont-${idx}`}
             sx={{
               ...PAGE_SX,
-              pageBreakAfter: "always",
-              pageBreakInside: "avoid",
-            }}
-          >
-            {/* 1ページ目ヘッダー */}
-            {isFirst && headerJSX}
-
-            {/* 続きページのミニヘッダー */}
-            {!isFirst && (
-              <Box sx={{
-                display: "flex", justifyContent: "space-between",
-                borderBottom: "1px solid #ccc", pb: 0.5, mb: 1,
-                fontSize: "8pt", color: "#666", flexShrink: 0,
-              }}>
-                <span>{estimate.party?.name} 様　　{estimate.estimate_no}</span>
-                <span>通常明細　{pageIdx + 1} ページ</span>
-              </Box>
-            )}
-
-            {/* 通常明細テーブル */}
-            {renderNormalTable(items, emptyRows)}
-          </Box>
-        );
-      })}
-
-      {/* ── 費用・フッターページ ── */}
-      {feeChunks.map((feeChunk, feeIdx) => {
-        const isLastFee = feeIdx === feeChunks.length - 1;
-        const tRows  = Array.from({ length: feeChunk.rows }, (_, i) => feeChunk.tSlice[i]  || null);
-        const ntRows = Array.from({ length: feeChunk.rows }, (_, i) => feeChunk.ntSlice[i] || null);
-
-        return (
-          <Box
-            key={`fee-${feeIdx}`}
-            sx={{
-              ...PAGE_SX,
-              gap: "6mm",
-              pageBreakAfter: isLastFee ? "auto" : "always",
+              pageBreakAfter: isLast ? "auto" : "always",
               pageBreakInside: "avoid",
             }}
           >
             {/* ミニヘッダー */}
             <Box sx={{
               display: "flex", justifyContent: "space-between",
-              borderBottom: "1px solid #ccc", pb: 0.5,
-              fontSize: "8pt", color: "#666",
+              borderBottom: "1px solid #ccc", pb: 0.5, mb: 1,
+              fontSize: "8pt", color: "#666", flexShrink: 0,
             }}>
-              <span>{estimate.party?.name} 様　　{estimate.estimate_no}</span>
-              {feeChunks.length > 1 && <span>費用明細　{feeIdx + 1} ページ</span>}
+              <span>{estimate.party?.name} {honorific(estimate.party)}　　{estimate.estimate_no}</span>
+              <span>通常明細　{idx + 2} ページ</span>
             </Box>
 
-            {/* 課税費用 ／ 非課税費用（横並び） */}
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6 }}>
-                <FeeTable title="課税費用" rows={tRows} />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <FeeTable title="非課税費用" rows={ntRows} />
-              </Grid>
-            </Grid>
-
-            {/* 最終ページのみ：納車予定・任意保険・フッター */}
-            {isLastFee && (
-              <>
-                <Grid container spacing={1.5}>
-                  <Grid size={{ xs: 6 }}>
-                    <ScheduleSection estimate={estimate} />
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <InsuranceSection estimate={estimate} />
-                  </Grid>
-                </Grid>
-                <Box sx={{ flex: 1 }} />
-                <Footer estimate={estimate} registrationNumber={registrationNumber} />
-              </>
-            )}
+            {/* 通常明細テーブル（続き） */}
+            {renderNormalTable(items, emptyRows, undefined, firstPageItemCount + idx * ITEMS_PER_PAGE)}
           </Box>
         );
       })}
@@ -574,7 +543,10 @@ function Footer({ estimate, registrationNumber }: any) {
               {registrationNumber && <span>登録番号：{registrationNumber}</span>}
             </div>
             <div>{estimate.shop?.location || ""}</div>
-            <div>営業：{estimate.shop?.opening_hours || ""}</div>
+            <div>
+              <span>営業時間：{estimate.shop?.opening_hours || ""}</span>
+              <span>　定休日：{estimate.shop?.closing_day || ""}</span>
+            </div>
           </Box>
           <Box
             component="img"
@@ -585,6 +557,7 @@ function Footer({ estimate, registrationNumber }: any) {
           <Box sx={{ fontSize: "8.5pt", color: "#444", lineHeight: 1.5 }}>
             <div>TEL {estimate.shop?.phone || ""}　Fax {estimate.shop?.fax || ""}</div>
             <div>担当：{estimate.created_by?.display_name || ""}　{estimate.shop?.name || ""}</div>
+            <div style={{ textAlign: "right" }}>株式会社早坂サイクル商会</div>
           </Box>
         </Box>
       </Box>
@@ -633,6 +606,7 @@ function Th({ children, align = "center", width }: {
   return (
     <th style={{
       borderTop: "1px solid #000", borderBottom: "1px solid #000",
+      borderLeft: "1px solid #000",
       padding: "3px 4px", background: "#f0f0f0",
       textAlign: align as any, whiteSpace: "nowrap", width,
     }}>
@@ -645,7 +619,7 @@ function Td({ children, align = "left" }: {
   children?: React.ReactNode; align?: string;
 }) {
   return (
-    <td style={{ padding: "3px 4px", textAlign: align as any }}>
+    <td style={{ padding: "3px 4px", textAlign: align as any, borderLeft: "1px solid #000" }}>
       {children}
     </td>
   );
@@ -735,9 +709,9 @@ function VCell({ label, value }: { label: string; value: any }) {
 function CreditSection({ estimate }: any) {
   const p = estimate?.payments?.[0];
   const rows = [
-    [{ label: "会社名",   value: p?.credit_company       }, { label: "回数",      value: p?.credit_installments   }],
-    [{ label: "初回支払", value: p?.credit_first_payment }, { label: "2回目以降", value: p?.credit_second_payment  }],
-    [{ label: "ボーナス", value: p?.credit_bonus_payment }, { label: "支払開始",  value: p?.credit_start_month    }],
+    [{ label: "会社名",   value: p?.credit_company             }, { label: "回数",      value: p?.credit_installments        }],
+    [{ label: "初回支払", value: fmtNum(p?.credit_first_payment) }, { label: "2回目以降", value: fmtNum(p?.credit_second_payment) }],
+    [{ label: "ボーナス", value: fmtNum(p?.credit_bonus_payment) }, { label: "支払開始",  value: p?.credit_start_month         }],
   ];
   return (
     <table style={{

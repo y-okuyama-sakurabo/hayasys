@@ -60,4 +60,5 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "staff": {"read_only": True},
             "shop": {"required": False, "allow_null": True},
             "customer": {"required": False, "allow_null": True},
+            "description": {"required": False, "allow_blank": True},
         }

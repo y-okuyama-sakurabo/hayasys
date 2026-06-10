@@ -274,16 +274,16 @@ export default function ProductSelectModal({
                 size="small"
                 value={manualName}
                 onChange={(e) => { setManualName(e.target.value); setSuggestions([]); }}
-                fullWidth
+                sx={{ flex: 1 }}
               />
               <Button
                 variant="outlined"
                 size="small"
                 disabled={!categoryId2}
                 onClick={() => setManualName(getLeafName(categoryId2))}
-                sx={{ whiteSpace: "nowrap", height: 40 }}
+                sx={{ whiteSpace: "nowrap", height: 40, minWidth: 120 }}
               >
-                カテゴリ名
+                カテゴリ名を転記
               </Button>
             </Stack>
 
