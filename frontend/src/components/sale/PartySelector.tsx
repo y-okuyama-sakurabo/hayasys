@@ -113,13 +113,52 @@ export default function PartySelector({
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError,   setZipError]   = useState<string | null>(null);
 
-  // ── バリデーション (改善③) ──
+  // ── バリデーション ──
   const [nameTouched, setNameTouched] = useState(false);
   const nameError = nameTouched && !newData?.name?.trim();
 
-  // ── フリガナ自動入力 (改善②) ──
+  // ── フリガナ自動入力 ──
   const composingHiraganaRef = useRef("");
-  const kanaAutoRef          = useRef(true); // true=自動入力モード, false=手動編集済み
+  const kanaAutoRef          = useRef(true);
+  const nameInputRef         = useRef<HTMLInputElement>(null);
+  // ネイティブリスナー用に最新値を ref に保持（クロージャ問題回避）
+  const newDataRef  = useRef(newData);
+  const newKeyRef   = useRef(newKey);
+  const dispatchRef = useRef(dispatch);
+  useEffect(() => { newDataRef.current  = newData;  });
+  useEffect(() => { newKeyRef.current   = newKey;   });
+  useEffect(() => { dispatchRef.current = dispatch; });
+
+  useEffect(() => {
+    const input = nameInputRef.current;
+    if (!input) return;
+
+    const onUpdate = (e: CompositionEvent) => {
+      const data = e.data || "";
+      if (/[ぁ-ゖ]/.test(data)) composingHiraganaRef.current = data;
+    };
+
+    const onEnd = () => {
+      if (!kanaAutoRef.current) return;
+      const katakana = hiraganaToKatakana(composingHiraganaRef.current);
+      if (katakana) {
+        const cur  = newDataRef.current;
+        const next = (cur?.kana || "") + katakana;
+        dispatchRef.current({
+          type: "SET_BASIC",
+          payload: { [newKeyRef.current]: { ...cur, kana: next } },
+        });
+      }
+      composingHiraganaRef.current = "";
+    };
+
+    input.addEventListener("compositionupdate", onUpdate);
+    input.addEventListener("compositionend",    onEnd);
+    return () => {
+      input.removeEventListener("compositionupdate", onUpdate);
+      input.removeEventListener("compositionend",    onEnd);
+    };
+  }, []); // 空deps: ハンドラ内は全て ref 経由
 
   // ── 既存顧客上書き警告 (改善⑤) ──
   const [overwriteDialog, setOverwriteDialog] = useState(false);
@@ -164,30 +203,20 @@ export default function PartySelector({
   };
 
 
-  // ── フリガナ自動入力 (改善②) ──
-  const handleNameCompositionUpdate = (
-    e: React.CompositionEvent<HTMLInputElement>
-  ) => {
-    const data = e.data || "";
-    // ひらがなが含まれている間だけ更新（漢字候補選択後はスキップ）
-    if (/[ぁ-ゖ]/.test(data)) {
-      composingHiraganaRef.current = data;
-    }
-  };
-  const handleNameCompositionEnd = () => {
-    if (!kanaAutoRef.current) return;
-    const katakana = hiraganaToKatakana(composingHiraganaRef.current);
-    if (katakana) {
-      const next = (newData?.kana || "") + katakana;
-      handleChange("kana", next);
-    }
-    composingHiraganaRef.current = "";
-  };
 
-  // ── 氏名変更 (バリデーション③ + フリガナ②) ──
+  // ── 氏名変更 ──
   const handleNameChange = (val: string) => {
     setNameTouched(true);
-    handleChange("name", val);
+    if (!val.trim() && kanaAutoRef.current) {
+      // 名前を空にしたらフリガナも自動クリア
+      dispatch({
+        type: "SET_BASIC",
+        payload: { [newKey]: { ...newData, name: null, kana: null } },
+      });
+      composingHiraganaRef.current = "";
+    } else {
+      handleChange("name", val);
+    }
   };
 
   // ── フリガナ手動編集時は自動入力モード解除 ──
@@ -319,8 +348,21 @@ export default function PartySelector({
   // ─────────────────────────────────────────────────────────
   // JSX
   // ─────────────────────────────────────────────────────────
+  const hasName = !!newData?.name?.trim();
+
   return (
     <Box>
+      {/* ── 顧客必須バナー ── */}
+      {!hasName && (
+        <Alert
+          severity="warning"
+          icon={<WarningAmberIcon fontSize="small" />}
+          sx={{ mb: 2, py: 0.5 }}
+        >
+          顧客情報（氏名）は必須です。既存顧客を検索して選択するか、下のフォームに直接入力してください。
+        </Alert>
+      )}
+
       {/* ── 既存顧客検索 ── */}
       <Box mb={2.5}>
         <Typography
@@ -441,12 +483,9 @@ export default function PartySelector({
               value={newData?.name || ""}
               error={nameError}
               helperText={nameError ? "氏名は必須です" : ""}
+              inputRef={nameInputRef}
               onChange={(e) => handleNameChange(e.target.value)}
               onBlur={() => setNameTouched(true)}
-              inputProps={{
-                onCompositionUpdate: handleNameCompositionUpdate,
-                onCompositionEnd:    handleNameCompositionEnd,
-              }}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 5 }}>

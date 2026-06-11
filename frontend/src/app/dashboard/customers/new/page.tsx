@@ -165,8 +165,8 @@ export default function CustomerNewPage() {
 
   // ── バリデーション ────────────────────────────────────────────
   const canSubmit = useMemo(
-    () => form.name.trim() !== "" && form.customer_class != null,
-    [form.name, form.customer_class]
+    () => form.name.trim() !== "",
+    [form.name]
   );
   const hasErr = (v: any) =>
     touched && (v == null || (typeof v === "string" && v.trim() === ""));
@@ -514,7 +514,7 @@ export default function CustomerNewPage() {
           キャンセル
         </Button>
         <Button
-          variant="contained" size="large" onClick={submit} disabled={saving}
+          variant="contained" size="large" onClick={submit} disabled={!canSubmit || saving}
           startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}
           sx={{ minWidth: 140 }}
         >

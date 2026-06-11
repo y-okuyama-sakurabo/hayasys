@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -42,6 +43,7 @@ export default function EstimateDetailPage() {
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +78,11 @@ export default function EstimateDetailPage() {
 
   const handleSubmit = async () => {
     if (!estimate) return;
+    if (!estimate.party?.name) {
+      setError("顧客情報を入力してから提出してください");
+      return;
+    }
+    setError(null);
     setSubmitting(true);
     try {
       const res = await apiClient.patch(`/estimates/${id}/status/`, {
@@ -90,6 +97,15 @@ export default function EstimateDetailPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCreateOrder = () => {
+    if (!estimate.party?.name) {
+      setError("顧客情報を入力してから受注作成してください");
+      return;
+    }
+    setError(null);
+    router.push(`/dashboard/orders/new?from_estimate=${id}`);
   };
 
   if (loading)
@@ -108,6 +124,7 @@ export default function EstimateDetailPage() {
 
   return (
     <Box p={3}>
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       <Box display="flex" justifyContent="flex-end" alignItems="center" gap={2} mb={3} flexWrap="wrap">
         {/* ステータス表示 */}
         <Chip
@@ -149,7 +166,7 @@ export default function EstimateDetailPage() {
             color="primary"
             startIcon={<SendIcon />}
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !estimate.party?.name}
           >
             見積提出
           </Button>
@@ -161,9 +178,8 @@ export default function EstimateDetailPage() {
             variant="contained"
             color="success"
             startIcon={<AddTaskIcon />}
-            onClick={() =>
-              router.push(`/dashboard/orders/new?from_estimate=${id}`)
-            }
+            onClick={handleCreateOrder}
+            disabled={!estimate.party?.name}
           >
             受注作成
           </Button>

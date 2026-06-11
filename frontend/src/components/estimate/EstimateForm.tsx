@@ -629,8 +629,14 @@ export default function EstimateForm({ mode, estimateId }: Props) {
     }
   };
 
+  const hasParty = !!(state.basic.new_party?.name || state.basic.party_id);
+
   /* ── 見積提出 ── */
   const handleSubmitEstimate = async () => {
+    if (!hasParty) {
+      setSnackbar({ open: true, message: "顧客情報を入力してください", severity: "error" });
+      return;
+    }
     setSaving(true);
     try {
       const id = await saveData();
@@ -734,7 +740,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
               color="primary"
               startIcon={<SendIcon />}
               onClick={handleSubmitEstimate}
-              disabled={saving}
+              disabled={saving || !hasParty}
               size="small"
             >
               見積提出
