@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Card, CardContent, Typography, Table, TableBody, TableRow, TableCell,
   Box, CircularProgress, Button, TextField, Stack, FormControl, InputLabel,
@@ -15,13 +15,14 @@ import { SelectChangeEvent } from "@mui/material/Select";
 import apiClient from "@/lib/apiClient";
 import VehicleCategorySelect from "@/components/vehicles/VehicleCategorySelect";
 import JaDatePicker from "@/components/common/JaDatePicker";
+import JaMonthPicker from "@/components/common/JaMonthPicker";
 
 // ─────────────────────────────────────────────
 // 型
 // ─────────────────────────────────────────────
 type Props = { customerId: number; vehicleId: number };
 type IdName = { id: number; name: string };
-type EditSection = "vehicle" | "registration" | "insurance" | "warranty" | null;
+type EditSection = "vehicle" | "registration" | "insurance_optional" | "insurance_mandatory" | "warranty" | null;
 
 const toArray = (res: any) =>
   Array.isArray(res?.data) ? res.data : res?.data?.results ?? res?.data ?? [];
@@ -193,8 +194,11 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
     security_registration: "", effective_from: "", effective_to: "",
   });
 
-  const [formInsurance, setFormInsurance] = useState<any>({
-    id: null, type: "", company: "", start_date: "", end_date: "", policy_no: "",
+  const [formInsuranceOptional, setFormInsuranceOptional] = useState<any>({
+    id: null, type: "optional", company: "", start_date: "", end_date: "", policy_no: "",
+  });
+  const [formInsuranceMandatory, setFormInsuranceMandatory] = useState<any>({
+    id: null, type: "mandatory", company: "", start_date: "", end_date: "", policy_no: "",
   });
 
   const [formWarranty, setFormWarranty] = useState<any>({
@@ -214,9 +218,10 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
       const vpk = v?.id ?? null;
       setVehiclePk(vpk);
 
-      const r0 = v?.registrations?.[0] ?? null;
-      const i0 = v?.insurances?.[0]    ?? null;
-      const w0 = v?.warranties?.[0]    ?? null;
+      const r0  = v?.registrations?.[0] ?? null;
+      const iOp = v?.insurances?.find((i: any) => i.type === "optional")  ?? null;
+      const iMa = v?.insurances?.find((i: any) => i.type === "mandatory") ?? null;
+      const w0  = v?.warranties?.[0]    ?? null;
 
       setFormVehicle({
         vehicle_name: v?.vehicle_name ?? "",
@@ -247,11 +252,15 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
         effective_to:            r0?.effective_to            ?? "",
       });
 
-      setFormInsurance({
-        id: i0?.id ?? null,
-        type: i0?.type ?? "", company: i0?.company ?? "",
-        start_date: i0?.start_date ?? "", end_date: i0?.end_date ?? "",
-        policy_no: i0?.policy_no ?? "",
+      setFormInsuranceOptional({
+        id: iOp?.id ?? null, type: "optional",
+        company: iOp?.company ?? "", start_date: iOp?.start_date ?? "",
+        end_date: iOp?.end_date ?? "", policy_no: iOp?.policy_no ?? "",
+      });
+      setFormInsuranceMandatory({
+        id: iMa?.id ?? null, type: "mandatory",
+        company: iMa?.company ?? "", start_date: iMa?.start_date ?? "",
+        end_date: iMa?.end_date ?? "", policy_no: iMa?.policy_no ?? "",
       });
 
       setFormWarranty({
@@ -357,23 +366,27 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
     }
   };
 
-  const saveInsurance = async () => {
+  const saveInsurance = async (
+    section: "insurance_optional" | "insurance_mandatory",
+    form: any,
+    setForm: React.Dispatch<React.SetStateAction<any>>,
+  ) => {
     if (!vehiclePk) return;
-    setSavingSection("insurance");
+    setSavingSection(section);
     setError(null);
     try {
       const payload = {
-        type:       blankToNull(formInsurance.type),
-        company:    blankToNull(formInsurance.company),
-        start_date: blankToNull(formInsurance.start_date),
-        end_date:   blankToNull(formInsurance.end_date),
-        policy_no:  blankToNull(formInsurance.policy_no),
+        type:       form.type,
+        company:    blankToNull(form.company),
+        start_date: blankToNull(form.start_date),
+        end_date:   blankToNull(form.end_date),
+        policy_no:  blankToNull(form.policy_no),
       };
-      if (formInsurance.id) {
-        await apiClient.patch(`/vehicles/${vehiclePk}/insurances/${formInsurance.id}/`, payload);
+      if (form.id) {
+        await apiClient.patch(`/vehicles/${vehiclePk}/insurances/${form.id}/`, payload);
       } else {
         const created = await apiClient.post(`/vehicles/${vehiclePk}/insurances/`, payload);
-        setFormInsurance((p: any) => ({ ...p, id: created?.data?.id ?? null }));
+        setForm((p: any) => ({ ...p, id: created?.data?.id ?? null }));
       }
       await fetchDetail();
       setEditSection(null);
@@ -422,9 +435,10 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
   if (!data) return <Typography>データがありません</Typography>;
 
   const v  = data.vehicle;
-  const r0 = v?.registrations?.[0];
-  const i0 = v?.insurances?.[0];
-  const w0 = v?.warranties?.[0];
+  const r0  = v?.registrations?.[0];
+  const iOp = v?.insurances?.find((i: any) => i.type === "optional")  ?? null;
+  const iMa = v?.insurances?.find((i: any) => i.type === "mandatory") ?? null;
+  const w0  = v?.warranties?.[0];
 
   const isEditing = (s: EditSection) => editSection === s;
   const isSaving  = (s: EditSection) => savingSection === s;
@@ -456,7 +470,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
         {/* 期限アラートチップ */}
         <Box sx={{ ml: "auto", display: "flex", gap: 1, flexWrap: "wrap" }}>
           <ExpiryChip date={r0?.inspection_expiration} label="車検" />
-          <ExpiryChip date={i0?.end_date} label="保険" />
+          <ExpiryChip date={iOp?.end_date ?? iMa?.end_date} label="保険" />
           <ExpiryChip date={w0?.end_date} label="保証" />
         </Box>
       </Box>
@@ -494,7 +508,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                     <InfoRow label="カラー"      value={v?.color_label} />
                     <InfoRow label="カラー名称"  value={v?.color_name} />
                     <InfoRow label="カラーコード" value={v?.color_code} />
-                    <InfoRow label="エンジン形式" value={v?.engine_type} />
+                    <InfoRow label="原動型" value={v?.engine_type} />
                     <InfoRow label="車台番号"    value={v?.chassis_no} />
                     <InfoRow label="型式"        value={v?.model_code} />
                     <InfoRow label="購入日"      value={data?.owned_from} />
@@ -566,7 +580,7 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                         value={formVehicle.color_code ?? ""}
                         onChange={e => setFormVehicle((p: any) => ({ ...p, color_code: e.target.value }))} />
                     } />
-                    <EditRow label="エンジン形式" field={
+                    <EditRow label="原動型" field={
                       <TextField size="small" fullWidth
                         value={formVehicle.engine_type ?? ""}
                         onChange={e => setFormVehicle((p: any) => ({ ...p, engine_type: e.target.value }))} />
@@ -612,8 +626,8 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
               {!isEditing("registration") ? (
                 <>
                   <InfoRow label="登録地域"    value={r0?.registration_area} />
-                  <InfoRow label="ナンバー"    value={r0?.registration_no} />
-                  <InfoRow label="認証番号"    value={r0?.certification_no} />
+                  <InfoRow label="ナンバープレート"    value={r0?.registration_no} />
+                  <InfoRow label="型認番号"    value={r0?.certification_no} />
                   <InfoRow label="車検期限" value={
                     r0?.inspection_expiration
                       ? <Box component="span" sx={{ display: "flex", alignItems: "center" }}>
@@ -622,8 +636,8 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                         </Box>
                       : undefined
                   } />
-                  <InfoRow label="初年度登録"  value={r0?.first_registration_date} />
-                  <InfoRow label="セキュリティ登録" value={r0?.security_registration} />
+                  <InfoRow label="初年度登録"  value={r0?.first_registration_date ? r0.first_registration_date.slice(0, 7).replace("-", "年") + "月" : undefined} />
+                  <InfoRow label="防犯登録" value={r0?.security_registration} />
                   <InfoRow label="有効開始"    value={r0?.effective_from} />
                   <InfoRow label="有効終了"    value={r0?.effective_to} />
                 </>
@@ -633,11 +647,11 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                     <TextField size="small" fullWidth value={formRegistration.registration_area ?? ""}
                       onChange={e => setFormRegistration((p: any) => ({ ...p, registration_area: e.target.value }))} />
                   } />
-                  <EditRow label="ナンバー" field={
+                  <EditRow label="ナンバープレート" field={
                     <TextField size="small" fullWidth value={formRegistration.registration_no ?? ""}
                       onChange={e => setFormRegistration((p: any) => ({ ...p, registration_no: e.target.value }))} />
                   } />
-                  <EditRow label="認証番号" field={
+                  <EditRow label="型認番号" field={
                     <TextField size="small" fullWidth value={formRegistration.certification_no ?? ""}
                       onChange={e => setFormRegistration((p: any) => ({ ...p, certification_no: e.target.value }))} />
                   } />
@@ -647,11 +661,11 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
                       onChange={v => setFormRegistration((p: any) => ({ ...p, inspection_expiration: v ?? "" }))} />
                   } />
                   <EditRow label="初年度登録" field={
-                    <JaDatePicker label="初年度登録"
+                    <JaMonthPicker label="初年度登録"
                       value={formRegistration.first_registration_date || null}
                       onChange={v => setFormRegistration((p: any) => ({ ...p, first_registration_date: v ?? "" }))} />
                   } />
-                  <EditRow label="セキュリティ登録" field={
+                  <EditRow label="防犯登録" field={
                     <TextField size="small" fullWidth value={formRegistration.security_registration ?? ""}
                       onChange={e => setFormRegistration((p: any) => ({ ...p, security_registration: e.target.value }))} />
                   } />
@@ -673,63 +687,103 @@ export default function VehicleDetail({ customerId, vehicleId }: Props) {
       </Box>
 
       {/* ── 下段：保険情報 ／ 保証情報 ── */}
-      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
 
-        {/* 保険情報 */}
+        {/* 任意保険 */}
         <SectionCard
-          title="保険情報"
-          editing={isEditing("insurance")}
-          saving={isSaving("insurance")}
-          onEdit={() => startEdit("insurance")}
-          onSave={saveInsurance}
+          title="任意保険"
+          editing={isEditing("insurance_optional")}
+          saving={isSaving("insurance_optional")}
+          onEdit={() => startEdit("insurance_optional")}
+          onSave={() => saveInsurance("insurance_optional", formInsuranceOptional, setFormInsuranceOptional)}
           onCancel={cancelEdit}
         >
           <Table size="small">
             <TableBody>
-              {!isEditing("insurance") ? (
+              {!isEditing("insurance_optional") ? (
                 <>
-                  <InfoRow label="種別"   value={INS_TYPE_LABELS[i0?.type ?? ""] ?? i0?.type} />
-                  <InfoRow label="保険会社" value={i0?.company} />
-                  <InfoRow label="開始日" value={i0?.start_date} />
-                  <InfoRow label="終了日" value={
-                    i0?.end_date
+                  <InfoRow label="保険会社" value={iOp?.company} />
+                  <InfoRow label="開始日"   value={iOp?.start_date} />
+                  <InfoRow label="終了日"   value={
+                    iOp?.end_date
                       ? <Box component="span" sx={{ display: "flex", alignItems: "center" }}>
-                          {i0.end_date}
-                          <ExpiryChip date={i0.end_date} label="保険" />
+                          {iOp.end_date}
+                          <ExpiryChip date={iOp.end_date} label="任意保険" />
                         </Box>
                       : undefined
                   } />
-                  <InfoRow label="証券番号" value={i0?.policy_no} />
+                  <InfoRow label="証券番号" value={iOp?.policy_no} />
                 </>
               ) : (
                 <>
-                  <EditRow label="保険種別" field={
-                    <FormControl size="small" fullWidth>
-                      <Select value={formInsurance.type ?? ""}
-                        onChange={e => setFormInsurance((p: any) => ({ ...p, type: e.target.value }))}>
-                        <MenuItem value="">未選択</MenuItem>
-                        <MenuItem value="mandatory">自賠責</MenuItem>
-                        <MenuItem value="optional">任意</MenuItem>
-                      </Select>
-                    </FormControl>
-                  } />
                   <EditRow label="保険会社" field={
-                    <TextField size="small" fullWidth value={formInsurance.company ?? ""}
-                      onChange={e => setFormInsurance((p: any) => ({ ...p, company: e.target.value }))} />
+                    <TextField size="small" fullWidth value={formInsuranceOptional.company ?? ""}
+                      onChange={e => setFormInsuranceOptional((p: any) => ({ ...p, company: e.target.value }))} />
                   } />
                   <EditRow label="開始日" field={
                     <JaDatePicker label="開始日"
-                      value={formInsurance.start_date || null}
-                      onChange={v => setFormInsurance((p: any) => ({ ...p, start_date: v ?? "" }))} />
+                      value={formInsuranceOptional.start_date || null}
+                      onChange={v => setFormInsuranceOptional((p: any) => ({ ...p, start_date: v ?? "" }))} />
                   } />
                   <EditRow label="終了日" field={
                     <JaDatePicker label="終了日"
-                      value={formInsurance.end_date || null}
-                      onChange={v => setFormInsurance((p: any) => ({ ...p, end_date: v ?? "" }))} />
+                      value={formInsuranceOptional.end_date || null}
+                      onChange={v => setFormInsuranceOptional((p: any) => ({ ...p, end_date: v ?? "" }))} />
                   } />
                   <EditRow label="証券番号" field={
-                    <TextField size="small" fullWidth value={formInsurance.policy_no ?? ""}
-                      onChange={e => setFormInsurance((p: any) => ({ ...p, policy_no: e.target.value }))} />
+                    <TextField size="small" fullWidth value={formInsuranceOptional.policy_no ?? ""}
+                      onChange={e => setFormInsuranceOptional((p: any) => ({ ...p, policy_no: e.target.value }))} />
+                  } />
+                </>
+              )}
+            </TableBody>
+          </Table>
+        </SectionCard>
+
+        {/* 自賠責 */}
+        <SectionCard
+          title="自賠責保険"
+          editing={isEditing("insurance_mandatory")}
+          saving={isSaving("insurance_mandatory")}
+          onEdit={() => startEdit("insurance_mandatory")}
+          onSave={() => saveInsurance("insurance_mandatory", formInsuranceMandatory, setFormInsuranceMandatory)}
+          onCancel={cancelEdit}
+        >
+          <Table size="small">
+            <TableBody>
+              {!isEditing("insurance_mandatory") ? (
+                <>
+                  <InfoRow label="保険会社" value={iMa?.company} />
+                  <InfoRow label="開始日"   value={iMa?.start_date} />
+                  <InfoRow label="終了日"   value={
+                    iMa?.end_date
+                      ? <Box component="span" sx={{ display: "flex", alignItems: "center" }}>
+                          {iMa.end_date}
+                          <ExpiryChip date={iMa.end_date} label="自賠責" />
+                        </Box>
+                      : undefined
+                  } />
+                  <InfoRow label="証券番号" value={iMa?.policy_no} />
+                </>
+              ) : (
+                <>
+                  <EditRow label="保険会社" field={
+                    <TextField size="small" fullWidth value={formInsuranceMandatory.company ?? ""}
+                      onChange={e => setFormInsuranceMandatory((p: any) => ({ ...p, company: e.target.value }))} />
+                  } />
+                  <EditRow label="開始日" field={
+                    <JaDatePicker label="開始日"
+                      value={formInsuranceMandatory.start_date || null}
+                      onChange={v => setFormInsuranceMandatory((p: any) => ({ ...p, start_date: v ?? "" }))} />
+                  } />
+                  <EditRow label="終了日" field={
+                    <JaDatePicker label="終了日"
+                      value={formInsuranceMandatory.end_date || null}
+                      onChange={v => setFormInsuranceMandatory((p: any) => ({ ...p, end_date: v ?? "" }))} />
+                  } />
+                  <EditRow label="証券番号" field={
+                    <TextField size="small" fullWidth value={formInsuranceMandatory.policy_no ?? ""}
+                      onChange={e => setFormInsuranceMandatory((p: any) => ({ ...p, policy_no: e.target.value }))} />
                   } />
                 </>
               )}

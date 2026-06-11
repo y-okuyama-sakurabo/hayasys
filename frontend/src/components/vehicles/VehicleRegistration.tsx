@@ -33,11 +33,11 @@ export default function VehicleRegistration({ registrations }: any) {
 
           {row("登録地域", r?.registration_area)}
 
-          {row("ナンバー", r?.registration_no)}
+          {row("ナンバープレート", r?.registration_no)}
 
-          {row("認証番号", r?.certification_no)}
+          {row("型認番号", r?.certification_no)}
 
-          {row("初年度登録", r?.first_registration_date)}
+          {row("初年度登録", r?.first_registration_date ? r.first_registration_date.slice(0, 7).replace("-", "年") + "月" : undefined)}
 
           {row("車検期限", r?.inspection_expiration)}
 

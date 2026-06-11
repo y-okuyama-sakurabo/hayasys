@@ -27,6 +27,7 @@ import {
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CategorySelector from "@/components/sale/CategorySelector";
 import JaDatePicker from "@/components/common/JaDatePicker";
+import JaMonthPicker from "@/components/common/JaMonthPicker";
 import apiClient from "@/lib/apiClient";
 import dayjs from "dayjs";
 import CurrencyField from "./CurrencyField";
@@ -470,7 +471,7 @@ export default function VehicleStep({
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <TextField
-            fullWidth size="small" label="エンジン形式"
+            fullWidth size="small" label="原動型"
             value={currentVehicle.engine_type}
             onChange={(e) => updateVehicle("engine_type", e.target.value)}
           />
@@ -542,7 +543,7 @@ export default function VehicleStep({
           <Divider sx={{ my: 3 }} />
           <SectionLabel>登録情報</SectionLabel>
 
-          {/* 登録地域・ナンバー・型認番号 */}
+          {/* 登録地域・ナンバープレート・型認番号 */}
           <Grid container spacing={2} mb={2}>
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
@@ -553,7 +554,7 @@ export default function VehicleStep({
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
-                fullWidth size="small" label="ナンバー"
+                fullWidth size="small" label="ナンバープレート"
                 value={reg0.registration_no || ""}
                 onChange={(e) => updateReg("registration_no", e.target.value)}
               />
@@ -570,7 +571,7 @@ export default function VehicleStep({
           {/* 初年度登録・車検満了日 */}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={1}>
             <Box flex={1}>
-              <JaDatePicker
+              <JaMonthPicker
                 label="初年度登録"
                 value={reg0.first_registration_date || null}
                 onChange={(v) => updateReg("first_registration_date", v)}
@@ -816,7 +817,7 @@ export default function VehicleStep({
             </Grid>
           </Grid>
 
-          {/* 登録地域・ナンバー */}
+          {/* 登録地域・ナンバープレート */}
           <Grid container spacing={2} mb={2}>
             <Grid size={{ xs: 6, md: 4 }}>
               <TextField
@@ -827,7 +828,7 @@ export default function VehicleStep({
             </Grid>
             <Grid size={{ xs: 6, md: 4 }}>
               <TextField
-                fullWidth size="small" label="ナンバー"
+                fullWidth size="small" label="ナンバープレート"
                 value={tradeReg0.registration_no || ""}
                 onChange={(e) => updateTradeReg("registration_no", e.target.value)}
               />

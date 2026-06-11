@@ -37,6 +37,7 @@ import {
 } from "@mui/material";
 import VehicleCategorySelect from "@/components/vehicles/VehicleCategorySelect";
 import JaDatePicker from "@/components/common/JaDatePicker";
+import JaMonthPicker from "@/components/common/JaMonthPicker";
 import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -320,7 +321,7 @@ function AddVehicleDialog({
                   InputProps={{ endAdornment: <InputAdornment position="end">cc</InputAdornment> }} />
               </Grid>
               <Grid size={{ xs: 6, md: 4 }}>
-                <TextField fullWidth size="small" label="エンジン形式"
+                <TextField fullWidth size="small" label="原動型"
                   value={vehicle.engine_type} onChange={setV("engine_type")} />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -361,16 +362,16 @@ function AddVehicleDialog({
                   value={reg.registration_area} onChange={setR("registration_area")} />
               </Grid>
               <Grid size={{ xs: 6, md: 4 }}>
-                <TextField fullWidth size="small" label="ナンバー"
+                <TextField fullWidth size="small" label="ナンバープレート"
                   placeholder="品川 500 あ 1234"
                   value={reg.registration_no} onChange={setR("registration_no")} />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
-                <TextField fullWidth size="small" label="認証番号"
+                <TextField fullWidth size="small" label="型認番号"
                   value={reg.certification_no} onChange={setR("certification_no")} />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <JaDatePicker label="初年度登録"
+                <JaMonthPicker label="初年度登録"
                   value={reg.first_registration_date || null}
                   onChange={v => setReg(p => ({ ...p, first_registration_date: v ?? "" }))} />
               </Grid>
@@ -380,7 +381,7 @@ function AddVehicleDialog({
                   onChange={v => setReg(p => ({ ...p, inspection_expiration: v ?? "" }))} />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" label="セキュリティ登録番号"
+                <TextField fullWidth size="small" label="防犯登録番号"
                   value={reg.security_registration} onChange={setR("security_registration")} />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -731,7 +732,7 @@ export default function CustomerVehicles({ customerId }: Props) {
 
       <TableContainer component={Paper} variant="outlined" sx={{ mb: 4 }}>
         <Table size="small">
-          {thead(["所有開始日", "メーカー", "車種", "年式", "ナンバー", "操作"])}
+          {thead(["所有開始日", "メーカー", "車種", "年式", "ナンバープレート", "操作"])}
           <TableBody>
             {currentVehicles.length === 0 ? (
               <TableRow>
@@ -763,7 +764,7 @@ export default function CustomerVehicles({ customerId }: Props) {
           </Box>
           <TableContainer component={Paper} variant="outlined" sx={{ opacity: 0.8 }}>
             <Table size="small">
-              {thead(["所有期間", "メーカー", "車種", "年式", "ナンバー", "操作"])}
+              {thead(["所有期間", "メーカー", "車種", "年式", "ナンバープレート", "操作"])}
               <TableBody>
                 {pastVehicles.map(v => (
                   <VehicleTableRow key={v.id} v={v} customerId={customerId} isCurrent={false}

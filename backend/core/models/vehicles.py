@@ -130,8 +130,8 @@ class VehicleRegistration(models.Model):
 # ==========================
 class VehicleInsurance(models.Model):
     TYPE_CHOICES = [
-        ("mandatory", "Mandatory"),
-        ("optional", "Optional"),
+        ("mandatory", "自賠責"),
+        ("optional", "任意保険"),
     ]
 
     vehicle = models.ForeignKey(
