@@ -174,9 +174,16 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
 # ======================================
 
 class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Order.objects.all().prefetch_related(
+    queryset = Order.objects.all().select_related(
+        "customer",
+        "customer__customer_class",
+        "customer__region",
+        "customer__gender",
+        "shop",
+        "created_by",
+    ).prefetch_related(
         "items",
-        "items__deliveryitem_set",   # ← ここが正解
+        "items__deliveryitem_set",
         "deliveries",
         "order_vehicles",
         "payment_management__records",

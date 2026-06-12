@@ -252,8 +252,18 @@ export function SaleEstimateDocument({ estimate }: { estimate: any }) {
           </>
         )}
         {estimate.vehicle_mode === "maintenance" && (
-          <VerticalSection label="対象車両">
-            <VehicleSection vehicle={estimate.vehicles?.[0]} />
+          <>
+            <VerticalSection label="対象車両">
+              <VehicleSection vehicle={estimate.vehicles?.[0]} />
+            </VerticalSection>
+            <VerticalSection label="ローン">
+              <CreditSection estimate={estimate} />
+            </VerticalSection>
+          </>
+        )}
+        {estimate.vehicle_mode === "none" && (
+          <VerticalSection label="ローン">
+            <CreditSection estimate={estimate} />
           </VerticalSection>
         )}
       </Grid>

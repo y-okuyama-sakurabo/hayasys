@@ -173,6 +173,8 @@ export default function ProductSelectModal({
 
   // ── メーカー（accessoryのみ） ──────────────────────────
   useEffect(() => {
+    setManufacturers([]);
+    setManufacturerId(null);
     if (!categoryId2 || itemType !== "accessory") return;
     apiClient
       .get(`/masters/manufacturers/?category=${categoryId2}`)
@@ -344,6 +346,14 @@ export default function ProductSelectModal({
                   setManufacturerId(e.target.value === "" ? null : Number(e.target.value))
                 }
                 fullWidth
+                disabled={!categoryId2 || manufacturers.length === 0}
+                helperText={
+                  !categoryId2
+                    ? "カテゴリを選択するとメーカーを選べます"
+                    : manufacturers.length === 0
+                    ? "このカテゴリにはメーカーがありません"
+                    : ""
+                }
               >
                 <MenuItem value="">未選択</MenuItem>
                 {manufacturers.map((m) => (

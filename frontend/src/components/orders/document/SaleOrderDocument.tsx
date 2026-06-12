@@ -31,6 +31,30 @@ const fmtNum = (v: any) =>
 const honorific = (customer: any) =>
   customer?.customer_class?.code === "PERSONAL" ? "様" : "御中";
 
+/**
+ * customer FK がなければ estimate.party → party_name の順でフォールバック。
+ * party は customer_class_detail というキー名なので customer_class に揃える。
+ */
+const resolveCustomer = (order: any) => {
+  if (order.customer) return order.customer;
+  const party = order.estimate?.party;
+  if (party) {
+    return {
+      ...party,
+      customer_class: party.customer_class_detail ?? null,
+    };
+  }
+  return {
+    name:           order.party_name,
+    kana:           order.party_kana,
+    postal_code:    order.postal_code,
+    address:        order.address,
+    phone:          order.phone,
+    mobile_phone:   order.mobile_phone,
+    customer_class: null,
+  };
+};
+
 function fmtPhone(v: string | null | undefined): string {
   if (!v) return "";
   if (v.includes("-")) return v;
@@ -165,18 +189,18 @@ export function SaleOrderDocument({ order }: { order: any }) {
       <Grid size={{ xs: 6 }}>
         <Box sx={{ mb: 0.8, pl: 1 }}>
           <Typography sx={{ fontSize: "10pt", color: "#555" }}>
-            〒{order.customer?.postal_code}　{order.customer?.address}
+            〒{resolveCustomer(order)?.postal_code}　{resolveCustomer(order)?.address}
           </Typography>
-          {order.customer?.kana && (
+          {resolveCustomer(order)?.kana && (
             <Typography sx={{ fontSize: "7.5pt", color: "#888" }}>
-              {order.customer.kana}
+              {resolveCustomer(order).kana}
             </Typography>
           )}
           <Typography sx={{ fontSize: "16pt", fontWeight: "bold", lineHeight: 1.2, mt: 0.3 }}>
-            {order.customer?.name} {honorific(order.customer)}
+            {resolveCustomer(order)?.name} {honorific(resolveCustomer(order))}
           </Typography>
           <Typography sx={{ fontSize: "10pt", mt: 0.2 }}>
-            TEL：{fmtPhone(order.customer?.phone || order.customer?.mobile_phone)}
+            TEL：{fmtPhone(resolveCustomer(order)?.phone || resolveCustomer(order)?.mobile_phone)}
           </Typography>
         </Box>
 
@@ -235,8 +259,18 @@ export function SaleOrderDocument({ order }: { order: any }) {
           </>
         )}
         {order.vehicle_mode === "maintenance" && (
-          <VerticalSection label="対象車両">
-            <VehicleSection vehicle={order.vehicles?.[0]} />
+          <>
+            <VerticalSection label="対象車両">
+              <VehicleSection vehicle={order.vehicles?.[0]} />
+            </VerticalSection>
+            <VerticalSection label="ローン">
+              <CreditSection order={order} />
+            </VerticalSection>
+          </>
+        )}
+        {order.vehicle_mode === "none" && (
+          <VerticalSection label="ローン">
+            <CreditSection order={order} />
           </VerticalSection>
         )}
       </Grid>
@@ -396,7 +430,7 @@ export function SaleOrderDocument({ order }: { order: any }) {
               borderBottom: "1px solid #ccc", pb: 0.5, mb: 1,
               fontSize: "8pt", color: "#666", flexShrink: 0,
             }}>
-              <span>{order.customer?.name} {honorific(order.customer)}　　{order.order_no || order.estimate_no}</span>
+              <span>{resolveCustomer(order)?.name} {honorific(resolveCustomer(order))}　　{order.order_no || order.estimate_no}</span>
               <span>明細　{idx + 2} ページ</span>
             </Box>
 
