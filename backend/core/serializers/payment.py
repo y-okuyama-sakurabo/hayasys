@@ -21,16 +21,16 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """クレジット情報の必須チェック"""
+        errors = []
 
         if not data.get("credit_company"):
-            raise serializers.ValidationError({
-                "credit_company": "信販会社は必須です"
-            })
+            errors.append("信販会社を選択してください")
 
         if not data.get("credit_installments"):
-            raise serializers.ValidationError({
-                "credit_installments": "分割回数は必須です"
-            })
+            errors.append("分割回数を入力してください")
+
+        if errors:
+            raise serializers.ValidationError({"non_field_errors": errors})
 
         return data
 
