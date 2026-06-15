@@ -12,6 +12,7 @@ import {
   InputAdornment,
   Chip,
   MenuItem,
+  Alert,
 } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -153,6 +154,11 @@ export default function PaymentForm({
         <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" mb={1.5}>
           ローン詳細
         </Typography>
+        {(!basic.credit_company || !basic.credit_installments) && (
+          <Alert severity="warning" icon={<WarningAmberIcon fontSize="small" />} sx={{ mb: 2, py: 0.5 }}>
+            ローン情報の必須項目が未入力です。会社名・支払回数を入力してください。
+          </Alert>
+        )}
         <Paper variant="outlined" sx={{ p: 2, bgcolor: "#fff8f2" }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -160,8 +166,10 @@ export default function PaymentForm({
                 select
                 fullWidth
                 size="small"
-                label="会社名"
+                label="会社名 *"
                 value={basic.credit_company || ""}
+                error={!basic.credit_company}
+                helperText={!basic.credit_company ? "必須項目です" : ""}
                 onChange={(e) => handleCreditChange("credit_company", e.target.value)}
               >
                 <MenuItem value="">未選択</MenuItem>
@@ -172,8 +180,10 @@ export default function PaymentForm({
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <TextField
-                fullWidth size="small" label="支払回数" type="number"
+                fullWidth size="small" label="支払回数 *" type="number"
                 value={basic.credit_installments || ""}
+                error={!basic.credit_installments}
+                helperText={!basic.credit_installments ? "必須項目です" : ""}
                 InputProps={{ endAdornment: <InputAdornment position="end">回</InputAdornment> }}
                 onChange={(e) => handleCreditChange("credit_installments", Number(e.target.value))}
               />

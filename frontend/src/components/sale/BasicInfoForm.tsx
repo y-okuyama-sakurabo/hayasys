@@ -13,6 +13,7 @@ import {
   ToggleButton,
   Divider,
   Stack,
+  Alert,
 } from "@mui/material";
 import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import BuildIcon from "@mui/icons-material/Build";
@@ -20,6 +21,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import StoreIcon from "@mui/icons-material/Store";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import apiClient from "@/lib/apiClient";
 import PartySelector from "./PartySelector";
 import JaDatePicker from "@/components/common/JaDatePicker";
@@ -227,13 +229,18 @@ export default function BasicInfoForm({
         <SectionLabel icon={<CalendarTodayIcon fontSize="small" />}>
           日付
         </SectionLabel>
+        {!basic?.[dateKey] && (
+          <Alert severity="warning" icon={<WarningAmberIcon fontSize="small" />} sx={{ mb: 1.5, py: 0.5 }}>
+            {isOrder ? "受注日" : "見積日"}は必須です。
+          </Alert>
+        )}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           <Box flex={1} maxWidth={240}>
             <JaDatePicker
               label={isOrder ? "受注日" : "見積日"}
               value={basic?.[dateKey] || null}
               onChange={v => {
-                if (v) dispatch({ type: "SET_BASIC", payload: { [dateKey]: v } });
+                dispatch({ type: "SET_BASIC", payload: { [dateKey]: v } });
               }}
               required
             />
