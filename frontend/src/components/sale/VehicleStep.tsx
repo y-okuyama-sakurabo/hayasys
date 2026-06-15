@@ -197,15 +197,12 @@ export default function VehicleStep({
     updateTradeIn("registrations", [{ ...tradeReg0, [field]: value }]);
 
   // 納車日時ヘルパー
-  const deliveryDateStr = schedule?.start_at
-    ? dayjs(schedule.start_at).format("YYYY-MM-DD")
-    : null;
-  const deliveryTimeStr = schedule?.start_at
-    ? dayjs(schedule.start_at).format("HH:mm")
-    : "";
+  const parsedStart = schedule?.start_at ? dayjs(schedule.start_at) : null;
+  const deliveryDateStr = parsedStart?.isValid() ? parsedStart.format("YYYY-MM-DD") : null;
+  const deliveryTimeStr = parsedStart?.isValid() ? parsedStart.format("HH:mm") : "";
 
   const handleDeliveryDate = (dateStr: string | null) => {
-    if (!dateStr) return;
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
     const time = deliveryTimeStr || "00:00";
     dispatch({ type: "SET_SCHEDULE", payload: { start_at: `${dateStr}T${time}:00` } });
   };

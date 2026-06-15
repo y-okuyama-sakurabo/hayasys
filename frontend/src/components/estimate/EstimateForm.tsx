@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useReducer, useState, useMemo } from "react";
+import React, { useEffect, useReducer, useState, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SendIcon from "@mui/icons-material/Send";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import apiClient from "@/lib/apiClient";
+import { extractApiError } from "@/lib/apiError";
 import { useRouter, useSearchParams } from "next/navigation";
 import dayjs from "dayjs";
 
@@ -207,6 +208,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const createdIdRef = useRef<number | null>(null); // 新規作成後の重複POST防止
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
@@ -572,7 +574,8 @@ export default function EstimateForm({ mode, estimateId }: Props) {
     // ヘッダー・車両・明細・精算・支払いをまとめて1回のAPIコールで送信
     // → バックエンドが atomic に処理するためエラー時に空の見積が残らない
     const sched = state.schedule;
-    const schedulePayload = sched?.date ? {
+    const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+    const schedulePayload = sched?.date && validDate(sched.date) ? {
       start_at: sched.start_at || `${sched.date}T${sched.time || "00:00"}:00`,
       end_at:   sched.start_at || `${sched.date}T${sched.time || "00:00"}:00`,
       delivery_method: sched.delivery_method || "",
@@ -597,11 +600,12 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       schedule: schedulePayload,
     };
 
-    let id = estimateId ?? state.meta.id;
+    let id = estimateId ?? state.meta.id ?? createdIdRef.current;
 
     if (!id) {
       const res = await apiClient.post("/estimates/", fullPayload);
       id = res.data.id;
+      createdIdRef.current = id; // 以降の保存は PUT に切り替わる
     } else {
       await apiClient.put(`/estimates/${id}/`, fullPayload);
     }
@@ -623,7 +627,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       }
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "下書き保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -647,7 +651,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       router.push(`/dashboard/estimates/${id}`);
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "提出に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "提出に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -662,7 +666,7 @@ export default function EstimateForm({ mode, estimateId }: Props) {
       router.push(`/dashboard/estimates/${id}`);
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }

@@ -25,6 +25,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import apiClient from "@/lib/apiClient";
+import { extractApiError } from "@/lib/apiError";
 import dayjs from "dayjs";
 
 import BasicInfoForm from "@/components/sale/BasicInfoForm";
@@ -681,8 +682,9 @@ export default function OrderForm({ mode, orderId }: Props) {
     }
     const id = res.data.id;
 
-    // スケジュール保存
-    if (state.schedule?.start_at) {
+    // スケジュール保存（"Invalid Date" 等の不正値はスキップ）
+    const isValidDateTime = (s: string) => s && !s.includes("Invalid") && !isNaN(Date.parse(s));
+    if (state.schedule?.start_at && isValidDateTime(state.schedule.start_at)) {
       const schedPayload = {
         start_at: state.schedule.start_at,
         end_at: state.schedule.end_at || dayjs(state.schedule.start_at).add(1, "hour").format(),
@@ -716,7 +718,7 @@ export default function OrderForm({ mode, orderId }: Props) {
       }
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -737,7 +739,7 @@ export default function OrderForm({ mode, orderId }: Props) {
       window.location.href = `/dashboard/orders/${id}`;
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -752,7 +754,7 @@ export default function OrderForm({ mode, orderId }: Props) {
       window.location.href = `/dashboard/orders/${id}`;
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -776,7 +778,7 @@ export default function OrderForm({ mode, orderId }: Props) {
       window.location.href = `/dashboard/orders/${id}`;
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: "保存に失敗しました", severity: "error" });
+      setSnackbar({ open: true, message: extractApiError(e, "保存に失敗しました"), severity: "error" });
     } finally {
       setSaving(false);
       setPendingPayload(null);

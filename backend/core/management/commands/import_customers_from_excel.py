@@ -89,7 +89,7 @@ class Command(BaseCommand):
         # 車両メモのcreated_by用ユーザーを取得
         username = options.get("user")
         if username:
-            memo_user = User.objects.get(username=username)
+            memo_user = User.objects.get(login_id=username)
         else:
             memo_user = User.objects.filter(is_superuser=True).first()
             if not memo_user:
