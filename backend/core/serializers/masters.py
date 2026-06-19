@@ -32,6 +32,11 @@ class ShopSerializer(serializers.ModelSerializer):
             "opening_hours",
             "closing_day",
             "note",
+            "bank_name",
+            "bank_branch_name",
+            "bank_account_type",
+            "bank_account_no",
+            "bank_account_holder",
         ]
 
     def validate_code(self, value):

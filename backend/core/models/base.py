@@ -12,6 +12,11 @@ class Shop(models.Model):
     opening_hours = models.CharField(max_length=100, blank=True)
     closing_day = models.CharField(max_length=100, blank=True)
     note = models.TextField(blank=True)
+    bank_name = models.CharField("銀行名", max_length=100, blank=True)
+    bank_branch_name = models.CharField("支店名", max_length=100, blank=True)
+    bank_account_type = models.CharField("口座種別", max_length=10, blank=True)
+    bank_account_no = models.CharField("口座番号", max_length=20, blank=True)
+    bank_account_holder = models.CharField("口座名義", max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):

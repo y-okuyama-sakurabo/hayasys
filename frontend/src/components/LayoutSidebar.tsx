@@ -32,6 +32,7 @@ import {
   Logout,
   Menu as MenuIcon,
   Settings,
+  Print as PrintIcon,
 } from "@mui/icons-material";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import MailIcon        from "@mui/icons-material/Mail";
@@ -76,7 +77,15 @@ const MENUS: MenuItem[] = [
       { text: "作業分析", path: "/dashboard/analytics/staff" },
     ],
   },
-  { text: "帳票管理", icon: <ArticleIcon />, path: "/dashboard/reports" },
+  { text: "帳票管理",   icon: <ArticleIcon />, path: "/dashboard/reports" },
+  {
+    text: "書類発行",
+    icon: <PrintIcon />,
+    children: [
+      { text: "書類発行",         path: "/dashboard/documents",                        icon: <PrintIcon fontSize="small" /> },
+      { text: "テンプレート管理", path: "/dashboard/settings/document-templates",      icon: <ArticleIcon fontSize="small" /> },
+    ],
+  },
   { text: "キャンセル承認", icon: <Description />, path: "/dashboard/cancel-requests", privilegedOnly: true },
   {
     text: "システム設定",

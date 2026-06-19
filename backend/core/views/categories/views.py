@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import get_object_or_404
 
 from core.models.categories import Category, Product
 from core.serializers.categories import (
@@ -8,11 +9,13 @@ from core.serializers.categories import (
     CategoryTreeSerializer,
     CategoryAdminSerializer,
     CategoryWriteSerializer,
+    CategoryTrashSerializer,
 )
 from core.serializers.products import ProductSerializer
 from core.utils.text import normalize_japanese
 
 from django.db.models import Q
+from django.utils import timezone
 
 
 def _get_descendant_ids(category: Category) -> list[int]:
@@ -32,7 +35,7 @@ class CategoryListAPIView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        qs = Category.objects.all()
+        qs = Category.objects.filter(is_deleted=False)
 
         parent_param = self.request.query_params.get("parent")
         category_type = self.request.query_params.get("type")
@@ -152,7 +155,7 @@ class ProductSearchAPIView(generics.ListAPIView):
 # カテゴリ単体取得
 # ============================================
 class CategoryRetrieveAPIView(generics.RetrieveAPIView):
-    queryset = Category.objects.all()
+    queryset = Category.objects.filter(is_deleted=False)
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -166,7 +169,7 @@ class CategoryTreeAPIView(generics.ListAPIView):
     pagination_class = None 
 
     def get_queryset(self):
-        qs = Category.objects.filter(parent__isnull=True)
+        qs = Category.objects.filter(parent__isnull=True, is_deleted=False)
 
         category_types = self.request.query_params.getlist("type")
         tax_type = self.request.query_params.get("tax_type")  # ←追加
@@ -201,7 +204,7 @@ class LeafCategoryListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Category.objects.filter(children__isnull=True)
+        qs = Category.objects.filter(children__isnull=True, is_deleted=False)
 
         category_type = self.request.query_params.get("type")
         if category_type:
@@ -220,7 +223,7 @@ class CategoryAdminTreeAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return (
-            Category.objects.filter(parent__isnull=True)
+            Category.objects.filter(parent__isnull=True, is_deleted=False)
             .prefetch_related(
                 "children",
                 "children__children",
@@ -235,7 +238,7 @@ class CategoryAdminTreeAPIView(generics.ListAPIView):
 # カテゴリ 作成
 # ============================================
 class CategoryCreateAPIView(generics.CreateAPIView):
-    queryset = Category.objects.all()
+    queryset = Category.objects.filter(is_deleted=False)
     serializer_class = CategoryWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -253,7 +256,7 @@ class CategoryCreateAPIView(generics.CreateAPIView):
 # カテゴリ 更新・削除
 # ============================================
 class CategoryUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Category.objects.all()
+    queryset = Category.objects.filter(is_deleted=False)
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
@@ -271,8 +274,10 @@ class CategoryUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # 使用状況チェック（エラーは返さず削除を実行 — 呼び出し元が確認済みのはず）
-        instance.delete()
+        now = timezone.now()
+        # 自身と全子孫を論理削除
+        ids = _get_descendant_ids(instance)
+        Category.objects.filter(id__in=ids).update(is_deleted=True, deleted_at=now)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -306,4 +311,42 @@ class CategoryUsageAPIView(APIView):
             "children_count": children_count,
             "descendant_ids": ids,
         })
+
+
+# ============================================
+# ゴミ箱（論理削除済み一覧）
+# ============================================
+class CategoryTrashListAPIView(generics.ListAPIView):
+    serializer_class = CategoryTrashSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Category.objects.filter(is_deleted=True).order_by("-deleted_at")
+
+
+# ============================================
+# 復元
+# ============================================
+class CategoryRestoreAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        category = get_object_or_404(Category, pk=pk, is_deleted=True)
+        category.is_deleted = False
+        category.deleted_at = None
+        category.save(update_fields=["is_deleted", "deleted_at"])
+        return Response(CategoryAdminSerializer(category).data)
+
+
+# ============================================
+# 完全削除
+# ============================================
+class CategoryHardDeleteAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, *args, **kwargs):
+        category = get_object_or_404(Category, pk=pk, is_deleted=True)
+        category.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 

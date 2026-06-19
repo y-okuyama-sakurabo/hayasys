@@ -22,6 +22,8 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  MenuItem,
+  Divider,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -44,6 +46,11 @@ type Shop = {
   opening_hours: string;
   closing_day: string;
   note: string;
+  bank_name: string;
+  bank_branch_name: string;
+  bank_account_type: string;
+  bank_account_no: string;
+  bank_account_holder: string;
 };
 
 type UsageInfo = {
@@ -63,6 +70,11 @@ type FormData = {
   opening_hours: string;
   closing_day: string;
   note: string;
+  bank_name: string;
+  bank_branch_name: string;
+  bank_account_type: string;
+  bank_account_no: string;
+  bank_account_holder: string;
 };
 
 const emptyForm = (): FormData => ({
@@ -76,6 +88,11 @@ const emptyForm = (): FormData => ({
   opening_hours: "",
   closing_day: "",
   note: "",
+  bank_name: "",
+  bank_branch_name: "",
+  bank_account_type: "",
+  bank_account_no: "",
+  bank_account_holder: "",
 });
 
 // ─────────────────────────────────────────────
@@ -126,16 +143,21 @@ export default function ShopsPage() {
   const handleOpenEdit = (shop: Shop) => {
     setEditTarget(shop);
     setForm({
-      code:          shop.code ?? "",
-      name:          shop.name ?? "",
-      postal_code:   shop.postal_code ?? "",
-      location:      shop.location ?? "",
-      phone:         shop.phone ?? "",
-      fax:           shop.fax ?? "",
-      email:         shop.email ?? "",
-      opening_hours: shop.opening_hours ?? "",
-      closing_day:   shop.closing_day ?? "",
-      note:          shop.note ?? "",
+      code:               shop.code ?? "",
+      name:               shop.name ?? "",
+      postal_code:        shop.postal_code ?? "",
+      location:           shop.location ?? "",
+      phone:              shop.phone ?? "",
+      fax:                shop.fax ?? "",
+      email:              shop.email ?? "",
+      opening_hours:      shop.opening_hours ?? "",
+      closing_day:        shop.closing_day ?? "",
+      note:               shop.note ?? "",
+      bank_name:          shop.bank_name ?? "",
+      bank_branch_name:   shop.bank_branch_name ?? "",
+      bank_account_type:  shop.bank_account_type ?? "",
+      bank_account_no:    shop.bank_account_no ?? "",
+      bank_account_holder: shop.bank_account_holder ?? "",
     });
     setFormError(null);
     setDialogOpen(true);
@@ -402,6 +424,60 @@ export default function ShopsPage() {
               value={form.note}
               onChange={setField("note")}
             />
+
+            <Divider sx={{ pt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">振込先</Typography>
+            </Divider>
+
+            <Stack direction="row" spacing={1.5}>
+              <TextField
+                label="銀行名"
+                size="small"
+                fullWidth
+                value={form.bank_name}
+                onChange={setField("bank_name")}
+                placeholder="例: ○○銀行"
+              />
+              <TextField
+                label="支店名"
+                size="small"
+                fullWidth
+                value={form.bank_branch_name}
+                onChange={setField("bank_branch_name")}
+                placeholder="例: △△支店"
+              />
+            </Stack>
+            <Stack direction="row" spacing={1.5}>
+              <TextField
+                select
+                label="口座種別"
+                size="small"
+                sx={{ width: 140 }}
+                value={form.bank_account_type}
+                onChange={setField("bank_account_type")}
+              >
+                <MenuItem value="">—</MenuItem>
+                <MenuItem value="普通">普通</MenuItem>
+                <MenuItem value="当座">当座</MenuItem>
+              </TextField>
+              <TextField
+                label="口座番号"
+                size="small"
+                sx={{ width: 160 }}
+                value={form.bank_account_no}
+                onChange={setField("bank_account_no")}
+                placeholder="例: 1234567"
+                inputProps={{ maxLength: 20 }}
+              />
+              <TextField
+                label="口座名義"
+                size="small"
+                fullWidth
+                value={form.bank_account_holder}
+                onChange={setField("bank_account_holder")}
+                placeholder="例: ヤマダ タロウ"
+              />
+            </Stack>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

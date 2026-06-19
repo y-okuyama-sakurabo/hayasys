@@ -263,13 +263,18 @@ class ProductAnalyticsAPIView(APIView):
 
             from django.db.models import Q
 
-            # item_type フィルタ（vehicle / non_vehicle / accessory 等）
+            # item_type フィルタ（vehicle / non_vehicle / accessory / fee 等）
             item_type_param = request.query_params.get("item_type")
             if item_type_param:
                 if item_type_param == "non_vehicle":
                     qs = qs.exclude(item_type="vehicle")
                 elif item_type_param != "all":
                     qs = qs.filter(item_type=item_type_param)
+
+            # tax_type フィルタ（fee の課税/非課税絞り込み用）
+            tax_type_param = request.query_params.get("tax_type")
+            if tax_type_param:
+                qs = qs.filter(tax_type=tax_type_param)
 
             filter_category_id = request.query_params.get("filter_category_id")
             category_id = request.query_params.get("category_id")
@@ -371,7 +376,15 @@ class ProductAnalyticsAPIView(APIView):
             # item_type フィルタ（車両/用品/保険/諸費用 等で絞り込み可）
             item_type = request.query_params.get("item_type")
             if item_type and item_type != "all":
-                qs = qs.filter(item_type=item_type)
+                if item_type == "non_vehicle":
+                    qs = qs.exclude(item_type="vehicle")
+                else:
+                    qs = qs.filter(item_type=item_type)
+
+            # tax_type フィルタ（fee の課税/非課税絞り込み用）
+            tax_type_p = request.query_params.get("tax_type")
+            if tax_type_p:
+                qs = qs.filter(tax_type=tax_type_p)
 
             # メーカーなし件数
             no_mfr_count = qs.filter(manufacturer__isnull=True).count()

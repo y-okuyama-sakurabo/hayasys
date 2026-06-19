@@ -25,6 +25,15 @@ import JaDatePicker from "@/components/common/JaDatePicker";
 // ========================
 // 定数
 // ========================
+// 見積・受注ステップと同じ品目種別定義
+const SUB_TYPE_OPTIONS = [
+  { value: "non_vehicle",     label: "全品目（車両除く）",   item_type: "non_vehicle", tax_type: null },
+  { value: "accessory",       label: "その他（用品・作業）", item_type: "accessory",   tax_type: null },
+  { value: "taxable_fee",     label: "課税費用",             item_type: "fee",         tax_type: "taxable" },
+  { value: "non_taxable_fee", label: "非課税費用",           item_type: "fee",         tax_type: "non_taxable" },
+] as const;
+type SubTypeValue = typeof SUB_TYPE_OPTIONS[number]["value"];
+
 const CHART_COLORS = [
   "#4caf50", "#2196f3", "#ff9800", "#f44336",
   "#9c27b0", "#00bcd4", "#795548", "#e91e63", "#607d8b",
@@ -335,10 +344,12 @@ export default function ProductAnalyticsPage() {
 
   // ── アイテムタイプタブ ──
   const [itemTypeTab,   setItemTypeTab]   = useState(0); // 0=車両, 1=その他
-  const [otherSubType,  setOtherSubType]  = useState<string>("non_vehicle");
+  const [otherSubType,  setOtherSubType]  = useState<SubTypeValue>("non_vehicle");
 
-  const activeItemType = itemTypeTab === 0 ? "vehicle" : otherSubType;
-  const isVehicle      = itemTypeTab === 0;
+  const isVehicle   = itemTypeTab === 0;
+  const subCfg      = SUB_TYPE_OPTIONS.find(o => o.value === otherSubType) ?? SUB_TYPE_OPTIONS[0];
+  const apiItemType = isVehicle ? "vehicle" : subCfg.item_type;
+  const apiTaxType  = isVehicle ? null : subCfg.tax_type;
 
   // ── カテゴリナビ状態 ──
   const [catPath,    setCatPath]    = useState<PathEntry[]>([]);
@@ -357,7 +368,8 @@ export default function ProductAnalyticsPage() {
   const fetchNavCats = useCallback(async (categoryId?: number) => {
     setNavLoading(true);
     try {
-      const params: any = { ...baseParams, type: "category", item_type: activeItemType };
+      const params: any = { ...baseParams, type: "category", item_type: apiItemType };
+      if (apiTaxType) params.tax_type = apiTaxType;
       if (categoryId != null) params.category_id = categoryId;
       const res = await apiClient.get("/analytics/product/", { params });
       setNavCats(res.data || []);
@@ -366,17 +378,17 @@ export default function ProductAnalyticsPage() {
     } finally {
       setNavLoading(false);
     }
-  }, [mode, appliedStart, appliedEnd, shopId, activeItemType]); // eslint-disable-line
+  }, [mode, appliedStart, appliedEnd, shopId, apiItemType, apiTaxType]); // eslint-disable-line
 
   // ── 分析データ取得 ──
   const fetchAnalysis = useCallback(async (categoryId: number) => {
     setAnalysisLoading(true);
     try {
       const filterParams = { ...baseParams, filter_category_id: categoryId };
+      const mfrParams: any = { ...filterParams, type: "manufacturer", item_type: apiItemType };
+      if (apiTaxType) mfrParams.tax_type = apiTaxType;
       const [mfrRes, colorRes] = await Promise.all([
-        apiClient.get("/analytics/product/", {
-          params: { ...filterParams, type: "manufacturer", item_type: activeItemType },
-        }),
+        apiClient.get("/analytics/product/", { params: mfrParams }),
         isVehicle
           ? apiClient.get("/analytics/product/", {
               params: { ...filterParams, type: "color" },
@@ -390,7 +402,7 @@ export default function ProductAnalyticsPage() {
     } finally {
       setAnalysisLoading(false);
     }
-  }, [mode, appliedStart, appliedEnd, shopId, activeItemType, isVehicle]); // eslint-disable-line
+  }, [mode, appliedStart, appliedEnd, shopId, apiItemType, apiTaxType, isVehicle]); // eslint-disable-line
 
   // フィルター変更時にリセット＆再取得（初期ロード完了後のみ）
   useEffect(() => {
@@ -417,9 +429,10 @@ export default function ProductAnalyticsPage() {
     const params: any = {
       ...baseParams,
       type: "category",
-      item_type: activeItemType,
+      item_type: apiItemType,
       category_id: cat.category_id,
     };
+    if (apiTaxType) params.tax_type = apiTaxType;
     setNavLoading(true);
     try {
       const res     = await apiClient.get("/analytics/product/", { params });
@@ -586,17 +599,16 @@ export default function ProductAnalyticsPage() {
 
           {/* その他サブフィルター */}
           {itemTypeTab === 1 && (
-            <FormControl size="small" sx={{ minWidth: 130 }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
               <InputLabel>品目種別</InputLabel>
               <Select
                 value={otherSubType}
                 label="品目種別"
-                onChange={(e) => setOtherSubType(e.target.value)}
+                onChange={(e) => setOtherSubType(e.target.value as SubTypeValue)}
               >
-                <MenuItem value="non_vehicle">全品目（車両除く）</MenuItem>
-                <MenuItem value="accessory">用品</MenuItem>
-                <MenuItem value="insurance">保険</MenuItem>
-                <MenuItem value="fee">諸費用</MenuItem>
+                {SUB_TYPE_OPTIONS.map(o => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
               </Select>
             </FormControl>
           )}

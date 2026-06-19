@@ -60,8 +60,19 @@ class CategoryAdminSerializer(serializers.ModelSerializer):
         ]
 
     def get_children(self, obj):
-        children = obj.children.all().order_by("sort_order", "id")
+        # filter() は prefetch キャッシュを無効化するので Python でフィルタ
+        children = sorted(
+            (c for c in obj.children.all() if not c.is_deleted),
+            key=lambda c: (c.sort_order, c.id),
+        )
         return CategoryAdminSerializer(children, many=True).data
+
+
+class CategoryTrashSerializer(serializers.ModelSerializer):
+    """論理削除済みカテゴリ一覧用"""
+    class Meta:
+        model = Category
+        fields = ["id", "name", "parent_id", "category_type", "tax_type", "deleted_at"]
 
 
 class CategoryWriteSerializer(serializers.ModelSerializer):
@@ -85,14 +96,17 @@ class CategoryWriteSerializer(serializers.ModelSerializer):
                     {"parent": "カテゴリは最大5階層までです。"}
                 )
 
-        # 同一親 + 同一名重複チェック（更新時は自身を除外）
+        # 同一親 + 同一名 + 同一category_type の重複チェック（更新時は自身を除外）
         name = data.get("name", getattr(self.instance, "name", None))
-        qs = Category.objects.filter(parent=parent, name=name)
+        category_type = data.get("category_type", getattr(self.instance, "category_type", None))
+        qs = Category.objects.filter(
+            parent=parent, name=name, category_type=category_type, is_deleted=False
+        )
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise serializers.ValidationError(
-                {"name": "同じ親カテゴリに同じ名前のカテゴリが存在します。"}
+                {"name": "同じ親カテゴリに同じ名前・種別のカテゴリが存在します。"}
             )
 
         return data

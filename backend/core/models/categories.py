@@ -25,11 +25,10 @@ class ManufacturerGroup(models.Model):
 class Category(models.Model):
 
     CATEGORY_TYPE_CHOICES = [
-        ("vehicle", "車両"),
-        ("item", "商品"),
-        ("expense", "費用"),
-        ("insurance", "保険"),
-        ("other", "その他"),
+        ("vehicle",           "車両"),
+        ("other",             "その他"),
+        ("taxable_expense",   "課税費用"),
+        ("non_taxable_expense", "非課税費用"),
     ]
 
     name = models.CharField("カテゴリ名", max_length=100)
@@ -73,6 +72,9 @@ class Category(models.Model):
     )
 
     sort_order = models.PositiveIntegerField(default=0)
+
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "categories"

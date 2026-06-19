@@ -54,9 +54,13 @@ export default function ProductSelectModal({
 
   const categoryTypes = useMemo(() => {
     if (itemType === "insurance") return ["insurance"];
-    if (itemType === "fee") return ["expense"];
-    return ["item", "other"];
-  }, [itemType]);
+    if (itemType === "fee") {
+      if (taxType === "taxable") return ["taxable_expense"];
+      if (taxType === "non_taxable") return ["non_taxable_expense"];
+      return ["taxable_expense", "non_taxable_expense"];
+    }
+    return ["other"];
+  }, [itemType, taxType]);
 
   // ── state ────────────────────────────────────────────
   const [categoryId1, setCategoryId1] = useState<number | null>(null);

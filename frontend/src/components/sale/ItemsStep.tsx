@@ -55,7 +55,7 @@ const STEP_CONFIG = {
   accessory: {
     title: "その他（用品・作業など）",
     addButtonLabel: "商品を追加",
-    categoryUrl: "/categories/tree/?type=item&type=other",
+    categoryUrl: "/categories/tree/?type=other",
     nameLabel: "商品名",
     itemType: "accessory",
     taxType: "taxable",
@@ -65,7 +65,7 @@ const STEP_CONFIG = {
   taxable_fee: {
     title: "課税費用",
     addButtonLabel: "課税費用を追加",
-    categoryUrl: "/categories/tree/?type=expense&tax_type=taxable",
+    categoryUrl: "/categories/tree/?type=taxable_expense",
     nameLabel: "項目名",
     itemType: "fee",
     taxType: "taxable",
@@ -75,7 +75,7 @@ const STEP_CONFIG = {
   non_taxable_fee: {
     title: "非課税費用",
     addButtonLabel: "非課税費用を追加",
-    categoryUrl: "/categories/tree/?type=expense&tax_type=non_taxable",
+    categoryUrl: "/categories/tree/?type=non_taxable_expense",
     nameLabel: "項目名",
     itemType: "fee",
     taxType: "non_taxable",

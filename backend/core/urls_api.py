@@ -130,6 +130,9 @@ from core.views.categories.views import (
     CategoryCreateAPIView,
     CategoryUpdateDestroyAPIView,
     CategoryUsageAPIView,
+    CategoryTrashListAPIView,
+    CategoryRestoreAPIView,
+    CategoryHardDeleteAPIView,
 )
 
 # === Payments ===
@@ -209,6 +212,16 @@ from core.views.analytics.views import (
 
 # === Reports ===
 from core.views.reports.views import ReportAPIView
+
+# === Documents（書類印刷） ===
+from core.views.documents import (
+    DocumentTemplateListCreateView,
+    DocumentTemplateDetailView,
+    DocumentFieldListCreateView,
+    DocumentFieldDetailView,
+    DocumentSourceKeyChoicesView,
+    DocumentRenderView,
+)
 
 urlpatterns = [
 
@@ -292,13 +305,16 @@ urlpatterns = [
     # =========================
     # Categories & Products
     # =========================
-    path("categories/",                    CategoryListAPIView.as_view()),
-    path("categories/create/",             CategoryCreateAPIView.as_view()),
-    path("categories/leaf/",               LeafCategoryListAPIView.as_view()),
-    path("categories/tree/",               CategoryTreeAPIView.as_view()),
-    path("categories/admin-tree/",         CategoryAdminTreeAPIView.as_view()),
-    path("categories/<int:pk>/",           CategoryUpdateDestroyAPIView.as_view()),
-    path("categories/<int:pk>/usage/",     CategoryUsageAPIView.as_view()),
+    path("categories/",                        CategoryListAPIView.as_view()),
+    path("categories/create/",                 CategoryCreateAPIView.as_view()),
+    path("categories/leaf/",                   LeafCategoryListAPIView.as_view()),
+    path("categories/tree/",                   CategoryTreeAPIView.as_view()),
+    path("categories/admin-tree/",             CategoryAdminTreeAPIView.as_view()),
+    path("categories/trash/",                  CategoryTrashListAPIView.as_view()),
+    path("categories/<int:pk>/",               CategoryUpdateDestroyAPIView.as_view()),
+    path("categories/<int:pk>/usage/",         CategoryUsageAPIView.as_view()),
+    path("categories/<int:pk>/restore/",       CategoryRestoreAPIView.as_view()),
+    path("categories/<int:pk>/hard-delete/",   CategoryHardDeleteAPIView.as_view()),
     path("products/",                      ProductListAPIView.as_view()),
     path("products/search/",               ProductSearchAPIView.as_view()),
 
@@ -431,5 +447,15 @@ urlpatterns = [
     # =========================
     path("audit-logs/", AuditLogListAPIView.as_view()),
     path("audit-logs/<int:pk>/", AuditLogViewSet.as_view({"get": "retrieve"})),
+
+    # =========================
+    # Documents（書類印刷）
+    # =========================
+    path("document-templates/",               DocumentTemplateListCreateView.as_view()),
+    path("document-templates/<int:pk>/",      DocumentTemplateDetailView.as_view()),
+    path("document-templates/<int:template_id>/fields/",    DocumentFieldListCreateView.as_view()),
+    path("document-fields/<int:pk>/",         DocumentFieldDetailView.as_view()),
+    path("document-templates/<int:pk>/render/", DocumentRenderView.as_view()),
+    path("document-source-keys/",             DocumentSourceKeyChoicesView.as_view()),
 
 ]

@@ -26,3 +26,4 @@ from .unit import Unit
 from .insurance import Insurance
 from .payment_company import PaymentCompany
 from .cancel_request import CancelRequest
+from .document_templates import DocumentTemplate, DocumentField
