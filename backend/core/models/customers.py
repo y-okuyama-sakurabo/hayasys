@@ -25,6 +25,7 @@ class Customer(models.Model):
     last_shop = models.ForeignKey("core.Shop", on_delete=models.SET_NULL, null=True, blank=True, related_name="last_customers")
 
     birthdate = models.DateField(null=True, blank=True)
+    app_no = models.CharField("アプリNo", max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -174,6 +174,7 @@ export default function CustomerInfo({
         company:       blankToNull(form.company),
         company_phone: blankToNull(form.company_phone),
         birthdate:     blankToNull(form.birthdate),
+        app_no:        blankToNull(form.app_no),
         customer_class: form.customer_class ?? null,
         staff:          form.staff          ?? null,
         region:         form.region         ?? null,
@@ -205,6 +206,7 @@ export default function CustomerInfo({
             <InfoRow icon={<PersonIcon fontSize="small" />}  label="氏名"       value={customer.name} />
             <InfoRow icon={<BadgeIcon fontSize="small" />}   label="フリガナ"    value={customer.kana} />
             <InfoRow icon={<CakeIcon fontSize="small" />}    label="誕生日"      value={customer.birthdate} />
+            <InfoRow icon={<BadgeIcon fontSize="small" />}   label="アプリNo."   value={customer.app_no} />
 
             <Divider sx={{ my: 1.5 }} />
             <SectionTitle>連絡先</SectionTitle>
@@ -290,6 +292,7 @@ export default function CustomerInfo({
 
           <TextField fullWidth size="small" label="氏名 *" value={form.name ?? ""} onChange={setField("name")} sx={{ mb: 1.5 }} />
           <TextField fullWidth size="small" label="フリガナ" value={form.kana ?? ""} onChange={setField("kana")} sx={{ mb: 1.5 }} />
+          <TextField fullWidth size="small" label="アプリNo." value={form.app_no ?? ""} onChange={setField("app_no")} sx={{ mb: 1.5 }} />
           <JaDatePicker
             label="誕生日"
             value={form.birthdate || null}

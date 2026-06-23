@@ -1,1 +1,6 @@
 .vercel
+
+# バックアップ認証情報（gitに含めない）
+backup.env
+scripts/backup.env
+

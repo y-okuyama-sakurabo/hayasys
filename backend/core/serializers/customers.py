@@ -188,7 +188,7 @@ class CustomerDetailSerializer(CustomerShopMixin, serializers.ModelSerializer):
             "phone", "mobile_phone",
             "company", "company_phone",
             "customer_class", "staff", "region", "gender",
-            "birthdate", "first_shop", "last_shop",
+            "birthdate", "app_no", "first_shop", "last_shop",
             "owned_vehicles",
             "created_at", "updated_at",
         )
@@ -234,7 +234,7 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
             "phone", "mobile_phone",
             "company", "company_phone",
             "customer_class", "staff", "region", "gender",
-            "birthdate", "first_shop", "last_shop",
+            "birthdate", "app_no", "first_shop", "last_shop",
             "vehicles",
         )
 

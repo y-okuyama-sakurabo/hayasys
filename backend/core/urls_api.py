@@ -133,6 +133,8 @@ from core.views.categories.views import (
     CategoryTrashListAPIView,
     CategoryRestoreAPIView,
     CategoryHardDeleteAPIView,
+    ProductAdminListAPIView,
+    ProductAdminDetailAPIView,
 )
 
 # === Payments ===
@@ -317,6 +319,8 @@ urlpatterns = [
     path("categories/<int:pk>/hard-delete/",   CategoryHardDeleteAPIView.as_view()),
     path("products/",                      ProductListAPIView.as_view()),
     path("products/search/",               ProductSearchAPIView.as_view()),
+    path("products/admin/",                ProductAdminListAPIView.as_view()),
+    path("products/<int:pk>/",             ProductAdminDetailAPIView.as_view()),
 
     # =========================
     # Estimates

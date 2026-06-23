@@ -350,3 +350,49 @@ class CategoryHardDeleteAPIView(APIView):
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+# ============================================
+# 商品管理（管理画面用）
+# ============================================
+class ProductAdminListAPIView(generics.ListAPIView):
+    """管理画面用商品一覧（有効・無効両方）"""
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Product.objects.select_related("category", "manufacturer")
+
+        search = self.request.query_params.get("search")
+        category_type = self.request.query_params.get("category_type")
+        is_active = self.request.query_params.get("is_active")
+
+        if search:
+            normalized = normalize_japanese(search)
+            qs = qs.filter(name_search__icontains=normalized)
+
+        if category_type:
+            qs = qs.filter(
+                Q(category__category_type=category_type) |
+                Q(category__parent__category_type=category_type) |
+                Q(category__parent__parent__category_type=category_type)
+            )
+
+        if is_active == "true":
+            qs = qs.filter(is_active=True)
+        elif is_active == "false":
+            qs = qs.filter(is_active=False)
+
+        return qs.order_by("name")
+
+
+class ProductAdminDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """商品の取得・更新・削除"""
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Product.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        product = self.get_object()
+        product.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+

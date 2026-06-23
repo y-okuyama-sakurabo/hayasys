@@ -199,6 +199,7 @@ class Command(BaseCommand):
                             "birthdate": get_date(row, 36),
                             "gender": gender,
                             "customer_class": customer_class,
+                            "app_no": get(row, 32) or None,
                         }
 
                         if not dry_run:
@@ -215,6 +216,11 @@ class Command(BaseCommand):
                                         CustomerMemo.objects.create(customer=customer, body=body)
                             else:
                                 stats["customers_updated"] += 1
+
+                            # 顧担当 (col 21) — 新規・既存ともに、まだなければ追加
+                            legacy_staff = get(row, 21)
+                            if legacy_staff and not customer.memos.filter(body__startswith="顧担当:").exists():
+                                CustomerMemo.objects.create(customer=customer, body=f"顧担当: {legacy_staff}")
                         else:
                             exists = Customer.objects.filter(name=customer_name).exists()
                             self.stdout.write(

@@ -41,6 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "name",
             "unit_price",
             "tax_type",
+            "is_active",
             "category",
             "category_id",
             "manufacturer",

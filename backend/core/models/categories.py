@@ -164,7 +164,7 @@ class Product(models.Model):
             if not self.tax_type:
                 self.tax_type = self.category.tax_type
 
-                super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
 # ============================================
 # メーカー

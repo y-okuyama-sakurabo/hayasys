@@ -26,7 +26,7 @@ export function useInactivityLogout(onLogout: () => void) {
     clearAll();
     setShowWarning(false);
     try { await apiClient.post("/auth/logout/"); } catch {}
-    onLogout();
+    onLogout(); // caller already uses window.location.href
   }, [onLogout]);
 
   const resetTimer = useCallback(() => {

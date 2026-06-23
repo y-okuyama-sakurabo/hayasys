@@ -43,6 +43,7 @@ import HistoryIcon     from "@mui/icons-material/History";
 import StoreIcon       from "@mui/icons-material/Store";
 import BusinessIcon    from "@mui/icons-material/Business";
 import CreditCardIcon  from "@mui/icons-material/CreditCard";
+import InventoryIcon   from "@mui/icons-material/Inventory2";
 import apiClient from "@/lib/apiClient";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import InactivityWarningDialog from "@/components/InactivityWarningDialog";
@@ -96,6 +97,7 @@ const MENUS: MenuItem[] = [
       { text: "店舗管理",       path: "/dashboard/settings/shops",        icon: <StoreIcon fontSize="small" /> },
       { text: "会社設定",       path: "/dashboard/settings/company",      icon: <BusinessIcon fontSize="small" /> },
       { text: "カテゴリ管理",   path: "/dashboard/settings/categories",        icon: <AccountTreeIcon fontSize="small" /> },
+      { text: "商品管理",       path: "/dashboard/settings/products",          icon: <InventoryIcon fontSize="small" /> },
       { text: "支払会社管理",   path: "/dashboard/settings/payment-companies", icon: <CreditCardIcon fontSize="small" /> },
       { text: "操作ログ",       path: "/dashboard/audit-logs",                 icon: <HistoryIcon fontSize="small" /> },
     ],
@@ -149,12 +151,12 @@ export default function LayoutSidebar({ children }: { children: React.ReactNode 
     try { await apiClient.post("/auth/logout/"); } catch {}
     clearRoleCache();
     setLogoutDialogOpen(false);
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   // ── 自動ログアウト（60分無操作） ─────────
   const { showWarning, countdown, handleContinue, doLogout } = useInactivityLogout(
-    () => router.push("/login")
+    () => { window.location.href = "/login"; }
   );
 
   // ── アクティブ判定 ────────────────────────
